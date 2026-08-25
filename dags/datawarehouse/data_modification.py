@@ -4,100 +4,59 @@ logger = logging.getLogger(__name__)
 table = "yt_api"
 
 
-def insert_rows(cur, conn, schema, row):
+# ### [NÂNG CẤP] Một hàm UPSERT thay cho cả insert_rows + update_rows + delete_rows.
+# Vì đã chọn snapshot_date: mỗi video mỗi ngày một dòng.
+#   - Ngày mới  -> ON CONFLICT không kích hoạt -> INSERT dòng mới (thêm lịch sử)
+#   - Chạy lại cùng ngày -> ON CONFLICT kích hoạt -> UPDATE (idempotent, không trùng)
+# KHÔNG còn delete: xóa dòng cũ = phá lịch sử.
+def upsert_row(cur, conn, schema, row):
 
     try:
-
         if schema == "staging":
-
-            video_id = "video_id"
-
+            # Key trong row là dạng raw từ extract: video_id, title, publishedAt...
+            # row phải có thêm "snapshot_date" (do bước load thêm vào)
+            video_id = row["video_id"]
             cur.execute(
                 f"""
-                INSERT INTO {schema}.{table}("Video_ID", "Video_Title", "Upload_Date", "Duration", "Video_Views", "Likes_Count", "Comments_Count")
-                VALUES (%(video_id)s, %(title)s, %(publishedAt)s, %(duration)s, %(viewCount)s, %(likeCount)s, %(commentCount)s);
+                INSERT INTO {schema}.{table}
+                    ("Video_ID", "Snapshot_Date", "Video_Title", "Upload_Date",
+                     "Duration", "Video_Views", "Likes_Count", "Comments_Count")
+                VALUES
+                    (%(video_id)s, %(snapshot_date)s, %(title)s, %(publishedAt)s,
+                     %(duration)s, %(viewCount)s, %(likeCount)s, %(commentCount)s)
+                ON CONFLICT ("Video_ID", "Snapshot_Date") DO UPDATE SET
+                    "Video_Title"    = EXCLUDED."Video_Title",
+                    "Video_Views"    = EXCLUDED."Video_Views",
+                    "Likes_Count"    = EXCLUDED."Likes_Count",
+                    "Comments_Count" = EXCLUDED."Comments_Count";
+                """,
+                row,
+            )
+        else:
+            # Bảng production: key đã ở dạng TitleCase sau transform,
+            # row phải có thêm "Snapshot_Date"
+            video_id = row["Video_ID"]
+            cur.execute(
+                f"""
+                INSERT INTO {schema}.{table}
+                    ("Video_ID", "Snapshot_Date", "Video_Title", "Upload_Date",
+                     "Duration", "Video_Type", "Video_Views", "Likes_Count", "Comments_Count")
+                VALUES
+                    (%(Video_ID)s, %(Snapshot_Date)s, %(Video_Title)s, %(Upload_Date)s,
+                     %(Duration)s, %(Video_Type)s, %(Video_Views)s, %(Likes_Count)s, %(Comments_Count)s)
+                ON CONFLICT ("Video_ID", "Snapshot_Date") DO UPDATE SET
+                    "Video_Title"    = EXCLUDED."Video_Title",
+                    "Video_Type"     = EXCLUDED."Video_Type",
+                    "Video_Views"    = EXCLUDED."Video_Views",
+                    "Likes_Count"    = EXCLUDED."Likes_Count",
+                    "Comments_Count" = EXCLUDED."Comments_Count";
                 """,
                 row,
             )
 
-        else:
-
-            video_id = "Video_ID"
-
-            cur.execute(
-                f"""
-                INSERT INTO {schema}.{table}("Video_ID", "Video_Title", "Upload_Date", "Duration", "Video_Type", "Video_Views", "Likes_Count", "Comments_Count")
-                VALUES (%(Video_ID)s, %(Video_Title)s, %(Upload_Date)s, %(Duration)s, %(Video_Type)s, %(Video_Views)s, %(Likes_Count)s, %(Comments_Count)s)
-                """,
-                row,
-            )
-
         conn.commit()
-
-        logger.info(f"Inserted row with Video_ID: {row[video_id]}")
+        logger.info("Upserted row Video_ID=%s (snapshot)", video_id)
 
     except Exception as e:
-        logger.error(f"Error inserting row with Video_ID: {row[video_id]}")
-        raise e
-
-
-def update_rows(cur, conn, schema, row):
-
-    try:
-        # staging
-        if schema == "staging":
-            video_id = "video_id"
-            upload_date = "publishedAt"
-            video_title = "title"
-            video_views = "viewCount"
-            likes_count = "likeCount"
-            comments_count = "commentCount"
-        # core
-        else:
-            video_id = "Video_ID"
-            upload_date = "Upload_Date"
-            video_title = "Video_Title"
-            video_views = "Video_Views"
-            likes_count = "Likes_Count"
-            comments_count = "Comments_Count"
-
-        cur.execute(
-            f"""
-            UPDATE {schema}.{table}
-            SET "Video_Title" = %({video_title})s,
-                "Video_Views" = %({video_views})s, 
-                "Likes_Count" = %({likes_count})s, 
-                "Comments_Count" = %({comments_count})s
-            WHERE "Video_ID" = %({video_id})s AND "Upload_Date" = %({upload_date})s;
-            """,
-            row,
-        )
-
-        conn.commit()
-
-        logger.info(f"Updated row with Video_ID: {row[video_id]}")
-
-    except Exception as e:
-        logger.error(f"Error updating row with Video_ID: {row[video_id]} - {e}")
-        raise e
-
-
-def delete_rows(cur, conn, schema, ids_to_delete):
-
-    try:
-
-        ids_to_delete = f"""({', '.join(f"'{id}'" for id in ids_to_delete)})"""
-
-        cur.execute(
-            f"""
-            DELETE FROM {schema}.{table}
-            WHERE "Video_ID" IN {ids_to_delete};
-            """
-        )
-
-        conn.commit()
-        logger.info(f"Deleted rows with Video_IDs: {ids_to_delete}")
-
-    except Exception as e:
-        logger.error(f"Error deleting rows with Video_IDs: {ids_to_delete} - {e}")
-        raise e
+        logger.error("Error upserting row: %s", e)
+        raise

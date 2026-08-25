@@ -16,81 +16,83 @@
 # under the License.
 #
 
-# Basic Airflow cluster configuration for CeleryExecutor with Redis and PostgreSQL.
+# ============================================================================
+# TỔNG QUAN FILE NÀY (đọc trước khi đọc chi tiết):
 #
-# WARNING: This configuration is for local development. Do not use it in a production deployment.
+# File này là "nhạc trưởng" - bạn chỉ chạy 1 lệnh: docker compose up
+# Nó sẽ dựng toàn bộ hệ thống gồm các container:
+#   - postgres  : 1 container chứa 3 database (metadata, celery, elt)
+#   - redis     : hàng đợi giao việc giữa scheduler và worker
+#   - minio     : data lake - nơi chứa raw JSON      [THÊM MỚI so với khóa]
+#   - airflow-* : dàn Airflow (webserver, scheduler, worker, init)
 #
-# This configuration supports basic configuration using environment variables or an .env file
-# The following variables are supported:
-#
-# AIRFLOW_IMAGE_NAME           - Docker image name used to run Airflow.
-#                                Default: apache/airflow:2.9.2
-# AIRFLOW_UID                  - User ID in Airflow containers
-#                                Default: 50000
-# AIRFLOW_PROJ_DIR             - Base path to which all the files will be volumed.
-#                                Default: .
-# Those configurations are useful mostly in case of standalone testing/running Airflow in test/try-out mode
-#
-# _AIRFLOW_WWW_USER_USERNAME   - Username for the administrator account (if requested).
-#                                Default: airflow
-# _AIRFLOW_WWW_USER_PASSWORD   - Password for the administrator account (if requested).
-#                                Default: airflow
-# _PIP_ADDITIONAL_REQUIREMENTS - Additional PIP requirements to add when starting all containers.
-#                                Use this option ONLY for quick checks. Installing requirements at container
-#                                startup is done EVERY TIME the service is started.
-#                                A better way is to build a custom image or extend the official image
-#                                as described in https://airflow.apache.org/docs/docker-stack/build.html.
-#                                Default: ''
-#
-# Feel free to modify this file to suit your needs.
+# Các dấu ${...} là biến, được đọc từ file .env đặt cạnh file này.
+# ============================================================================
 ---
+# ----------------------------------------------------------------------------
+# KHỐI DÙNG CHUNG (YAML anchor):
+# "&airflow-common" = đặt tên cho cả cục cấu hình này.
+# Ở dưới, các service Airflow chỉ cần viết "<<: *airflow-common"
+# là dán nguyên cục này vào - viết 1 lần, dùng cho 4 container Airflow (DRY).
+# ----------------------------------------------------------------------------
 x-airflow-common:
   &airflow-common
-  # Use custom image that builds on top of default airflow image (currently; Default: apache/airflow:2.9.2)
-  # Image stored on Dockerhub
+  # Image Airflow TỰ BUILD từ Dockerfile của bạn (đã cài soda, pytest, boto3),
+  # tên image ghép từ .env -> vd: dt-thanh/yt_api_elt:latest
+  # Lần đầu phải build thủ công: docker build -t dt-thanh/yt_api_elt:latest .
   image: ${DOCKERHUB_NAMESPACE}/${DOCKERHUB_REPOSITORY}:latest
   # Use the .env file to read the connection params and variables - SWITCH THIS OFF WHEN USING GITHUB ACTIONS
   # env_file:
   #   - .env
   environment:
     &airflow-common-env
-    # Set executor to CeleryExecutor 
+    # Dùng CeleryExecutor: scheduler giao việc qua Redis, worker nhận và chạy
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
-    # Use SQLAlchemy to connect to Airflow's metadata Postgres database using the psycopg2 driver
+    # Airflow nối vào database metadata (sổ sách nội bộ: lịch sử chạy, XCom...)
+    # Chú ý host là "postgres" = TÊN SERVICE trong file này, không phải localhost
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${METADATA_DATABASE_USERNAME}:${METADATA_DATABASE_PASSWORD}@${POSTGRES_CONN_HOST}:${POSTGRES_CONN_PORT}/${METADATA_DATABASE_NAME}
-    # Postgres database backend for storing task results executed by workers
+    # Nơi Celery lưu kết quả task (database thứ 2 trong 3 database)
     AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${CELERY_BACKEND_USERNAME}:${CELERY_BACKEND_PASSWORD}@${POSTGRES_CONN_HOST}:${POSTGRES_CONN_PORT}/${CELERY_BACKEND_NAME}
-    # URL for the Redis message broker - handles the communication and task distribution between the scheduler and workers
+    # "Băng chuyền" Redis: scheduler thả task vào đây, worker nhặt ra chạy
     AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
-    # Key for encrypting data
+    # Khóa mã hóa secret (Connection/Variable) lưu trong metadata db
     AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY}
-    # New DAGs are paused by default
+    # DAG mới tạo sẽ ở trạng thái TẠM DỪNG - vào UI phải gạt công tắc bật!
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-    # Set to false to remove default DAGs - https://stackoverflow.com/questions/43410836/how-to-remove-default-example-dags-in-airflow
+    # Không nạp mấy chục DAG ví dụ của Airflow cho đỡ rối UI
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
-    # Configure authentication backends. Enable basic & session-based authentication
+    # Cách xác thực khi gọi API của Airflow
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
-    # Enable health checks for the scheduler
+    # Bật endpoint health check cho scheduler (healthcheck ở dưới dùng nó)
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
-    # Setting Airflow Connections and Variables
-    # NOTE 1: These will not show up on Airflow UI or using airflow connections/ variables list 
-    # However, functions such as Variable.get() will still work as per Airflow docs as long as
-    # the variable starts with AIRFLOW_VAR_- https://airflow.apache.org/docs/apache-airflow/stable/howto/variable.html#storing-variables-in-environment-variables
-    # NOTE 2: Single underscores are used for Airflow to read connections/ variables
-    # Connection can be written as URI: 
-    # AIRFLOW_CONN_{CONN_ID}='my-conn-type://login:password@host:port/schema?param1=val1&param2=val2'
-    # Connection to an external PostgreSQL database needed to store the data from the ELT process
+    # ------------------------------------------------------------------
+    # QUY ƯỚC QUAN TRỌNG NHẤT FILE NÀY:
+    # Biến môi trường bắt đầu bằng AIRFLOW_CONN_xxx -> thành Connection "xxx"
+    # Biến môi trường bắt đầu bằng AIRFLOW_VAR_xxx  -> thành Variable "xxx"
+    # Đây chính là lý do code Python đọc được Variable.get("API_KEY")!
+    # (Chúng KHÔNG hiện trên UI, nhưng Variable.get()/Connection vẫn đọc được)
+    # ------------------------------------------------------------------
+    # Connection tới database elt_db - Module 2 (load vào Postgres) sẽ dùng
+    # trong code với conn_id="postgres_db_yt_elt"
     AIRFLOW_CONN_POSTGRES_DB_YT_ELT: 'postgresql://${ELT_DATABASE_USERNAME}:${ELT_DATABASE_PASSWORD}@${POSTGRES_CONN_HOST}:${POSTGRES_CONN_PORT}/${ELT_DATABASE_NAME}'
-    # Variables can be written as follows: 
-    # AIRFLOW_VAR_{VARIABLE_NAME}
+    # Hai Variable mà video_stats.py đang đọc:
+    # Variable.get("API_KEY") và Variable.get("CHANNEL_HANDLE")
     AIRFLOW_VAR_API_KEY: ${API_KEY}
     AIRFLOW_VAR_CHANNEL_HANDLE: ${CHANNEL_HANDLE}
-    # Postgres databases environment variables - Needed for integration and data quality tests
+    ### [THÊM MỚI - MinIO] 3 Variable cho task save_to_minio:
+    ### Variable.get("MINIO_ENDPOINT") / ("MINIO_ACCESS_KEY") / ("MINIO_SECRET_KEY")
+    ### Giá trị lấy từ .env (nhớ thêm 3 dòng MINIO_* vào .env!)
+    AIRFLOW_VAR_MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+    AIRFLOW_VAR_MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+    AIRFLOW_VAR_MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    # Các biến trần (không tiền tố) cho integration test / data quality test
     ELT_DATABASE_NAME: ${ELT_DATABASE_NAME}
     ELT_DATABASE_USERNAME: ${ELT_DATABASE_USERNAME}
     ELT_DATABASE_PASSWORD: ${ELT_DATABASE_PASSWORD}
     POSTGRES_CONN_HOST: ${POSTGRES_CONN_HOST}
     POSTGRES_CONN_PORT: ${POSTGRES_CONN_PORT}
+  # Mount thư mục máy bạn <-> trong container:
+  # sửa file dags/ trên máy là container thấy NGAY, không cần build lại image
   volumes:
     - ./config:/opt/airflow/config
     - ./dags:/opt/airflow/dags
@@ -99,7 +101,10 @@ x-airflow-common:
     - ./logs:/opt/airflow/logs
     - ./plugins:/opt/airflow/plugins
     - ./tests:/opt/airflow/tests
+  # Chạy bằng UID từ .env để file log/dags không bị root chiếm quyền
   user: "${AIRFLOW_UID}:0"
+  # Mọi container Airflow phải ĐỢI redis + postgres KHỎE mới khởi động
+  # ("khỏe" = qua được healthcheck, không phải chỉ "đã bật")
   depends_on:
     &airflow-common-depends-on
     redis:
@@ -108,6 +113,9 @@ x-airflow-common:
       condition: service_healthy
 
 services:
+  # ==========================================================================
+  # POSTGRES - 1 container, 3 database (metadata / celery / elt)
+  # ==========================================================================
   postgres:
     container_name: postgres
     image: postgres:13
@@ -116,8 +124,11 @@ services:
     #   - .env
     # Env vars after POSTGRES_PASSWORD are needed for CI-CD workflow - SWITCH THIS ALL ON WHEN USING GITHUB ACTIONS
     environment:
+      # 2 biến đầu là của image postgres: tạo user siêu quyền
       - POSTGRES_USER=${POSTGRES_CONN_USERNAME}
       - POSTGRES_PASSWORD=${POSTGRES_CONN_PASSWORD}
+      # Các biến dưới đây được bơm vào để init-multiple-databases.sh đọc
+      # (script dùng $METADATA_DATABASE_NAME, $ELT_DATABASE_NAME... để tạo 3 db)
       - METADATA_DATABASE_NAME=${METADATA_DATABASE_NAME}
       - METADATA_DATABASE_USERNAME=${METADATA_DATABASE_USERNAME}
       - METADATA_DATABASE_PASSWORD=${METADATA_DATABASE_PASSWORD}
@@ -132,9 +143,13 @@ services:
     ports:
       - 5432:5432
     volumes:
+      # Volume giữ dữ liệu sống sót khi container tắt/bật
       - postgres-db-volume:/var/lib/postgresql/data
+      # "Dán tờ giấy dặn dò vào bếp": mount script vào thư mục đặc biệt,
+      # Postgres TỰ chạy nó 1 LẦN DUY NHẤT lúc volume còn trống.
+      # Sửa script xong muốn chạy lại phải xóa volume: docker compose down -v
       - ./docker/postgres/init-multiple-databases.sh:/docker-entrypoint-initdb.d/init-multiple-databases.sh
-    # Test connection to 1 of 3 dbs, the metadata db in this case
+    # Định nghĩa thế nào là "khỏe": pg_isready trả lời OK
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${POSTGRES_CONN_USERNAME}", "-d", "${METADATA_DATABASE_NAME}"]
       interval: 10s
@@ -142,6 +157,9 @@ services:
       start_period: 5s
     restart: always
 
+  # ==========================================================================
+  # REDIS - hàng đợi (message broker) giữa scheduler và worker
+  # ==========================================================================
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
@@ -157,8 +175,40 @@ services:
       start_period: 30s
     restart: always
 
+  # ==========================================================================
+  # ### [THÊM MỚI] MINIO - DATA LAKE (object storage tương thích S3)
+  # Task save_to_minio đẩy raw JSON vào đây, partition theo ngày.
+  # Code dùng boto3 (thư viện S3) nên sau này lên AWS chỉ đổi endpoint.
+  # ==========================================================================
+  minio:
+    image: minio/minio
+    container_name: minio
+    # server /data = chạy MinIO, dữ liệu chứa trong /data (đã mount volume)
+    # --console-address ":9001" = giao diện web quản lý chạy cổng 9001
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"     # cổng API - boto3 trong code gọi vào đây
+      - "9001:9001"     # cổng web console - mở localhost:9001 để XEM file
+    environment:
+      # Tài khoản đăng nhập MinIO, đọc từ .env
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY}
+    volumes:
+      # Giữ dữ liệu lake sống sót khi container tắt/bật (giống postgres)
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+    restart: always
+
+  # ==========================================================================
+  # DÀN AIRFLOW - 4 container dùng chung cục cấu hình *airflow-common
+  # ==========================================================================
+  # WEBSERVER - giao diện web tại localhost:8080
   airflow-webserver:
-    <<: *airflow-common
+    <<: *airflow-common          # dán nguyên khối dùng chung vào đây
     command: webserver
     container_name: airflow-webserver
     ports:
@@ -172,9 +222,11 @@ services:
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
+      # Đợi thêm: airflow-init phải CHẠY XONG TRÓT LỌT mới khởi động
       airflow-init:
         condition: service_completed_successfully
 
+  # SCHEDULER - "bộ não": canh lịch, đến giờ thì thả task vào Redis
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
@@ -191,6 +243,8 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  # WORKER - "tay chân": nhặt task từ Redis và THỰC SỰ chạy code của bạn
+  # (video_stats.py chạy ở trong container này!)
   airflow-worker:
     <<: *airflow-common
     command: celery worker
@@ -230,6 +284,9 @@ services:
   #     airflow-init:
   #       condition: service_completed_successfully
 
+  # INIT - chạy MỘT LẦN rồi thoát: kiểm tra RAM/CPU/disk đủ không,
+  # tạo thư mục + phân quyền, migrate metadata db, tạo user đăng nhập web.
+  # Khối bash dài ở dưới CHỈ là kiểm tra tài nguyên và in cảnh báo - đừng sợ!
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
@@ -285,7 +342,9 @@ services:
     # yamllint enable rule:line-length
     environment:
       <<: *airflow-common-env
+      # Migrate (tạo bảng) cho metadata database
       _AIRFLOW_DB_MIGRATE: 'true'
+      # Tạo tài khoản đăng nhập web UI, user/pass đọc từ .env
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_WWW_USER_USERNAME}
       _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_WWW_USER_PASSWORD}
@@ -293,6 +352,7 @@ services:
     volumes:
       - .:/sources
 
+  # CLI - công cụ debug, chỉ bật khi cần: docker compose --profile debug up
   airflow-cli:
     <<: *airflow-common
     profiles:
@@ -329,5 +389,7 @@ services:
   #     airflow-init:
   #       condition: service_completed_successfully
 
+# Khai báo các volume "có tên" - nơi Docker giữ dữ liệu bền vững trên máy bạn
 volumes:
   postgres-db-volume:
+  minio-data:          ### [THÊM MỚI] volume cho MinIO - không có nó, tắt container là mất sạch data lake

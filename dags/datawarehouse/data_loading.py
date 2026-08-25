@@ -1,23 +1,38 @@
 import json
-from datetime import date
 import logging
+from datetime import date
+
+import boto3
+from airflow.models import Variable
 
 logger = logging.getLogger(__name__)
 
 
 def load_data():
+    # ### [NÂNG CẤP] đọc từ MinIO thay vì file local ./data/
+    snapshot_date = date.today()
+    bucket = "youtube-raw"
+    key = f"videos/date={snapshot_date}/data.json"   # ĐÚNG path mà save_to_minio đã ghi
 
-    file_path = f"./data/YT_data_{date.today()}.json"
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=Variable.get("MINIO_ENDPOINT"),
+        aws_access_key_id=Variable.get("MINIO_ACCESS_KEY"),
+        aws_secret_access_key=Variable.get("MINIO_SECRET_KEY"),
+    )
 
     try:
-        logger.info(f"Processing file: YT_data_{date.today()}")
+        logger.info("Đọc raw JSON từ MinIO: s3://%s/%s", bucket, key)
 
-        with open(file_path, "r", encoding="utf-8") as raw_data:
-            data = json.load(raw_data)
+        response = s3.get_object(Bucket=bucket, Key=key)
+        data = json.loads(response["Body"].read().decode("utf-8"))
+
         return data
-    except FileNotFoundError:
-        logger.error(f"File not found:{file_path}")
+
+    # NoSuchKey = "không có file này" - bản MinIO tương đương FileNotFoundError
+    except s3.exceptions.NoSuchKey:
+        logger.error("Không tìm thấy file trong MinIO: %s", key)
         raise
     except json.JSONDecodeError:
-        logger.error(f"Invalid JSON in file: {file_path}")
+        logger.error("JSON lỗi trong file: %s", key)
         raise

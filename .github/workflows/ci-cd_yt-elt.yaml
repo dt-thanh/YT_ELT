@@ -68,6 +68,10 @@ jobs:
         DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
         DOCKERHUB_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
         DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
+        ### [THÊM - MinIO] 3 biến cho data lake, để docker compose up dựng được MinIO
+        MINIO_ENDPOINT: ${{ vars.MINIO_ENDPOINT }}
+        MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+        MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
       steps:
         - name: Checkout code
           uses: actions/checkout@v4

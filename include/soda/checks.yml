@@ -1,6 +1,7 @@
 checks for yt_api:
-  - missing_count("Video_ID") = 0
-  - duplicate_count("Video_ID") = 0
+  - missing_count("Video_ID") = 0                      # Video_ID không được null
+  ### [SỬA] Đổi khóa đơn thành khóa kép (vì snapshot)
+  - duplicate_count("Video_ID", "Snapshot_Date") = 0   # Không được trùng khóa kép
 
   - likes_count_greater_than_vid_views = 0:
       name: Check for Like_Count greater than Video_Views
