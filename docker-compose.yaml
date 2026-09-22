@@ -46,15 +46,31 @@ x-airflow-common:
   #   - .env
   environment:
     &airflow-common-env
-    # Dùng CeleryExecutor: scheduler giao việc qua Redis, worker nhận và chạy
-    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    # ### [BƯỚC 1] CeleryExecutor -> LocalExecutor.
+    # Executor = "ai thực sự chạy task của bạn".
+    #   CeleryExecutor : scheduler thả task vào Redis, worker ở máy khác nhặt ra chạy.
+    #                    Mua được khả năng chạy phân tán trên NHIỀU máy.
+    #                    Giá phải trả: +2 container (redis, worker), ~2GB RAM,
+    #                    và cả một họ lỗi "task kẹt ở queued vì worker không nhận".
+    #   LocalExecutor  : scheduler TỰ chạy task bằng tiến trình con trên cùng máy.
+    #                    Vẫn chạy SONG SONG được nhiều task, chỉ là không qua máy khác.
+    #
+    # Vì sao đổi: pipeline này tốn ~12 quota unit mỗi lần chạy, 4 kênh, task toàn
+    # I/O ngắn (gọi API, ghi file). Không có gì để phân tán. Chọn Celery ở đây là
+    # over-engineering: trả giá thật để mua khả năng không bao giờ dùng.
+    # Cấu hình Celery được GIỮ dạng comment ở dưới -> bằng chứng "biết cách bật khi cần".
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
     # Airflow nối vào database metadata (sổ sách nội bộ: lịch sử chạy, XCom...)
     # Chú ý host là "postgres" = TÊN SERVICE trong file này, không phải localhost
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${METADATA_DATABASE_USERNAME}:${METADATA_DATABASE_PASSWORD}@${POSTGRES_CONN_HOST}:${POSTGRES_CONN_PORT}/${METADATA_DATABASE_NAME}
-    # Nơi Celery lưu kết quả task (database thứ 2 trong 3 database)
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${CELERY_BACKEND_USERNAME}:${CELERY_BACKEND_PASSWORD}@${POSTGRES_CONN_HOST}:${POSTGRES_CONN_PORT}/${CELERY_BACKEND_NAME}
-    # "Băng chuyền" Redis: scheduler thả task vào đây, worker nhặt ra chạy
-    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    # ### [BƯỚC 1] Hai biến dưới CHỈ CeleryExecutor mới cần -> tắt.
+    # RESULT_BACKEND: nơi worker ở xa báo kết quả về. LocalExecutor chạy ngay trong
+    #   tiến trình con của scheduler nên biết kết quả trực tiếp, không cần "hòm thư".
+    # BROKER_URL: "băng chuyền" để scheduler đẩy task sang worker. Không có worker
+    #   ở xa thì không cần băng chuyền.
+    # Bật lại 2 dòng này + service redis + service airflow-worker là quay về Celery.
+    # AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://${CELERY_BACKEND_USERNAME}:${CELERY_BACKEND_PASSWORD}@${POSTGRES_CONN_HOST}:${POSTGRES_CONN_PORT}/${CELERY_BACKEND_NAME}
+    # AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     # Khóa mã hóa secret (Connection/Variable) lưu trong metadata db
     AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY}
     # DAG mới tạo sẽ ở trạng thái TẠM DỪNG - vào UI phải gạt công tắc bật!
@@ -107,9 +123,18 @@ x-airflow-common:
   # ("khỏe" = qua được healthcheck, không phải chỉ "đã bật")
   depends_on:
     &airflow-common-depends-on
-    redis:
-      condition: service_healthy
+    # ### [BƯỚC 1] Bỏ redis (không còn Celery). THÊM minio - đây là bug thật:
+    # task save_to_minio ghi vào MinIO, nhưng Airflow trước đây không hề đợi MinIO
+    # sẵn sàng. Lúc khởi động cả cụm, Airflow có thể chạy task trước khi MinIO nhận
+    # kết nối -> lỗi ngẫu nhiên, lúc được lúc không ("race condition").
+    #
+    # service_healthy KHÁC service_started:
+    #   service_started : chỉ đợi container BẬT (tiến trình đã sinh ra)
+    #   service_healthy : đợi healthcheck TRẢ LỜI OK (thực sự nhận được việc)
+    # Postgres mất vài giây sau khi bật mới nhận connection -> phải dùng healthy.
     postgres:
+      condition: service_healthy
+    minio:
       condition: service_healthy
 
 services:
@@ -158,22 +183,29 @@ services:
     restart: always
 
   # ==========================================================================
-  # REDIS - hàng đợi (message broker) giữa scheduler và worker
+  # ### [BƯỚC 1] REDIS - ĐÃ TẮT vì chuyển sang LocalExecutor.
+  # Redis là message broker: scheduler thả task vào, worker ở xa nhặt ra chạy.
+  # LocalExecutor không có worker ở xa -> không cần broker.
+  #
+  # KHI NÀO BẬT LẠI: khi một máy không chạy kịp khối lượng task, hoặc cần chạy
+  # task trên nhiều máy. Với 4 kênh / ~12 units/run thì còn rất xa ngưỡng đó.
+  # Cách bật lại: bỏ comment khối này + khối airflow-worker + 2 biến AIRFLOW__CELERY__*
+  # + đổi executor về CeleryExecutor + thêm lại redis vào depends_on.
   # ==========================================================================
-  redis:
-    # Redis is limited to 7.2-bookworm due to licencing change
-    # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
-    image: redis:7.2-bookworm
-    container_name: redis
-    expose:
-      - 6379
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 30s
-      retries: 50
-      start_period: 30s
-    restart: always
+  # redis:
+  #   # Redis is limited to 7.2-bookworm due to licencing change
+  #   # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
+  #   image: redis:7.2-bookworm
+  #   container_name: redis
+  #   expose:
+  #     - 6379
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 10s
+  #     timeout: 30s
+  #     retries: 50
+  #     start_period: 30s
+  #   restart: always
 
   # ==========================================================================
   # ### [THÊM MỚI] MINIO - DATA LAKE (object storage tương thích S3)
@@ -181,7 +213,20 @@ services:
   # Code dùng boto3 (thư viện S3) nên sau này lên AWS chỉ đổi endpoint.
   # ==========================================================================
   minio:
-    image: minio/minio
+    # ### [BƯỚC 1 - SỬA LỖI PULL] Đổi registry: Docker Hub -> quay.io
+    # `docker pull minio/minio` báo: "pull access denied ... repository does not
+    # exist or may require 'docker login'". Đây KHÔNG phải lỗi đăng nhập:
+    # postgres:13 tải bình thường ở cùng thời điểm -> mạng và tài khoản đều ổn.
+    # Docker cố tình gộp "không tồn tại" và "không có quyền" vào MỘT thông báo để
+    # kẻ tấn công không dò được repo riêng tư nào đang tồn tại. Kết luận đúng:
+    # repo minio/minio trên Docker Hub không còn truy cập công khai được.
+    # quay.io là registry chính thức của MinIO -> dùng nó.
+    #
+    # ### GHIM VERSION, KHÔNG DÙNG `latest`:
+    # `latest` nghĩa là "bất cứ thứ gì mới nhất lúc bạn pull" -> hai máy pull cách
+    # nhau một tuần có thể chạy hai phiên bản khác nhau mà file compose y hệt.
+    # Đó là kẻ thù của "reproducible build". Hạ tầng phải ghim version.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: minio
     # server /data = chạy MinIO, dữ liệu chứa trong /data (đã mount volume)
     # --console-address ":9001" = giao diện web quản lý chạy cổng 9001
@@ -197,7 +242,13 @@ services:
       # Giữ dữ liệu lake sống sót khi container tắt/bật (giống postgres)
       - minio-data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      # ### [BƯỚC 1] Sửa lỗi: image minio/minio KHÔNG có sẵn `curl`.
+      # Healthcheck gọi lệnh không tồn tại -> luôn FAIL -> container mãi ở trạng
+      # thái "unhealthy" -> mọi service depends_on nó sẽ ĐỢI VĨNH VIỄN.
+      # Đây là loại lỗi khó chịu: `docker compose up` treo mà không báo lý do rõ.
+      # BÀI HỌC: healthcheck chỉ được dùng lệnh CÓ SẴN TRONG IMAGE ĐÓ.
+      # `mc` (MinIO Client) là lệnh có sẵn; `mc ready local` chính là kiểm tra sẵn sàng.
+      test: ["CMD", "mc", "ready", "local"]
       interval: 10s
       retries: 5
       start_period: 10s
@@ -243,30 +294,36 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
-  # WORKER - "tay chân": nhặt task từ Redis và THỰC SỰ chạy code của bạn
-  # (video_stats.py chạy ở trong container này!)
-  airflow-worker:
-    <<: *airflow-common
-    command: celery worker
-    container_name: airflow-worker
-    healthcheck:
-      test:
-        - "CMD-SHELL"
-        - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    environment:
-      <<: *airflow-common-env
-      # Required to handle warm shutdown of the celery workers properly
-      # See https://airflow.apache.org/docs/docker-stack/entrypoint.html#signal-propagation
-      DUMB_INIT_SETSID: "0"
-    restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
+  # ### [BƯỚC 1] WORKER - ĐÃ TẮT vì chuyển sang LocalExecutor.
+  # Trước đây đây là nơi code của bạn THỰC SỰ chạy. Với LocalExecutor, code chạy
+  # trong tiến trình con do airflow-scheduler sinh ra.
+  #
+  # HỆ QUẢ PHẢI NHỚ - nơi chạy test cũng đổi theo:
+  #   Cũ:  docker exec -t airflow-worker sh -c "pytest tests/ -v"
+  #   Mới: docker exec -t airflow-scheduler sh -c "pytest tests/ -v"
+  # File .github/workflows/ci-cd_yt-elt.yaml còn đang trỏ vào airflow-worker
+  # -> sẽ sửa ở bước CI. Đây là ví dụ "đổi một chỗ, vỡ chỗ khác": mọi thay đổi
+  # hạ tầng đều có bán kính ảnh hưởng, phải đi tìm hết trước khi coi là xong.
+  # airflow-worker:
+  #   <<: *airflow-common
+  #   command: celery worker
+  #   container_name: airflow-worker
+  #   healthcheck:
+  #     test:
+  #       - "CMD-SHELL"
+  #       - 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 30s
+  #   environment:
+  #     <<: *airflow-common-env
+  #     DUMB_INIT_SETSID: "0"
+  #   restart: always
+  #   depends_on:
+  #     <<: *airflow-common-depends-on
+  #     airflow-init:
+  #       condition: service_completed_successfully
 
   # airflow-triggerer:
   #   <<: *airflow-common

@@ -26,6 +26,22 @@ def transform_data(row):
 
     row["Duration"] = (datetime.min + duration_td).time()
 
-    row["Video_Type"] = "Shorts" if duration_td.total_seconds() <= 60 else "Normal"
+    row["Video_Type"] = classify_video_type(duration_td)
 
     return row
+
+
+def classify_video_type(duration_td):
+    # YouTube trả "P0D" cho livestream đang phát / sắp phát: độ dài CHƯA XÁC ĐỊNH,
+    # không phải "dài 0 giây". Phải tách nhánh này TRƯỚC, nếu không một livestream
+    # 3 tiếng sẽ bị xếp nhầm vào "Shorts" và làm sai mọi phân tích Shorts vs Normal.
+    total_seconds = duration_td.total_seconds()
+
+    if total_seconds == 0:
+        return "Live"
+
+    # Shorts theo định nghĩa của YouTube: tối đa 60 giây.
+    if total_seconds <= 60:
+        return "Shorts"
+
+    return "Normal"

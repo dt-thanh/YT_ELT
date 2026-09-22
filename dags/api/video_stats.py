@@ -1,132 +1,84 @@
-import json     #Dùng để xử lý dữ liệu JSON. 
-import logging    #Dùng để ghi log
-from datetime import date, timedelta # Dùng để lấy ngày hôm nay, phục vụ đặt tên file:
- # timedelta dùng để cấu hình thời gian retry của Airflow task.
-import boto3 #Dùng để kết nối với S3 hoặc hệ tương thích S3 như MinIO.
-import requests  # Dùng để gọi API qua internet
-from tenacity import (
-    retry,  #Decorator để bọc function.
-    stop_after_attempt, # Thử tối đa x lan
-    wait_exponential,   #Chờ tăng dần giữa các lần retry.
-    retry_if_exception_type,   #Chỉ retry nếu lỗi thuộc nhóm request/network/API error của requests
-)   # Đây là thư viện giúp retry function. Nếu gọi API lỗi tạm thời, code tự thử lại
-from airflow.decorators import task  # Biến function Python thành Airflow task.
-from airflow.models import Variable   #Lấy config từ Airflow Variables, ví dụ API key, channel handle, MinIO credent
- 
-logger = logging.getLogger(__name__)  #tạo logger cho file hiện tại.
- 
-API_KEY = Variable.get("API_KEY")
-CHANNEL_HANDLE = Variable.get("CHANNEL_HANDLE")
-MAX_RESULTS = 50
+"""
+TẦNG ORCHESTRATION — bọc logic thuần trong youtube_client.py thành Airflow task.
 
-@retry(
-    stop=stop_after_attempt(4),
-    wait=wait_exponential(multiplier=1, min=2, max=30),
-    retry=retry_if_exception_type(requests.exceptions.RequestException),
+Mỗi task ở đây phải MỎNG, chỉ làm đúng 3 việc:
+    1. Đọc config (Variable.get)  - việc của Airflow
+    2. Gọi hàm ở tầng logic thuần - việc của nghiệp vụ
+    3. Ghi log                    - việc của vận hành
+
+Nếu một task ở đây bắt đầu dài ra và chứa vòng lặp, if/else nghiệp vụ,
+thì logic đó ĐANG ĐI NHẦM CHỖ - phải đẩy xuống youtube_client.py.
+"""
+
+import json
+import logging
+from datetime import date, timedelta
+
+import boto3
+from airflow.decorators import task
+from airflow.models import Variable
+
+from api.youtube_client import (
+    fetch_playlist_id,
+    fetch_video_ids,
+    fetch_video_details,
 )
-def call_api(url: str) -> dict:
-#     Gọi API
-# → có timeout
-# → nếu lỗi thì retry
-# → nếu thành công thì trả JSON
-    response = requests.get(url, timeout=15) #ếu YouTube API không phản hồi sau 15 giây thì dừng, không đợi mãi.
-    response.raise_for_status()
-    return response.json() #Dòng này chuyển JSON thành Python dict/list.
-# còn ở trên là retry cho call api 
-# Tham số retry cho mỗi task (Airflow tự chạy lại nếu cả task ngã)
+
+logger = logging.getLogger(__name__)
+
+# ### [BUỔI 2] KHÔNG gọi Variable.get() ở cấp module.
+# Mọi dòng ở cấp module chạy lại MỖI LẦN Airflow parse file DAG (mặc định 30s/lần),
+# tức mỗi lần lại query metadata database - hàng nghìn query vô ích mỗi ngày, và DAG
+# vỡ ngay lúc parse nếu Variable chưa tồn tại. Config phải đọc BÊN TRONG task.
+# (Buổi 7 đào sâu vòng đời parse-vs-run.)
+
+# Retry TẦNG NGOÀI: Airflow chạy lại CẢ TASK khi retry tầng trong (tenacity,
+# trong youtube_client.call_api) đã bó tay. Đắt hơn nhưng cứu được nhiều loại lỗi hơn.
 TASK_ARGS = dict(
     retries=3,
     retry_delay=timedelta(seconds=30),
     retry_exponential_backoff=True,
 )
 
+
 @task(**TASK_ARGS)
-# Mỗi YouTube channel có một “playlist đặc biệt” tên là uploads.
-# Playlist này tự động chứa tất cả video mà kênh đó đã đăng.
 def get_playlist_id() -> str:
-    url = (
-        "https://youtube.googleapis.com/youtube/v3/channels"
-        f"?part=contentDetails&forHandle={CHANNEL_HANDLE}&key={API_KEY}"
-    )
-    data = call_api(url)
-    playlist_id = data["items"][0]["contentDetails"]["relatedPlaylists"]["uploads"]
-    # trả về ID của uploads playlist. Hàm này trả về 1 chuỗi — id của playlist
+    api_key = Variable.get("API_KEY")
+    channel_id = Variable.get("CHANNEL_ID", default_var=None)
+    handle = Variable.get("CHANNEL_HANDLE", default_var=None)
+
+    playlist_id, resolved_channel_id = fetch_playlist_id(api_key, channel_id, handle)
+
+    if not channel_id:
+        # Code tự dạy người vận hành cách cấu hình đúng cho lần sau.
+        logger.warning(
+            "Đang định danh kênh bằng handle (không bền). "
+            "Hãy đặt Airflow Variable CHANNEL_ID=%s để cố định kênh.",
+            resolved_channel_id,
+        )
+
     logger.info("Đã lấy playlist uploads: %s", playlist_id)
     return playlist_id
 
+
 @task(**TASK_ARGS)
-# Cầm id playlist ở trên, bạn duyệt qua nó để lấy id của từng video. 
-# Nhưng playlist của MrBeast rất dài, YouTube không đưa hết một lúc mà chia thành từng trang 50 cái. 
-# Đó là lý do có vòng while True
-# Hàm trả về một danh sách dài toàn bộ video id
 def get_video_ids(playlist_id: str) -> list[str]:
-    video_ids: list[str] = []
-    page_token = None
-    while True:
-        url = (
-            "https://youtube.googleapis.com/youtube/v3/playlistItems"
-            f"?part=contentDetails&maxResults={MAX_RESULTS}"
-            f"&playlistId={playlist_id}&key={API_KEY}"
-        )
-        if page_token:
-            url += f"&pageToken={page_token}"
- 
-        data = call_api(url)
-        for item in data.get("items", []):
-            video_ids.append(item["contentDetails"]["videoId"])
- 
-        page_token = data.get("nextPageToken")      # trang tiep theo o dau 
-        if not page_token:
-            break           # het trang dung
- 
+    video_ids = fetch_video_ids(Variable.get("API_KEY"), playlist_id)
     logger.info("Tổng số video lấy được: %d", len(video_ids))
     return video_ids
 
+
 @task(**TASK_ARGS)
-# Giờ bạn có danh sách id, bạn hỏi chi tiết từng video (endpoint videos). 
-# Nhưng API chỉ cho hỏi tối đa 50 id mỗi lần, 
-# nên batch_list cắt danh sách thành từng lô 50
-# Với mỗi video, bạn moi ra đúng 7 trường (title, publishedAt, duration, view/like/comment) rồi gom vào extracted_data. 
-# Hàm trả về một danh sách các dict, mỗi dict là một video.
 def extract_video_data(video_ids: list[str]) -> list[dict]:
-    def batch_list(items, size):
-        for i in range(0, len(items), size):
-            yield items[i : i + size]
- 
-    extracted_data: list[dict] = []
-    for batch in batch_list(video_ids, MAX_RESULTS):
-        video_ids_str = ",".join(batch)
-        url = (
-            "https://youtube.googleapis.com/youtube/v3/videos"
-            f"?part=snippet,contentDetails,statistics&id={video_ids_str}&key={API_KEY}"
-        )
-        data = call_api(url)
-        for item in data.get("items", []):
-            extracted_data.append({
-                "video_id": item["id"],
-                "title": item["snippet"]["title"],
-                "publishedAt": item["snippet"]["publishedAt"],
-                "duration": item["contentDetails"]["duration"],
-                "viewCount": item["statistics"].get("viewCount", None),
-                "likeCount": item["statistics"].get("likeCount", None),
-                "commentCount": item["statistics"].get("commentCount", None),
-            })
- 
+    extracted_data = fetch_video_details(Variable.get("API_KEY"), video_ids)
     logger.info("Đã trích xuất chi tiết %d video", len(extracted_data))
     return extracted_data
 
-# @task
-# # Đây là "raw JSON" — dữ liệu thô, chưa xử lý gì.
-
-# def save_to_json(extracted_data):
-
-#     file_path = f"./data/YT_data_{date.today()}.json"
-
-#     with open(file_path, "w", encoding="utf-8") as json_outfile:
-#         json.dump(extracted_data, json_outfile, indent=4, ensure_ascii=False)
 
 @task(**TASK_ARGS)
 def save_to_minio(extracted_data: list[dict]) -> str:
+    # TODO [BUỔI 9]: đây là trách nhiệm LOAD-TO-LAKE, không phải EXTRACT.
+    # Tách sang dags/storage/minio.py để file này chỉ còn lo chuyện YouTube.
     s3 = boto3.client(
         "s3",
         endpoint_url=Variable.get("MINIO_ENDPOINT"),       # http://minio:9000
@@ -136,10 +88,12 @@ def save_to_minio(extracted_data: list[dict]) -> str:
     bucket = "youtube-raw"
     if bucket not in [b["Name"] for b in s3.list_buckets()["Buckets"]]:
         s3.create_bucket(Bucket=bucket)
- 
+
+    # TODO [BUỔI 8]: date.today() khiến pipeline KHÔNG backfill được và có thể
+    # lệch partition nếu DAG chạy vắt qua nửa đêm. Phải thay bằng logical date (ds).
     key = f"videos/date={date.today()}/data.json"          # partition theo ngày
     body = json.dumps(extracted_data, indent=4, ensure_ascii=False)
     s3.put_object(Bucket=bucket, Key=key, Body=body.encode("utf-8"))
- 
+
     logger.info("Đã đẩy %d video lên s3://%s/%s", len(extracted_data), bucket, key)
     return key
