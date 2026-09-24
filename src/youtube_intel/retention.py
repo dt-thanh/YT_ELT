@@ -155,6 +155,14 @@ def plan_orphan_cleanup(store: RawStore, *, hours: int) -> CleanupPlan:
     của tiến trình đang làm việc. Ân hạn (mặc định 24h) đảm bảo mọi tiến trình
     hợp lệ đã kết thúc từ lâu.
     """
+    # Hệ thống MỚI TINH (chưa `collect` lần nào) thì bucket chưa được tạo.
+    # Trước đây trường hợp này làm lệnh gãy với NoSuchBucket - lỗi lộ ra khi
+    # mô phỏng CI trên hệ thống sạch. Báo RÕ lý do thay vì gãy, và cũng thay vì
+    # âm thầm coi như rỗng (gõ sai tên bucket cũng sẽ bị "coi như rỗng").
+    if not store.bucket_exists():
+        return CleanupPlan(what="raw orphan (thiếu manifest)",
+                           note="chưa có bucket - hệ thống chưa thu thập lần nào, không có gì để dọn")
+
     cutoff = utc_now() - timedelta(hours=hours)
     objects = store.list_objects(store.prefix + "/")
 
@@ -202,6 +210,10 @@ def plan_raw_cleanup(store: RawStore, *, days: int | None) -> CleanupPlan:
     if days is None:
         plan.note = ("TẮT - raw_retention_days=null. Đọc [S7] và ghi vào "
                      "docs/policy_notes.md trước khi bật.")
+        return plan
+
+    if not store.bucket_exists():
+        plan.note = "chưa có bucket - hệ thống chưa thu thập lần nào, không có gì để dọn"
         return plan
 
     cutoff = utc_now() - timedelta(days=days)

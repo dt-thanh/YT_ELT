@@ -172,6 +172,22 @@ class RawStore:
                 return
             raise StorageError(f"Không tạo được bucket {self.bucket}: {e}") from e
 
+    def bucket_exists(self) -> bool:
+        """Bucket đã tồn tại chưa? KHÔNG tạo mới (khác ensure_bucket).
+
+        Chỉ coi "không tồn tại" là False khi MinIO/S3 nói rõ 404/NoSuchBucket.
+        Lỗi khác (sai mật khẩu, không có quyền, mất mạng) -> NÉM LÊN, không trả
+        False: nếu gộp chung, một lỗi quyền truy cập sẽ bị hiểu nhầm thành
+        "chưa có dữ liệu" - đúng kiểu lỗi im lặng cần tránh.
+        """
+        try:
+            self._s3.head_bucket(Bucket=self.bucket)
+            return True
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") in ("404", "NoSuchBucket", "NotFound"):
+                return False
+            raise StorageError(f"Không kiểm tra được bucket {self.bucket}: {e}") from e
+
     # ---------------------------------------------------------------- key --
 
     def batch_prefix(self, *, resource: str, channel_id: str, collection_id: str, attempt: int) -> str:

@@ -59,39 +59,53 @@ jobs:
     runs-on: ubuntu-latest
     needs: unit-tests
     env:
-      # Secret lấy từ GitHub Secrets. Vì sao không commit .env? Vì .env chứa
-      # mật khẩu - GitHub Secrets được mã hóa và che trong log.
-      AIRFLOW_WWW_USER_PASSWORD: ${{ secrets.AIRFLOW_WWW_USER_PASSWORD }}
-      AIRFLOW_WWW_USER_USERNAME: ${{ secrets.AIRFLOW_WWW_USER_USERNAME }}
-      CELERY_BACKEND_NAME: ${{ secrets.CELERY_BACKEND_NAME }}
-      CELERY_BACKEND_PASSWORD: ${{ secrets.CELERY_BACKEND_PASSWORD }}
-      CELERY_BACKEND_USERNAME: ${{ secrets.CELERY_BACKEND_USERNAME }}
-      ELT_DATABASE_NAME: ${{ secrets.ELT_DATABASE_NAME }}
-      ELT_DATABASE_PASSWORD: ${{ secrets.ELT_DATABASE_PASSWORD }}
-      ELT_DATABASE_USERNAME: ${{ secrets.ELT_DATABASE_USERNAME }}
-      FERNET_KEY: ${{ secrets.FERNET_KEY }}
-      METADATA_DATABASE_NAME: ${{ secrets.METADATA_DATABASE_NAME }}
-      METADATA_DATABASE_PASSWORD: ${{ secrets.METADATA_DATABASE_PASSWORD }}
-      METADATA_DATABASE_USERNAME: ${{ secrets.METADATA_DATABASE_USERNAME }}
-      POSTGRES_CONN_HOST: ${{ secrets.POSTGRES_CONN_HOST }}
-      POSTGRES_CONN_PASSWORD: ${{ secrets.POSTGRES_CONN_PASSWORD }}
-      POSTGRES_CONN_PORT: ${{ secrets.POSTGRES_CONN_PORT }}
-      POSTGRES_CONN_USERNAME: ${{ secrets.POSTGRES_CONN_USERNAME }}
-      MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
-      MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+      # ⭐ GIÁ TRỊ GIẢ, VIẾT THẲNG VÀO ĐÂY - KHÔNG dùng GitHub Secrets.
+      #
+      # Stack này chỉ SỐNG ~5 PHÚT trên một máy ảo dùng xong là hủy, không mở ra
+      # internet. Mật khẩu ở đây KHÔNG BẢO VỆ GÌ - nên không cần là secret.
+      # Dùng mật khẩu THẬT ở đây còn TỆ HƠN: đưa thông tin đăng nhập production
+      # lên CI mà không được lợi gì.
+      # Nguyên tắc: secret chỉ dành cho thứ THẬT SỰ cần bảo vệ
+      # (ở đây: DOCKERHUB_PASSWORD, dùng ở job build-and-push).
+      #
+      # (Bản trước dùng secrets.* cho tất cả -> repo chỉ có 1/19 secret ->
+      #  POSTGRES password rỗng -> Postgres thoát ngay -> CI đỏ sau 17 giây.)
+      POSTGRES_CONN_USERNAME: ci_admin
+      POSTGRES_CONN_PASSWORD: ci_admin_pw
+      POSTGRES_CONN_HOST: postgres        # TÊN SERVICE trong compose
+      POSTGRES_CONN_PORT: "5432"
+      METADATA_DATABASE_NAME: airflow_metadata
+      METADATA_DATABASE_USERNAME: ci_airflow
+      METADATA_DATABASE_PASSWORD: ci_airflow_pw
+      CELERY_BACKEND_NAME: airflow_celery
+      CELERY_BACKEND_USERNAME: ci_celery
+      CELERY_BACKEND_PASSWORD: ci_celery_pw
+      ELT_DATABASE_NAME: elt_db
+      ELT_DATABASE_USERNAME: ci_elt
+      ELT_DATABASE_PASSWORD: ci_elt_pw
+      AIRFLOW_WWW_USER_USERNAME: ci_admin
+      AIRFLOW_WWW_USER_PASSWORD: ci_admin_pw
       MINIO_ENDPOINT: http://minio:9000
-      # API_KEY để TRỐNG có chủ ý: CI không được phép gọi YouTube.
-      # Config chỉ đòi key khi chạy `collect` - mà CI không chạy lệnh đó.
+      MINIO_ACCESS_KEY: ci_minio
+      MINIO_SECRET_KEY: ci_minio_pw_123   # MinIO đòi tối thiểu 8 ký tự
+      # Để TRỐNG có chủ ý: CI không được gọi YouTube hay OpenAI thật.
       API_KEY: ""
-      CHANNEL_HANDLE: ""
+      OPENAI_API_KEY: ""
       AIRFLOW_UID: "50000"
       DOCKERHUB_NAMESPACE: ci
       DOCKERHUB_REPOSITORY: yt_api_elt
+      # FERNET_KEY sinh NGẪU NHIÊN ở bước đầu (không viết cố định vào repo:
+      # chuỗi trông giống khóa trong repo sẽ bị công cụ quét secret báo động).
     steps:
       - uses: actions/checkout@v4
 
       # Build LOCAL (không push). Tên image khớp DOCKERHUB_NAMESPACE/REPOSITORY
       # ở trên nên docker compose dùng thẳng image vừa build.
+      # Fernet key = 32 byte ngẫu nhiên, mã hóa base64 kiểu URL-safe (44 ký tự).
+      # $GITHUB_ENV: ghi vào đây thì mọi bước SAU trong job đều thấy biến này.
+      - name: Sinh FERNET_KEY tạm
+        run: echo "FERNET_KEY=$(openssl rand -base64 32 | tr '+/' '-_')" >> "$GITHUB_ENV"
+
       - name: Build image (local, KHÔNG push)
         run: |
           docker build \
@@ -140,7 +154,12 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     needs: integration-tests
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Thêm điều kiện vars.DOCKERHUB_USERNAME: chưa cấu hình DockerHub thì BỎ QUA
+    # job này (xám) thay vì báo ĐỎ. Đẩy image là tính năng TÙY CHỌN - không được
+    # làm cả CI đỏ chỉ vì chưa thiết lập.
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      && vars.DOCKERHUB_USERNAME != ''
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
