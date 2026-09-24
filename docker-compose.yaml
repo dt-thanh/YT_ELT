@@ -242,7 +242,15 @@ services:
     # `latest` nghĩa là "bất cứ thứ gì mới nhất lúc bạn pull" -> hai máy pull cách
     # nhau một tuần có thể chạy hai phiên bản khác nhau mà file compose y hệt.
     # Đó là kẻ thù của "reproducible build". Hạ tầng phải ghim version.
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    #
+    # ### [CI] BẢN SAO RIÊNG TRÊN DOCKER HUB CỦA MÌNH (mirror)
+    # Sau đó quay.io/minio/minio cũng khóa lại (401 - phải đăng nhập): MinIO
+    # ngừng phát hành image bản community. Máy local vẫn chạy được CHỈ VÌ image
+    # đã nằm sẵn trong cache; runner CI luôn trống nên pull hỏng ngay.
+    # Cách xử lý chuẩn: đẩy ĐÚNG image đang dùng (cùng image ID 14cea493) lên
+    # registry của mình, để hệ thống không phụ thuộc registry bên thứ ba có thể
+    # biến mất bất cứ lúc nào. Đổi lại: không tự nhận bản vá mới của MinIO.
+    image: thanh1910/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: minio
     # server /data = chạy MinIO, dữ liệu chứa trong /data (đã mount volume)
     # --console-address ":9001" = giao diện web quản lý chạy cổng 9001
