@@ -318,6 +318,60 @@ class RawStore:
             # Phân biệt hai loại này giúp chẩn đoán: hỏng = có thể do ghi dở.
             raise StorageError(f"JSON hỏng trong {key}: {e}") from e
 
+    def list_objects(self, prefix: str) -> list[dict]:
+        """Liệt kê object kèm SIÊU DỮ LIỆU (kích cỡ, thời điểm sửa cuối).
+
+        Retention cần `last_modified` để biết object nào đã quá hạn, và `size`
+        để báo cáo sẽ giải phóng bao nhiêu dung lượng. `list_keys` chỉ trả tên
+        nên không đủ.
+        """
+        out: list[dict] = []
+        paginator = self._s3.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                out.append({
+                    "key": obj["Key"],
+                    "size": obj["Size"],
+                    # boto3 trả về datetime CÓ múi giờ (UTC) - so sánh được ngay
+                    # với utc_now(), không cần ép kiểu.
+                    "last_modified": obj["LastModified"],
+                })
+        return out
+
+    def delete_keys(self, keys: list[str]) -> int:
+        """Xóa nhiều object. Trả về số object đã xóa.
+
+        ⚠️ KHÔNG HOÀN TÁC ĐƯỢC. Nơi gọi phải chắc chắn trước khi gọi.
+
+        Dùng delete_objects (xóa theo LÔ tối đa 1000 key/lần) thay vì gọi
+        delete_object từng cái: 1000 object = 1 request thay vì 1000 request.
+        Cùng tư duy với execute_values ở tầng database.
+        """
+        if not keys:
+            return 0
+
+        deleted = 0
+        for i in range(0, len(keys), 1000):          # trần cứng của S3 API
+            chunk = keys[i:i + 1000]
+            try:
+                resp = self._s3.delete_objects(
+                    Bucket=self.bucket,
+                    Delete={"Objects": [{"Key": k} for k in chunk], "Quiet": True},
+                )
+            except ClientError as e:
+                raise StorageError(f"Xóa thất bại: {e}") from e
+
+            # Xóa theo lô là "một phần thành công" được: phải ĐỌC danh sách lỗi,
+            # không được giả định cả lô đều xong.
+            errors = resp.get("Errors", [])
+            if errors:
+                logger.error("Có %d object không xóa được, ví dụ: %s",
+                             len(errors), errors[:3])
+            deleted += len(chunk) - len(errors)
+
+        logger.info("Đã xóa %d object khỏi s3://%s", deleted, self.bucket)
+        return deleted
+
     def list_keys(self, prefix: str) -> list[str]:
         """Liệt kê object theo prefix, CÓ XỬ LÝ PHÂN TRANG.
 

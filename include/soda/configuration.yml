@@ -1,8 +1,15 @@
+# Kết nối Soda tới Postgres.
+# Giá trị lấy từ BIẾN MÔI TRƯỜNG - không viết mật khẩu vào file được commit.
+#
+# schema: yti  -> Soda CHỈ soi vùng ĐÃ CÔNG BỐ.
+# Vì sao không soi yti_staging? Vì staging ĐƯỢC PHÉP bẩn - đó là thiết kế
+# (dữ liệu bẩn phải vào được để điều tra). Soi staging sẽ báo động liên tục về
+# thứ ta cố tình cho phép. Việc kiểm tra staging là của quality.py, trước publish.
 data_source pg_datasource:
   type: postgres
-  username: ${ELT_DATABASE_USERNAME}
-  password: ${ELT_DATABASE_PASSWORD}
   host: ${POSTGRES_CONN_HOST}
   port: ${POSTGRES_CONN_PORT}
+  username: ${ELT_DATABASE_USERNAME}
+  password: ${ELT_DATABASE_PASSWORD}
   database: ${ELT_DATABASE_NAME}
-  schema: ${SCHEMA}
+  schema: yti

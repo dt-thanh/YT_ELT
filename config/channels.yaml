@@ -17,10 +17,28 @@ project:
   # múi giờ chỉ dùng lúc hiển thị và lúc quyết định "hôm nay" là từ mấy giờ đến mấy giờ.
   report_timezone: Asia/Ho_Chi_Minh
 
-  # Thu thập mỗi 12 giờ -> MỖI NGÀY CÓ 2 QUAN SÁT cho cùng một video.
-  # Đây chính là lý do khóa chính KHÔNG thể là (video_id, ngày):
-  # hai lần thu trong cùng một ngày sẽ đâm nhau. Khóa phải theo collection.
-  snapshot_hours: 12
+  # ---------------------------------------------------------------------------
+  # LỊCH THU THẬP - ĐÂY LÀ NGUỒN SỰ THẬT DUY NHẤT.
+  # DAG trong dags/yt_collect.py TỰ SUY RA biểu thức cron từ hai giá trị này.
+  # KHÔNG được khai lịch ở hai nơi: một khái niệm hai chỗ định nghĩa thì sớm
+  # muộn sẽ lệch nhau, và lệch âm thầm (không báo lỗi).
+  #
+  #   snapshot_hours       : cách nhau bao nhiêu giờ giữa hai lần thu
+  #   snapshot_anchor_hour : mốc đầu tiên trong ngày, theo report_timezone
+  #
+  # Ví dụ:
+  #   24 + 21  ->  mỗi ngày 1 lần lúc 21:00 giờ VN   -> cron "0 21 * * *"
+  #   12 +  0  ->  mỗi ngày 2 lần lúc 00:00 và 12:00 -> cron "0 0,12 * * *"
+  #    6 +  3  ->  4 lần/ngày lúc 3,9,15,21          -> cron "0 3,9,15,21 * * *"
+  #
+  # Vì sao chọn 1 lần/ngày lúc 21:00 thay vì 2 lần/ngày?
+  # Vì hệ thống chạy trên máy cá nhân - máy tắt là KHÔNG có gì chạy, và YouTube
+  # KHÔNG trả về số liệu quá khứ nên ngày bị lỡ là mất vĩnh viễn. 21:00 là lúc
+  # máy gần như chắc chắn đang mở. Dữ liệu ĐỀU ĐẶN 1 lần/ngày có giá trị hơn
+  # dữ liệu ĐỨT QUÃNG 2 lần/ngày.
+  # ---------------------------------------------------------------------------
+  snapshot_hours: 24
+  snapshot_anchor_hour: 21
 
   # Lần đầu lấy tối đa 50 video mới nhất mỗi kênh.
   # Peppa có 1.274 video -> cắt rất mạnh -> phải ghi discovery_truncated=true,
@@ -33,13 +51,58 @@ project:
   request_timeout_seconds: 30
   max_attempts: 4
 
-  # Hai công tắc TẮT MẶC ĐỊNH (feature flag):
-  # M1 phải chạy được hoàn chỉnh mà không cần hai thứ này.
-  derived_metrics_enabled: false   # bật sau khi đã đọc và xác minh điều kiện chính sách
-  llm_enabled: false               # bật ở mốc P5
+  # Feature flag: bật sau khi đã đọc và xác minh điều kiện chính sách YouTube.
+  derived_metrics_enabled: false
+  # ---------------------------------------------------------------------------
+  # LLM - sinh bản tin (Bước 12)
+  #
+  # llm_enabled=false -> hệ thống VẪN chạy, chỉ dùng bản mẫu (template) thay vì
+  # văn LLM. Đây là thiết kế có chủ đích: báo cáo KHÔNG BAO GIỜ mất chỉ vì
+  # OpenAI sập, hết tiền, hoặc trả về rác.
+  # ---------------------------------------------------------------------------
+  llm_enabled: true
+  llm_model: gpt-4o-mini            # rẻ, đủ cho việc viết văn ngắn có ràng buộc
+  llm_max_output_tokens: 1200
+  # prompt_version ghi vào yti.reports. Sửa prompt -> TĂNG số này.
+  # Không có nó thì không bao giờ giải thích được vì sao báo cáo hôm nay khác
+  # hôm qua dù dữ liệu như nhau.
+  # v3: 20/20 ca trên bộ đánh giá (v1 13/20, v2 17/20 - có hồi quy).
+  # Xem evals/results/. Đổi phiên bản -> chạy `youtube-intel eval` trước.
+  prompt_version: v3
+  # Số video đưa vào mỗi nhóm. Brief §9 chốt tối đa 3.
+  report_top_n: 3
+
+  # ---------------------------------------------------------------------------
+  # RETENTION - vòng đời dữ liệu.
+  #
+  # ⚠️ XÓA LÀ THAO TÁC KHÔNG HOÀN TÁC ĐƯỢC. Mọi con số ở đây phải có lý do,
+  # và lệnh xóa mặc định chạy ở chế độ XEM TRƯỚC (--dry-run).
+  # ---------------------------------------------------------------------------
+
+  # staging chỉ có giá trị để ĐIỀU TRA một batch vừa lỗi. Batch đã publish xong
+  # từ tuần trước thì giữ lại không để làm gì, mà nó là thứ phình nhanh nhất
+  # (ước tính ~500 MB/năm). Dựng lại được từ raw bất cứ lúc nào -> xóa an toàn.
+  # ⚠️ CHỈ xóa staging của batch quality_status='passed'.
+  #    Batch 'quarantined' phải GIỮ NGUYÊN - đó là bằng chứng duy nhất để hiểu lỗi.
+  staging_retention_days: 7
+
+  # Batch KHÔNG CÓ MANIFEST = chưa hoàn chỉnh (chết giữa chừng). Sau khoảng ân
+  # hạn này thì coi là rác và dọn. Ân hạn để tránh xóa nhầm batch ĐANG chạy.
+  orphan_retention_hours: 24
+
+  # ⚠️ RAW: để `null` = KHÔNG BAO GIỜ XÓA.
+  # Chính sách YouTube CÓ yêu cầu về vòng đời dữ liệu API lưu trữ, nhưng ta
+  # CHƯA đọc và xác minh [S7] (Developer Policies). Brief đã chốt: KHÔNG code
+  # theo con số chưa kiểm chứng.
+  # Khi nào đọc xong thì ghi vào docs/policy_notes.md kèm ngày đọc + trích dẫn,
+  # RỒI mới đặt số ở đây. Raw là thứ DUY NHẤT không tạo lại được - sai là mất hết.
+  raw_retention_days: null
 
 # -----------------------------------------------------------------------------
 # BỐN KÊNH PILOT
+# reference_names: tên thương hiệu/nhân vật của kênh - gợi ý nội dung KHÔNG được
+# dùng lại (validator chặn). Chỉ ghi tên ĐÃ THẤY trong dữ liệu thật; thấy thêm
+# nhân vật nào trong tiêu đề thì bổ sung vào đây.
 # verified_at = thời điểm gọi channels.list và API trả về đúng kênh này.
 # Ghi lại thời điểm xác minh là thói quen quan trọng: dữ liệu nào cũng có
 # "hạn sử dụng", và người đọc phải biết số liệu này cũ đến mức nào.
@@ -51,6 +114,7 @@ channels:
     source_url: https://www.youtube.com/channel/UCXLesGEfmyhxqOjoAqhRwhA
     verified_at: 2026-09-20
     enabled: true
+    reference_names: ['FightMediocrity']
 
   - id: UC-RKpEc4eE9PwJaupN91xYQ
     group: books_learning
@@ -58,6 +122,7 @@ channels:
     source_url: https://www.youtube.com/@sprouts
     verified_at: 2026-09-20
     enabled: true
+    reference_names: ['Sprouts']
 
   - id: UC1s_pX5PgH7R6QtTn80cKtA
     group: kids_animation
@@ -65,6 +130,7 @@ channels:
     source_url: https://www.youtube.com/@WolfooTiengViet
     verified_at: 2026-09-20
     enabled: true
+    reference_names: ['Wolfoo', 'Kasper']
 
   - id: UCxeoWTyTJUppaRU3v5zcolQ
     group: kids_animation
@@ -72,6 +138,7 @@ channels:
     source_url: https://www.youtube.com/@HeoPeppaTiengVietChinhThuc
     verified_at: 2026-09-20
     enabled: true
+    reference_names: ['Peppa', 'Heo Peppa']
 
 # Nhóm hợp lệ. Khai báo ở đây để config.py validate được:
 # gõ sai "book_learning" (thiếu chữ s) sẽ bị bắt NGAY lúc khởi động,

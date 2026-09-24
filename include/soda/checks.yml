@@ -1,18 +1,104 @@
-checks for yt_api:
-  - missing_count("Video_ID") = 0                      # Video_ID không được null
-  ### [SỬA] Đổi khóa đơn thành khóa kép (vì snapshot)
-  - duplicate_count("Video_ID", "Snapshot_Date") = 0   # Không được trùng khóa kép
+# =============================================================================
+# SODA CHECKS - vai "CAMERA" giám sát vùng ĐÃ CÔNG BỐ.
+#
+# ⚠️ ĐỪNG NHẦM VỚI quality.py:
+#   quality.py  = KHÓA CỬA. Chạy TRƯỚC publish, trong transaction, CHẶN được.
+#   Soda        = CAMERA.   Chạy SAU publish, trên toàn bảng, chỉ BÁO ĐỘNG.
+#
+# Vậy Soda để làm gì nếu không chặn được? Để bắt thứ mà gate KHÔNG THỂ thấy:
+#
+#   1. "Pipeline 3 ngày không chạy"  <- gate soi TỪNG BATCH; không có batch nào
+#      thì gate KHÔNG CHẠY, nên không thể báo. Chỉ thứ nhìn TOÀN BẢNG mới thấy.
+#   2. Trôi dạt theo thời gian: hôm nay số video giảm 30% so với hôm qua -
+#      từng batch đều hợp lệ, nhưng XU HƯỚNG thì bất thường.
+#   3. Hồi quy do đổi code: một migration làm hỏng dữ liệu CŨ - gate chỉ soi
+#      dữ liệu MỚI nên không thấy.
+#
+# Một phần các check dưới đây TRÙNG với quality.py. Trùng là CÓ CHỦ Ý:
+# đó là lớp phòng thủ thứ hai (defense in depth). Nếu gate có bug mà lọt,
+# camera vẫn thấy.
+# =============================================================================
 
-  - likes_count_greater_than_vid_views = 0:
-      name: Check for Like_Count greater than Video_Views
-      likes_count_greater_than_vid_views query: |
-        SELECT COUNT(*) 
-        FROM yt_api 
-        WHERE "Likes_Count" > "Video_Views"
+checks for video_observations:
+  # --- Bất biến cơ bản (trùng gate - lớp phòng thủ thứ hai) ------------------
+  - missing_count(video_id) = 0:
+      name: video_id không bao giờ được null
 
-  - comments_count_greater_than_vid_views = 0:
-      name: Check for Comments_Count greater than Video_Views
-      comments_count_greater_than_vid_views query: |
-        SELECT COUNT(*) 
-        FROM yt_api 
-        WHERE "Comments_Count" > "Video_Views"
+  # ⭐ ĐÂY LÀ GRAIN CỦA BẢNG, viết thành check.
+  # Trùng với ràng buộc UNIQUE trong database - và đó là CỐ Ý: nếu ai đó lỡ tay
+  # DROP CONSTRAINT trong một migration, check này sẽ hét lên.
+  - duplicate_count(video_id, collection_id) = 0:
+      name: Grain (video_id, collection_id) phải duy nhất
+
+  - invalid_count(view_count) = 0:
+      name: view_count không được âm
+      valid min: 0
+
+  # --- Bất khả về logic -----------------------------------------------------
+  # Muốn like một video thì phải xem nó -> like không thể nhiều hơn view.
+  # So sánh tự động BỎ QUA dòng NULL: trong SQL, "NULL > 100" cho ra UNKNOWN
+  # chứ không phải TRUE, nên dòng thiếu like/comment không bị tính là vi phạm.
+  - engagement_exceeds_views = 0:
+      name: like/comment không được nhiều hơn view
+      engagement_exceeds_views query: |
+        SELECT COUNT(*)
+        FROM yti.video_observations
+        WHERE like_count > view_count
+           OR comment_count > view_count
+
+  # --- ⭐ CHECK QUAN TRỌNG NHẤT: ĐỘ TƯƠI --------------------------------------
+  # Thứ mà quality gate KHÔNG THỂ phát hiện được.
+  # Lịch chạy 1 lần/ngày (24h) -> cho phép trễ tới 30h rồi mới báo động:
+  # biên 6h để không kêu oan khi một lần chạy bị chậm hoặc retry.
+  # Kêu sai quá nhiều thì người ta tắt cảnh báo -> cảnh báo mất tác dụng.
+  - freshness(observed_at) < 30h:
+      name: Phải có quan sát mới trong 30 giờ qua (pipeline còn sống?)
+
+  - row_count > 0:
+      name: Bảng fact không được rỗng
+
+checks for videos_current:
+  - missing_count(video_id) = 0:
+      name: video_id không bao giờ được null
+
+  - duplicate_count(video_id) = 0:
+      name: Mỗi video chỉ một dòng (dimension SCD type 1)
+
+  # Nhãn phân loại phải nằm trong tập đã định nghĩa. Nếu code sinh ra nhãn lạ
+  # (vd đổi luật Shorts mà quên cập nhật), check này bắt ngay.
+  - invalid_count(format_label) = 0:
+      name: format_label phải thuộc tập đã định nghĩa
+      valid values: [shorts, normal, live, unknown]
+
+  - invalid_count(duration_seconds) = 0:
+      name: duration_seconds không được âm
+      valid min: 0
+
+  # Video dài hơn 24 giờ là RẤT hiếm nhưng có thật (livestream archive).
+  # Đây là WARN chứ không FAIL: nó đáng để con người liếc qua, không đáng chặn.
+  - max(duration_seconds) < 86400:
+      name: Cảnh báo video dài bất thường (> 24 giờ)
+      warn: when > 0
+
+checks for collection_runs:
+  # Lần chạy bị treo ở 'running' quá lâu = tiến trình đã chết mà không ai dọn.
+  # Gate không bao giờ thấy điều này vì nó chỉ soi dữ liệu, không soi TRẠNG THÁI RUN.
+  - stuck_runs = 0:
+      name: Không có lần chạy nào treo ở trạng thái running quá 2 giờ
+      stuck_runs query: |
+        SELECT COUNT(*)
+        FROM yti.collection_runs
+        WHERE status = 'running'
+          AND started_at < now() - interval '2 hours'
+
+checks for channel_batches:
+  # Batch bị cách ly trong 7 ngày gần đây. Không phải LỖI - đúng là gate đã làm
+  # việc của nó - nhưng CẦN NGƯỜI XEM: vì sao dữ liệu bẩn xuất hiện?
+  - recent_quarantined = 0:
+      name: Cảnh báo có batch bị quarantine trong 7 ngày qua
+      recent_quarantined query: |
+        SELECT COUNT(*)
+        FROM yti.channel_batches
+        WHERE quality_status = 'quarantined'
+          AND created_at > now() - interval '7 days'
+      warn: when > 0

@@ -1,0 +1,46 @@
+# =============================================================================
+# BUILD CONTEXT = thư mục Docker copy vào để build.
+# Không có file này: Docker copy CẢ 130MB, trong đó venv/ chiếm 116MB - hoàn
+# toàn vô ích vì thư viện được cài lại bằng pip trong image.
+#
+# Hậu quả của build context phình:
+#   - mỗi lần build phải truyền 130MB sang Docker daemon -> chậm
+#   - dễ lỡ tay COPY . . rồi nhét cả .env (SECRET) vào image
+# =============================================================================
+
+# Môi trường ảo Python - thư viện cài lại trong image, tuyệt đối không copy
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Lịch sử git - image không cần. Phiên bản code đã nướng qua ARG GIT_SHA.
+.git/
+.gitignore
+
+# ⚠️ SECRET - KHÔNG BAO GIỜ vào image.
+# Image có thể bị push lên registry công khai; secret trong image là lộ vĩnh viễn
+# (kể cả xóa ở layer sau, layer cũ vẫn còn trong lịch sử image).
+.env
+.env.*
+!.env.example
+
+# Log và dữ liệu chạy - thuộc về volume, không thuộc image
+logs/
+data/
+
+# Code cũ đã thay thế
+legacy/
+
+# Tài liệu, ảnh chụp - không cần khi chạy
+docs/
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
+.DS_Store

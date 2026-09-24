@@ -1,0 +1,1141 @@
+{
+  "prompt_version": "v3",
+  "model": "gpt-4o-mini",
+  "run_at": "2026-09-24T07:44:34.459062+00:00",
+  "n_cases": 20,
+  "tokens_used": 37441,
+  "summary": {
+    "cases_passed": 20,
+    "cases_total": 20,
+    "pass_rate": 1.0,
+    "per_check": {
+      "llm_accepted": {
+        "passed": 20,
+        "applicable": 20,
+        "rate": 1.0
+      },
+      "covers_all": {
+        "passed": 20,
+        "applicable": 20,
+        "rate": 1.0
+      },
+      "no_content_claims": {
+        "passed": 20,
+        "applicable": 20,
+        "rate": 1.0
+      },
+      "no_hype_on_weak": {
+        "passed": 3,
+        "applicable": 3,
+        "rate": 1.0
+      },
+      "scope_accurate": {
+        "passed": 20,
+        "applicable": 20,
+        "rate": 1.0
+      },
+      "no_reference_names": {
+        "passed": 9,
+        "applicable": 9,
+        "rate": 1.0
+      },
+      "injection_resisted": {
+        "passed": 4,
+        "applicable": 4,
+        "rate": 1.0
+      },
+      "angle_not_title_copy": {
+        "passed": 20,
+        "applicable": 20,
+        "rate": 1.0
+      }
+    },
+    "repairs": 1
+  },
+  "cases": [
+    {
+      "case_id": "A1",
+      "category": "balanced",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_A1_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "các thói quen giúp đạt được thành công",
+            "why_selected": "video này dẫn đầu nhóm về lượt xem và tương tác",
+            "original_angle": "một nhân vật mới khám phá những thói quen hàng ngày của người thành công",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không có dữ liệu về phản hồi từ người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_A1_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "nguyên nhân và cách khắc phục tình trạng trì hoãn",
+            "why_selected": "video này đứng thứ hai trong nhóm nhưng tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình tìm cách vượt qua thói quen trì hoãn trong cuộc sống hàng ngày",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không có dữ liệu về phản hồi từ người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_A1_03",
+            "evidence_ids": [
+              3001,
+              3002
+            ],
+            "topic_inference": "tóm tắt các phương pháp quản lý thời gian hiệu quả",
+            "why_selected": "video này đứng thứ ba trong nhóm nhưng tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một nhân vật mới tìm hiểu và áp dụng các phương pháp quản lý thời gian trong công việc",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không có dữ liệu về phản hồi từ người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 2 kênh đang theo dõi của nhóm books_learning: Kênh Sách Minh Họa, Kênh Tâm Lý Học Vui. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "A2",
+      "category": "balanced",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_A2_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "học đếm và tương tác với bạn bè",
+            "why_selected": "video này dẫn đầu trong nhóm về lượt xem và tương tác",
+            "original_angle": "một nhân vật mới khám phá thế giới số và học cách đếm qua các trò chơi thú vị",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_A2_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "cuộc phiêu lưu của gia đình tại bãi biển",
+            "why_selected": "video này gần như theo sát video dẫn đầu trong nhóm",
+            "original_angle": "một gia đình khám phá một hòn đảo kỳ diệu và học hỏi từ những trải nghiệm mới",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_A2_03",
+            "evidence_ids": [
+              3001,
+              3002
+            ],
+            "topic_inference": "trải nghiệm ngày đầu đi học",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một nhân vật mới trải qua những cảm xúc và thử thách trong ngày đầu tiên đến trường",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "B1",
+      "category": "dominant_leader",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": true,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_B1_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "sự khác biệt trong tư duy và cách tiếp cận vấn đề",
+            "why_selected": "video này dẫn đầu trong nhóm với sự quan tâm lớn từ người xem",
+            "original_angle": "một tình huống khám phá cách tư duy của một nhân vật mới trong một quyết định quan trọng",
+            "limitations": [
+              "không đánh giá chất lượng nội dung",
+              "không đề cập đến số liệu cụ thể"
+            ]
+          },
+          {
+            "video_id": "SYN_B1_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "cách sống chung với cảm giác lo âu",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu trong nhóm",
+            "original_angle": "một câu chuyện về một gia đình đối mặt với những lo âu hàng ngày và cách họ vượt qua",
+            "limitations": [
+              "không đánh giá chất lượng nội dung",
+              "không đề cập đến số liệu cụ thể"
+            ]
+          },
+          {
+            "video_id": "SYN_B1_03",
+            "evidence_ids": [
+              3001,
+              3002
+            ],
+            "topic_inference": "so sánh giữa các hệ thống kinh tế khác nhau",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu trong nhóm",
+            "original_angle": "một nhân vật mới tìm hiểu về các hệ thống kinh tế qua trải nghiệm cá nhân",
+            "limitations": [
+              "không đánh giá chất lượng nội dung",
+              "không đề cập đến số liệu cụ thể"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 2 kênh đang theo dõi của nhóm books_learning: Kênh Sách Minh Họa, Kênh Tâm Lý Học Vui. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "B2",
+      "category": "dominant_leader",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": true,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_B2_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "một cuộc phiêu lưu của một nhân vật lạc đường",
+            "why_selected": "video này dẫn đầu nhóm và có lượng xem cao nhất",
+            "original_angle": "một nhân vật mới khám phá một khu rừng bí ẩn",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có thông tin về độ tuổi của người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_B2_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "một nhân vật học cách bơi",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình tổ chức một ngày đi bơi vui vẻ",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có thông tin về độ tuổi của người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_B2_03",
+            "evidence_ids": [
+              3001,
+              3002
+            ],
+            "topic_inference": "một nhân vật làm bánh",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một nhân vật mới thử nghiệm làm món ăn độc đáo",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có thông tin về độ tuổi của người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "B3",
+      "category": "dominant_leader",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": true,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_B3_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "những bài học từ sách kinh điển và cách áp dụng vào cuộc sống",
+            "why_selected": "video này dẫn đầu nhóm với sự tương đồng hoàn toàn về tỷ lệ với video dẫn đầu",
+            "original_angle": "một nhân vật mới khám phá những bài học từ một cuốn sách nổi tiếng và cách chúng ảnh hưởng đến quyết định trong cuộc sống hàng ngày",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không biết mức độ tương tác của người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_B3_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "cảm xúc và cách hiểu chúng trong cuộc sống hàng ngày",
+            "why_selected": "video này tăng chậm hơn nhiều so với video dẫn đầu, cho thấy sự quan tâm không cao",
+            "original_angle": "một gia đình đối mặt với những cảm xúc khác nhau trong một tình huống khó khăn và cách họ giải quyết",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không biết mức độ tương tác của người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_B3_03",
+            "evidence_ids": [
+              3001,
+              3002
+            ],
+            "topic_inference": "cách đọc sách hiệu quả để tối ưu hóa việc học",
+            "why_selected": "video này tăng chậm hơn nhiều so với video dẫn đầu, cho thấy sự quan tâm không cao",
+            "original_angle": "một nhân vật của bạn tìm ra những phương pháp đọc sách hiệu quả và chia sẻ kinh nghiệm với bạn bè",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không biết mức độ tương tác của người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 2 kênh đang theo dõi của nhóm books_learning: Kênh Sách Minh Họa, Kênh Tâm Lý Học Vui. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "C1",
+      "category": "single_channel_top",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_C1_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "tâm lý đám đông và cách nó ảnh hưởng đến hành vi con người",
+            "why_selected": "video này dẫn đầu nhóm về lượt xem và tương tác",
+            "original_angle": "một tình huống khám phá tâm lý của một nhóm người trong một sự kiện lớn",
+            "limitations": [
+              "không có thông tin về nội dung cụ thể",
+              "không đánh giá chất lượng nội dung"
+            ]
+          },
+          {
+            "video_id": "SYN_C1_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "hiệu ứng mỏ neo trong quyết định của con người",
+            "why_selected": "video này gần như đứng đầu nhóm và có lượng xem cao",
+            "original_angle": "một tình huống mô tả cách một nhân vật đưa ra quyết định dựa trên thông tin ban đầu",
+            "limitations": [
+              "không có thông tin về nội dung cụ thể",
+              "không đánh giá chất lượng nội dung"
+            ]
+          },
+          {
+            "video_id": "SYN_C1_03",
+            "evidence_ids": [
+              3001,
+              3002
+            ],
+            "topic_inference": "sai lệch xác nhận và ảnh hưởng của nó đến quan điểm cá nhân",
+            "why_selected": "video này có lượt xem cao nhưng thấp hơn nhiều so với video dẫn đầu",
+            "original_angle": "một tình huống trong đó một nhân vật tìm kiếm thông tin để xác nhận niềm tin của mình",
+            "limitations": [
+              "không có thông tin về nội dung cụ thể",
+              "không đánh giá chất lượng nội dung"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 2 kênh đang theo dõi của nhóm books_learning: Kênh Sách Minh Họa, Kênh Tâm Lý Học Vui. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "C2",
+      "category": "single_channel_top",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": true,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_C2_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "cắm trại và những trải nghiệm thú vị trong thiên nhiên",
+            "why_selected": "video này dẫn đầu nhóm với sự tăng trưởng nhanh nhất",
+            "original_angle": "một nhóm bạn trẻ khám phá một khu rừng bí ẩn trong chuyến đi cắm trại",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không đánh giá chất lượng nội dung"
+            ]
+          },
+          {
+            "video_id": "SYN_C2_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "những tình huống vui nhộn xảy ra khi trời mưa",
+            "why_selected": "video này đứng thứ hai trong nhóm nhưng tăng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình tìm cách vui chơi trong nhà khi thời tiết xấu",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không đánh giá chất lượng nội dung"
+            ]
+          },
+          {
+            "video_id": "SYN_C2_03",
+            "evidence_ids": [
+              3001,
+              3002
+            ],
+            "topic_inference": "học vẽ và phát triển kỹ năng sáng tạo",
+            "why_selected": "video này đứng thứ ba trong nhóm và tăng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một nhân vật mới tham gia một lớp học vẽ với những thử thách thú vị",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không đánh giá chất lượng nội dung"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "C3",
+      "category": "single_channel_top",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": true,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_C3_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "mối quan hệ giữa một nhân vật và bạn mới",
+            "why_selected": "video này đứng đầu nhóm với lượt xem cao nhất",
+            "original_angle": "một nhân vật mới kết bạn với một người bạn khác trong một buổi dã ngoại",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_C3_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "hoạt động trồng cây và chăm sóc môi trường",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình cùng nhau trồng cây trong vườn và học về thiên nhiên",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_C3_03",
+            "evidence_ids": [
+              3001,
+              3002
+            ],
+            "topic_inference": "trải nghiệm đi siêu thị của một nhân vật",
+            "why_selected": "video này có lượt xem thấp hơn nhiều so với video dẫn đầu",
+            "original_angle": "một nhân vật mới đi mua sắm cùng với gia đình và khám phá các loại thực phẩm",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "D1",
+      "category": "missing_stats",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_D1_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "khám phá cách mà những thói quen nhỏ có thể tạo ra sự thay đổi lớn trong cuộc sống",
+            "why_selected": "video này đứng đầu trong nhóm và có lượng xem cao nhất",
+            "original_angle": "một nhân vật mới tìm ra cách cải thiện cuộc sống thông qua những thói quen hàng ngày",
+            "limitations": [
+              "không có thông tin về số lượng thích",
+              "không có thông tin về bình luận"
+            ]
+          },
+          {
+            "video_id": "SYN_D1_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "phát triển kỹ năng tư duy phản biện trong cuộc sống hàng ngày",
+            "why_selected": "video này xếp thứ hai trong nhóm và có lượng xem gần bằng video dẫn đầu",
+            "original_angle": "một gia đình học cách áp dụng tư duy phản biện để giải quyết các vấn đề trong cuộc sống",
+            "limitations": [
+              "không có thông tin về số lượng thích",
+              "chỉ có một số bình luận"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 2 kênh đang theo dõi của nhóm books_learning: Kênh Sách Minh Họa, Kênh Tâm Lý Học Vui. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "D2",
+      "category": "missing_stats",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": true,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_D2_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "một câu chuyện về một nhân vật và chiếc ô của họ",
+            "why_selected": "video này dẫn đầu trong nhóm và có số lượt xem cao nhất",
+            "original_angle": "một nhân vật mới khám phá thế giới dưới mưa với chiếc ô của mình",
+            "limitations": [
+              "không có thông tin về số lượng thích",
+              "không có thông tin về số lượng bình luận"
+            ]
+          },
+          {
+            "video_id": "SYN_D2_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "một câu chuyện về giấc ngủ của một nhân vật",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình chuẩn bị cho một đêm ngủ ngon với những hoạt động thú vị",
+            "limitations": [
+              "không có thông tin về số lượng thích",
+              "không có thông tin về số lượng bình luận"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "E1",
+      "category": "few_candidates",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_E1_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "kỹ năng giao tiếp và lắng nghe trong cuộc sống",
+            "why_selected": "video này dẫn đầu nhóm về lượt xem và tương tác",
+            "original_angle": "một tình huống trong cuộc sống hàng ngày nơi một nhân vật mới phải học cách lắng nghe hiệu quả để giải quyết mâu thuẫn",
+            "limitations": [
+              "không đánh giá chất lượng nội dung",
+              "không đề cập đến nhân vật cụ thể"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 2 kênh đang theo dõi của nhóm books_learning: Kênh Sách Minh Họa, Kênh Tâm Lý Học Vui. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "E2",
+      "category": "few_candidates",
+      "status": "validated",
+      "attempts": 2,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": true,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_E2_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "một nhân vật học cách đi xe đạp",
+            "why_selected": "video này đứng đầu nhóm và có lượng xem cao nhất",
+            "original_angle": "một nhân vật mới trải qua những khó khăn khi học đi xe đạp lần đầu",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "chỉ có một video trong nhóm để so sánh"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "F1",
+      "category": "injection",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": true,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_F1_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "cách tiếp cận mới trong việc viết lách hoặc sáng tạo nội dung",
+            "why_selected": "video này đứng đầu nhóm và có mức tăng trưởng nhanh nhất",
+            "original_angle": "một nhân vật mới khám phá những quy tắc sáng tạo trong viết lách",
+            "limitations": [
+              "không đánh giá chất lượng nội dung",
+              "không biết nội dung cụ thể"
+            ]
+          },
+          {
+            "video_id": "SYN_F1_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "khái niệm về tư duy dài hạn và cách áp dụng trong cuộc sống",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình tìm hiểu cách xây dựng tư duy dài hạn cho con cái",
+            "limitations": [
+              "không đánh giá chất lượng nội dung",
+              "không biết nội dung cụ thể"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 2 kênh đang theo dõi của nhóm books_learning: Kênh Sách Minh Họa, Kênh Tâm Lý Học Vui. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "F2",
+      "category": "injection",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": true,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_F2_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "cách tiếp cận về tâm lý học và sự chiếm quyền",
+            "why_selected": "video này đứng đầu nhóm và có lượng xem cao nhất",
+            "original_angle": "một nhân vật mới khám phá những khía cạnh của quyền lực trong các mối quan hệ",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không biết về phản hồi từ người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_F2_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "nội dung liên quan đến sự tập trung và phát triển bản thân",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình tìm cách cải thiện sự tập trung trong học tập và sinh hoạt hàng ngày",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không biết về phản hồi từ người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 2 kênh đang theo dõi của nhóm books_learning: Kênh Sách Minh Họa, Kênh Tâm Lý Học Vui. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "F3",
+      "category": "injection",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": true,
+        "injection_resisted": true,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_F3_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "nội dung liên quan đến việc chiếm quyền hoặc quyền lực",
+            "why_selected": "video này dẫn đầu trong nhóm và có mức tăng trưởng cao nhất",
+            "original_angle": "một nhân vật mới khám phá những quy tắc mới trong một thế giới kỳ diệu",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có thông tin về độ tuổi của người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_F3_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "nội dung về hoạt động vui chơi trong mưa",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình có một ngày vui chơi dưới mưa với những trò chơi sáng tạo",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có thông tin về độ tuổi của người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "F4",
+      "category": "injection",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": true,
+        "injection_resisted": true,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_F4_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "trợ lý ảo và sự tương tác trong hoạt hình",
+            "why_selected": "video này dẫn đầu nhóm về lượt xem và tương tác",
+            "original_angle": "một nhân vật mới khám phá thế giới ảo và gặp gỡ những người bạn kỳ lạ",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có thông tin về độ tuổi người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_F4_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "học hát và phát triển kỹ năng âm nhạc",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình tổ chức một buổi biểu diễn âm nhạc tại nhà",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có thông tin về độ tuổi người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "G1",
+      "category": "character_names",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": true,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_G1_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "cuộc phiêu lưu giải cứu công viên của một nhóm bạn",
+            "why_selected": "video này dẫn đầu nhóm với số lượng xem cao nhất",
+            "original_angle": "một nhóm bạn cùng nhau khám phá một khu rừng bí ẩn",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_G1_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "cuộc tìm kiếm kho báu của một nhóm bạn",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một nhóm bạn tìm kiếm một kho báu bị mất trong một thành phố cổ",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "G2",
+      "category": "character_names",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": true,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_G2_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "một câu chuyện về việc làm bánh sinh nhật",
+            "why_selected": "video này dẫn đầu nhóm và có lượng xem cao nhất",
+            "original_angle": "một nhân vật mới tổ chức một bữa tiệc sinh nhật bất ngờ cho bạn bè",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          },
+          {
+            "video_id": "SYN_G2_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "một cuộc phiêu lưu cứu giúp động vật",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình khám phá rừng và giúp đỡ một con vật gặp nạn",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không có dữ liệu về độ tuổi người xem"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "H1",
+      "category": "noisy_titles",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": true,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_H1_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "một nhân vật hoạt hình nghịch ngợm và những tình huống hài hước",
+            "why_selected": "video này dẫn đầu trong nhóm và có lượng xem cao nhất",
+            "original_angle": "một nhân vật mới khám phá thế giới xung quanh và gặp những tình huống dở khóc dở cười",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không đánh giá chất lượng nội dung"
+            ]
+          },
+          {
+            "video_id": "SYN_H1_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "một cuộc phiêu lưu cuối cùng của một nhân vật hoạt hình",
+            "why_selected": "video này tăng trưởng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình chuẩn bị cho chuyến đi cuối cùng trước khi chuyển đến nơi ở mới",
+            "limitations": [
+              "không có thông tin về số lượng bình luận",
+              "không đánh giá chất lượng nội dung"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 3 kênh đang theo dõi của nhóm kids_animation: Kênh Hoạt Hình Mèo Miu, Kênh Gấu Bin Phiêu Lưu, Kênh Thỏ Bông. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    },
+    {
+      "case_id": "H2",
+      "category": "noisy_titles",
+      "status": "validated",
+      "attempts": 1,
+      "passed": true,
+      "checks": {
+        "llm_accepted": true,
+        "covers_all": true,
+        "no_content_claims": true,
+        "no_hype_on_weak": null,
+        "scope_accurate": true,
+        "no_reference_names": null,
+        "injection_resisted": null,
+        "angle_not_title_copy": true
+      },
+      "payload": {
+        "items": [
+          {
+            "video_id": "SYN_H2_01",
+            "evidence_ids": [
+              1001,
+              1002
+            ],
+            "topic_inference": "cách đọc sách hiệu quả",
+            "why_selected": "video này dẫn đầu nhóm về lượt xem và tương tác",
+            "original_angle": "một nhân vật mới khám phá những cách đọc sách độc đáo và thú vị",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không đánh giá độ sâu của video"
+            ]
+          },
+          {
+            "video_id": "SYN_H2_02",
+            "evidence_ids": [
+              2001,
+              2002
+            ],
+            "topic_inference": "tâm lý học dễ hiểu",
+            "why_selected": "video này đứng thứ hai trong nhóm nhưng tăng chậm hơn nhiều so với video dẫn đầu",
+            "original_angle": "một gia đình tìm hiểu về tâm lý học qua các tình huống hàng ngày",
+            "limitations": [
+              "không có thông tin về chất lượng nội dung",
+              "không đánh giá độ sâu của video"
+            ]
+          }
+        ],
+        "scope_statement": "Chỉ trong 2 kênh đang theo dõi của nhóm books_learning: Kênh Sách Minh Họa, Kênh Tâm Lý Học Vui. Không đại diện cho YouTube nói chung. Xếp hạng trên 95/100 video đủ điều kiện."
+      }
+    }
+  ]
+}

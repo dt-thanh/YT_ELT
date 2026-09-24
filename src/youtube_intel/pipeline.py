@@ -32,10 +32,12 @@ File này KHÔNG import airflow. Airflow (Bước 9) chỉ là một wrapper m�
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from youtube_intel.config import ChannelConfig, Config
 from youtube_intel.normalize import from_staging_row, normalize_video
@@ -51,6 +53,13 @@ from youtube_intel import quality, repository as repo
 logger = logging.getLogger(__name__)
 
 RESOURCE = "videos"
+
+# Định danh "tập dữ liệu" mà yt_collect GHI và yt_report ĐỌC. Airflow dùng nó
+# để lập lịch theo dữ liệu (Dataset): report chạy khi bảng này vừa được cập nhật.
+# Chỉ là một CHUỖI - package vẫn không import airflow.
+# Đặt ở đây (một chỗ) để hai DAG không thể gõ lệch nhau: lệch một ký tự là
+# report KHÔNG BAO GIỜ chạy, và không có lỗi nào báo ra.
+OBSERVATIONS_DATASET_URI = "yti://published/video_observations"
 
 
 @dataclass
@@ -128,22 +137,43 @@ class CollectionResult:
 # TIỆN ÍCH
 # =============================================================================
 
-def current_slot(snapshot_hours: int, now: datetime | None = None) -> datetime:
-    """Làm tròn XUỐNG về ô lịch gần nhất.
+def current_slot(settings, now: datetime | None = None) -> datetime:
+    """Làm tròn XUỐNG về mốc lịch gần nhất, TÍNH THEO MÚI GIỜ BÁO CÁO.
 
-    snapshot_hours=12 -> các ô là 00:00 và 12:00 UTC.
-    Chạy lúc 15:31 -> ô 12:00.
+    Trả về datetime aware ở UTC (để lưu database), nhưng mốc được xác định theo
+    report_timezone - đúng như DAG.
+
+    Ví dụ với snapshot_hours=24, anchor=21, tz=Asia/Ho_Chi_Minh:
+        chạy lúc 22:30 ngày 23 (giờ VN)  ->  mốc 21:00 ngày 23
+        chạy lúc 08:00 ngày 24 (giờ VN)  ->  mốc 21:00 ngày 23  (chưa tới mốc hôm nay)
 
     ⭐ VÌ SAO KHÔNG DÙNG THẲNG now()?
-    Vì scheduled_for phải là MỘT GIÁ TRỊ ỔN ĐỊNH, giống nhau ở mọi lần chạy lại
-    trong cùng một ô. Nếu dùng now(), chạy lại lúc 15:35 sẽ tạo ra một
-    scheduled_for KHÁC -> hai collection cho cùng một ô lịch -> dữ liệu trùng.
-    Đây là nền tảng để backfill và chạy lại hoạt động đúng.
+    Vì scheduled_for phải ỔN ĐỊNH: mọi lần chạy lại trong cùng một ô phải cho
+    CÙNG một giá trị. Dùng now() thì chạy lại 5 phút sau sẽ ra giá trị khác ->
+    hai collection cho cùng một ô lịch -> dữ liệu trùng.
+
+    ⭐ VÀ VÌ SAO PHẢI THEO MÚI GIỜ, KHÔNG PHẢI UTC?
+    Vì DAG dùng tz=Asia/Ho_Chi_Minh. Nếu hàm này tính theo UTC thì chạy tay và
+    chạy theo lịch sẽ ra HAI MỐC KHÁC NHAU cho cùng một thời điểm - tức hai
+    collection_id khác nhau, phá vỡ idempotency. Một khái niệm phải có MỘT
+    định nghĩa. (Đây là nợ kỹ thuật từ Bước 9, nay đã trả.)
     """
-    now = now or utc_now()
-    now = now.astimezone(timezone.utc)
-    slot_index = now.hour // snapshot_hours
-    return now.replace(hour=slot_index * snapshot_hours, minute=0, second=0, microsecond=0)
+    tz = ZoneInfo(settings.report_timezone)
+    now_local = (now or utc_now()).astimezone(tz)
+    midnight = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Sinh mọi mốc của HÔM QUA và HÔM NAY, rồi lấy mốc muộn nhất đã trôi qua.
+    # Phải xét cả hôm qua: lúc 08:00 với anchor 21 thì mốc gần nhất là 21:00
+    # NGÀY HÔM TRƯỚC, không phải hôm nay.
+    candidates = [
+        midnight + timedelta(days=d, hours=h)
+        for d in (-1, 0)
+        for h in settings.slot_hours()
+    ]
+    past = [c for c in candidates if c <= now_local]
+    if not past:                     # gần như không xảy ra, nhưng đừng để vỡ
+        past = candidates[:1]
+    return max(past).astimezone(timezone.utc)
 
 
 def deterministic_batch_id(collection_id: str, channel_id: str) -> str:
@@ -157,11 +187,26 @@ def deterministic_batch_id(collection_id: str, channel_id: str) -> str:
 
 
 def git_version() -> str | None:
-    """Commit hash hiện tại, để ghi vào collection_runs.code_version.
+    """Phiên bản code đang chạy, ghi vào collection_runs.code_version.
 
     Sáu tháng sau nhìn thấy dữ liệu lạ, ta biết nó do phiên bản code nào sinh ra.
     Đây là data lineage ở mức đơn giản nhất - và rẻ nhất.
+
+    HAI NGUỒN, THEO THỨ TỰ ƯU TIÊN:
+      1. APP_VERSION  - nướng vào image lúc build (Dockerfile ARG GIT_SHA).
+                        Đây là nguồn ĐÚNG ở mọi nơi triển khai: image là artifact
+                        bất biến, một image = một phiên bản code, mãi mãi.
+      2. `git rev-parse` - chỉ dùng khi chạy từ repo trên máy dev.
+                        Trong container KHÔNG có .git -> luôn thất bại.
+
+    Vì sao không chỉ dùng git? Vì production không có repo git cạnh ứng dụng,
+    và nếu có thì repo đó có thể đã checkout sang commit khác - báo cáo sai
+    còn tệ hơn báo cáo trống.
     """
+    baked = os.environ.get("APP_VERSION", "").strip()
+    if baked and baked != "unknown":
+        return baked
+
     try:
         out = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
                              capture_output=True, text=True, timeout=5)
@@ -195,7 +240,7 @@ def run_collection(
     # Lý do: nó nằm trong đường dẫn file raw, nên phải biết trước khi ghi file.
     # Đây chính là vì sao Bước 3 chọn UUID thay vì BIGSERIAL.
     collection_id = collection_id or str(uuid.uuid4())
-    scheduled_for = scheduled_for or current_slot(settings.snapshot_hours)
+    scheduled_for = scheduled_for or current_slot(settings)
     started_at = utc_now()
 
     result = CollectionResult(collection_id=collection_id,

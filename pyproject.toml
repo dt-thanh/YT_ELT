@@ -1,0 +1,59 @@
+# =============================================================================
+# pyproject.toml - KHAI BÁO package, thay cho việc chống PYTHONPATH bằng tay.
+#
+# VẤN ĐỀ NÓ GIẢI:
+#   trước: PYTHONPATH=src ./venv/bin/python -m youtube_intel.cli ...
+#          -> phải nhớ gõ ở MỌI chỗ; quên là ModuleNotFoundError
+#          -> không có gì khai thư viện nào cần -> venv trôi dạt
+#             (đã gặp thật ở Bước 4: `tenacity` tự biến mất khỏi venv)
+#   sau:   pip install -e .   ->   import youtube_intel chạy ở mọi nơi
+#
+# "src layout" (code nằm trong src/ thay vì ngay gốc repo) là chuẩn hiện nay.
+# Lý do: khi chạy pytest ở gốc repo, Python KHÔNG tự thấy src/ -> buộc test
+# phải import qua package ĐÃ CÀI, giống y hệt cách người dùng thật import.
+# Nếu code nằm ở gốc, test sẽ import file cục bộ và bạn có thể quên khai
+# một dependency mà vẫn thấy test xanh - rồi vỡ trên máy người khác.
+# =============================================================================
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "youtube-intel"
+version = "0.1.0"
+description = "ELT pipeline thu thập và phân tích số liệu kênh YouTube"
+requires-python = ">=3.10"
+
+# Chỉ khai thư viện mà PACKAGE thực sự cần. KHÔNG khai airflow:
+# youtube_intel không import airflow (ranh giới giữ từ Buổi 2) - Airflow chỉ là
+# một trong nhiều cách gọi nó.
+dependencies = [
+    "requests>=2.31",
+    "tenacity>=8.2",
+    "PyYAML>=6.0",
+    "boto3>=1.34",
+    "psycopg2-binary>=2.9",
+]
+
+[project.optional-dependencies]
+# Tách nhóm: ai chỉ chạy pipeline thì không phải cài streamlit/openai.
+dashboard = ["streamlit>=1.30", "pandas>=2.0"]
+llm = ["openai>=1.30"]
+dev = ["pytest>=8.0", "pytest-cov>=4.1"]
+
+[project.scripts]
+# Sau khi cài: gõ `youtube-intel status` thay vì `python -m youtube_intel.cli status`
+youtube-intel = "youtube_intel.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# -q gọn, --strict-markers chặn gõ sai tên marker (lỗi âm thầm hay gặp)
+addopts = "-q --strict-markers"
+markers = [
+    "integration: cần database/MinIO thật (bỏ qua bằng: -m 'not integration')",
+    "live: gọi API thật, TỐN QUOTA",
+]

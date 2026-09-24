@@ -63,7 +63,8 @@ def setup_logging(verbose: bool = False, as_json: bool = False) -> None:
 # =============================================================================
 
 def cmd_collect(args) -> int:
-    cfg = load_config()
+    # collect gọi YouTube, ghi MinIO và database -> cần cả ba nhóm.
+    cfg = load_config(require=("youtube", "minio", "db"))
     result = pipeline.run_collection(
         cfg,
         only_channels=args.channel or None,
@@ -83,7 +84,9 @@ def cmd_collect(args) -> int:
 
 
 def cmd_replay(args) -> int:
-    cfg = load_config()
+    # ⭐ replay KHÔNG gọi YouTube -> KHÔNG đòi API key.
+    # Đòi thứ không dùng là chặn một thao tác hợp lệ (least privilege cho config).
+    cfg = load_config(require=("minio", "db"))
     result = pipeline.replay_collection(cfg, collection_id=args.collection_id,
                                         attempt=args.attempt)
     print(result.summary())
@@ -93,7 +96,7 @@ def cmd_replay(args) -> int:
 
 def cmd_status(args) -> int:
     """Xem các lần chạy gần nhất. Lệnh đầu tiên bạn gõ khi có sự cố."""
-    cfg = load_config(require_secrets=False)
+    cfg = load_config(require=("db",))          # status chỉ đọc database
     s = cfg.secrets
     db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
                        user=s.db_user, password=s.db_password)
@@ -147,10 +150,160 @@ def cmd_status(args) -> int:
     return 0
 
 
+def cmd_report(args) -> int:
+    """Sinh bản tin cho từng nhóm.
+
+    CHỈ đòi database. KHÔNG đòi OPENAI_API_KEY, kể cả khi llm_enabled=true.
+
+    ⭐ VÌ SAO KHÔNG FAIL-FAST KHI THIẾU KEY?
+    Fail-fast đúng với thứ BẮT BUỘC. LLM là TÙY CHỌN: thiếu key thì vẫn có bản
+    mẫu với số liệu đúng. Nếu gãy ở đây, DAG sẽ đỏ và ngày đó KHÔNG CÓ bản tin
+    nào - một tính năng phụ làm hỏng tính năng chính.
+    Thay vào đó: cảnh báo TO, và cột status = 'template' trong yti.reports
+    ghi lại sự thật - không có gì bị che giấu.
+    """
+    from dataclasses import replace
+    from youtube_intel import reporting
+
+    cfg = load_config(require=("db",))
+
+    if args.no_llm:
+        # dataclasses.replace: tạo bản sao với một trường khác đi.
+        # Config là frozen (bất biến) nên không gán trực tiếp được - đúng ý đồ.
+        cfg = replace(cfg, settings=replace(cfg.settings, llm_enabled=False))
+    elif cfg.settings.llm_enabled and not cfg.secrets.openai_api_key:
+        logging.getLogger(__name__).warning(
+            "llm_enabled=true nhưng THIẾU OPENAI_API_KEY -> dùng BẢN MẪU. "
+            "Thêm key vào .env rồi chạy `docker compose up -d` để bật LLM.")
+
+    s = cfg.secrets
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+
+    outcomes = reporting.run_reports(cfg, db, only_group=args.group)
+
+    for o in outcomes:
+        print(f"\n{'='*70}\n[{o.group}] {o.status.upper()}")
+        if o.error:
+            print(f"  {o.error}")
+            continue
+        cov = o.coverage
+        print(f"  ứng viên  : {o.candidates}"
+              f"  | bao phủ {cov.get('rankable')}/{cov.get('total_videos')}")
+        if o.tokens_used:
+            print(f"  LLM       : {o.tokens_used} token, {o.latency_ms} ms, "
+                  f"{o.attempts} lần thử")
+        print(f"  report_id : {o.report_id}")
+        if args.show:
+            print("\n" + o.markdown)
+
+    bad = [o for o in outcomes if o.status in ("failed",)]
+    return 1 if bad else 0
+
+
+def cmd_eval(args) -> int:
+    """Chấm một phiên bản prompt trên 20 ca thử tổng hợp. KHÔNG cần database.
+
+    Chỉ cần key OpenAI -> chạy được trên máy dev, không cần Docker.
+    Đây là phần thưởng của việc tách logic khỏi hạ tầng từ Buổi 2.
+    """
+    from pathlib import Path
+    from youtube_intel import evals
+
+    cfg = load_config(require=("llm",))
+    result = evals.run_eval(settings=cfg.settings, api_key=cfg.secrets.openai_api_key,
+                            prompt_version=args.prompt_version, limit=args.limit)
+    path = evals.save_result(result, Path(args.out))
+
+    s = result["summary"]
+    print(f"\n=== EVAL prompt {result['prompt_version']} ({result['model']}) ===")
+    print(f"  Ca đạt  : {s['cases_passed']}/{s['cases_total']}  ({s['pass_rate']:.0%})")
+    print(f"  Sửa lại : {s['repairs']} ca phải gọi LLM lần 2")
+    print(f"  Token   : {result['tokens_used']:,}")
+
+    base = None
+    if args.baseline:
+        base = json.loads(Path(args.baseline).read_text(encoding="utf-8"))["summary"]
+        print(f"\n  {'kiểm tra':<22}{base_label(args.baseline):>12}{args.prompt_version:>12}")
+    else:
+        print(f"\n  {'kiểm tra':<22}{'đạt':>12}")
+    for name, v in s["per_check"].items():
+        now = f"{v['passed']}/{v['applicable']}" if v["applicable"] else "-"
+        if base:
+            b = base["per_check"].get(name, {})
+            old = f"{b.get('passed')}/{b.get('applicable')}" if b.get("applicable") else "-"
+            print(f"  {name:<22}{old:>12}{now:>12}")
+        else:
+            print(f"  {name:<22}{now:>12}")
+
+    failed = [r["case_id"] for r in result["cases"] if not r["passed"]]
+    if failed:
+        print(f"\n  Ca trượt: {', '.join(failed)}  (xem chi tiết trong file kết quả)")
+    print(f"\n  Lưu: {path}")
+    return 0
+
+
+def base_label(path: str) -> str:
+    """'evals/results/v1-20260924T071500.json' -> 'v1' (nhãn cột so sánh)."""
+    from pathlib import Path
+    return Path(path).name.split("-")[0]
+
+
+def cmd_retention(args) -> int:
+    """Dọn dẹp dữ liệu quá hạn. MẶC ĐỊNH CHỈ XEM TRƯỚC.
+
+    ⭐ Phải gõ --apply mới xóa thật. Thao tác KHÔNG HOÀN TÁC ĐƯỢC thì không bao
+    giờ là hành vi mặc định - đây là mẫu PLAN/APPLY, giống terraform.
+    """
+    from youtube_intel import retention
+    from youtube_intel.storage import RawStore
+
+    cfg = load_config(require=("minio", "db"))     # không cần API key
+    st, sec = cfg.settings, cfg.secrets
+    store = RawStore(endpoint_url=sec.minio_endpoint, access_key=sec.minio_access_key,
+                     secret_key=sec.minio_secret_key)
+    db = repo.Database(host=sec.db_host, port=sec.db_port, name=sec.db_name,
+                       user=sec.db_user, password=sec.db_password)
+
+    mode = "ÁP DỤNG (xóa thật)" if args.apply else "XEM TRƯỚC (không xóa gì)"
+    print(f"=== RETENTION - {mode} ===")
+    print(f"  staging_retention_days = {st.staging_retention_days}")
+    print(f"  orphan_retention_hours = {st.orphan_retention_hours}")
+    print(f"  raw_retention_days     = {st.raw_retention_days}\n")
+
+    with db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            staging_plan = retention.plan_staging_cleanup(cur, days=st.staging_retention_days)
+    orphan_plan = retention.plan_orphan_cleanup(store, hours=st.orphan_retention_hours)
+    raw_plan = retention.plan_raw_cleanup(store, days=st.raw_retention_days)
+
+    for plan in (staging_plan, orphan_plan, raw_plan):
+        print(plan.describe())
+
+    total = staging_plan.count + orphan_plan.count + raw_plan.count
+    freed = orphan_plan.bytes_freed + raw_plan.bytes_freed
+    print(f"\n  TỔNG: {total} mục" + (f", giải phóng ~{retention._human(freed)}" if freed else ""))
+
+    if not args.apply:
+        print("\n  (chưa xóa gì. Thêm --apply để thực hiện)")
+        return 0
+
+    print("\n=== ĐANG XÓA ===")
+    with db.connect() as conn:
+        with conn:
+            with repo.dict_cursor(conn) as cur:
+                n = retention.delete_staging(cur, days=st.staging_retention_days)
+                print(f"  staging : xóa {n} dòng")
+    for plan in (orphan_plan, raw_plan):
+        if plan.keys:
+            print(f"  {plan.what}: xóa {store.delete_keys(plan.keys)} object")
+    return 0
+
+
 def cmd_verify_channels(args) -> int:
     """Xác minh mọi channel_id trong config bằng API. ~1 unit/kênh."""
     from youtube_intel.youtube import YouTubeClient
-    cfg = load_config()
+    cfg = load_config(require=("youtube",))   # chỉ gọi API, không chạm MinIO/DB
     bad = 0
     with YouTubeClient(cfg.secrets.youtube_api_key,
                        timeout=cfg.settings.request_timeout_seconds,
@@ -202,6 +355,25 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("status", help="Xem các lần chạy gần nhất")
     s.add_argument("--limit", type=int, default=10)
     s.set_defaults(func=cmd_status)
+
+    rp = sub.add_parser("report", help="Sinh bản tin cho từng nhóm (dùng LLM nếu bật)")
+    rp.add_argument("--group", help="chỉ một nhóm")
+    rp.add_argument("--no-llm", action="store_true",
+                    help="bỏ qua LLM, dùng bản mẫu (không cần OPENAI_API_KEY, 0đ)")
+    rp.add_argument("--show", action="store_true", help="in cả nội dung markdown")
+    rp.set_defaults(func=cmd_report)
+
+    ev = sub.add_parser("eval", help="Chấm prompt trên 20 ca tổng hợp (TỐN TIỀN OpenAI, ~0,01 USD)")
+    ev.add_argument("--prompt-version", required=True, help="vd v1, v2")
+    ev.add_argument("--limit", type=int, help="chỉ chạy N ca đầu (thử nhanh)")
+    ev.add_argument("--out", default="evals/results", help="thư mục lưu kết quả")
+    ev.add_argument("--baseline", help="file kết quả cũ để so sánh")
+    ev.set_defaults(func=cmd_eval)
+
+    rt = sub.add_parser("retention", help="Dọn dữ liệu quá hạn (MẶC ĐỊNH chỉ xem trước)")
+    rt.add_argument("--apply", action="store_true",
+                    help="XÓA THẬT. Không có cờ này thì chỉ liệt kê, không xóa gì.")
+    rt.set_defaults(func=cmd_retention)
 
     v = sub.add_parser("verify-channels", help="Xác minh channel_id bằng API (~1 unit/kênh)")
     v.set_defaults(func=cmd_verify_channels)

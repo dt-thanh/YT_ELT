@@ -1,3 +1,8 @@
 soda-core-postgres==3.3.14
 pytest==8.3.3
 boto3
+# [Bước 11] dashboard: streamlit + pandas. psycopg2 cho repository.
+psycopg2-binary
+pandas
+streamlit
+openai

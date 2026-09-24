@@ -22,9 +22,11 @@
 # File này là "nhạc trưởng" - bạn chỉ chạy 1 lệnh: docker compose up
 # Nó sẽ dựng toàn bộ hệ thống gồm các container:
 #   - postgres  : 1 container chứa 3 database (metadata, celery, elt)
-#   - redis     : hàng đợi giao việc giữa scheduler và worker
-#   - minio     : data lake - nơi chứa raw JSON      [THÊM MỚI so với khóa]
-#   - airflow-* : dàn Airflow (webserver, scheduler, worker, init)
+#   - minio     : data lake - nơi chứa raw JSON + manifest
+#   - airflow-* : webserver, scheduler (LocalExecutor - tự chạy task), init
+#   - dashboard : Streamlit, cổng 8501
+# (redis + airflow-worker đã tắt từ khi chuyển CeleryExecutor -> LocalExecutor,
+#  cấu hình cũ giữ dạng comment bên dưới.)
 #
 # Các dấu ${...} là biến, được đọc từ file .env đặt cạnh file này.
 # ============================================================================
@@ -82,41 +84,55 @@ x-airflow-common:
     # Bật endpoint health check cho scheduler (healthcheck ở dưới dùng nó)
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # ------------------------------------------------------------------
-    # QUY ƯỚC QUAN TRỌNG NHẤT FILE NÀY:
-    # Biến môi trường bắt đầu bằng AIRFLOW_CONN_xxx -> thành Connection "xxx"
-    # Biến môi trường bắt đầu bằng AIRFLOW_VAR_xxx  -> thành Variable "xxx"
-    # Đây chính là lý do code Python đọc được Variable.get("API_KEY")!
-    # (Chúng KHÔNG hiện trên UI, nhưng Variable.get()/Connection vẫn đọc được)
+    # BIẾN MÔI TRƯỜNG TRẦN cho package youtube_intel và Soda.
+    # (Trước đây còn 7 biến AIRFLOW_VAR_* / AIRFLOW_CONN_* cho 3 DAG cũ đọc qua
+    #  Variable.get() / PostgresHook. DAG cũ đã xóa -> biến đó thành config chết,
+    #  và config chết gây hiểu nhầm: thấy CHANNEL_HANDLE=MrBeast là tưởng hệ
+    #  thống đang theo dõi MrBeast. Đã dọn.)
     # ------------------------------------------------------------------
-    # Connection tới database elt_db - Module 2 (load vào Postgres) sẽ dùng
-    # trong code với conn_id="postgres_db_yt_elt"
-    AIRFLOW_CONN_POSTGRES_DB_YT_ELT: 'postgresql://${ELT_DATABASE_USERNAME}:${ELT_DATABASE_PASSWORD}@${POSTGRES_CONN_HOST}:${POSTGRES_CONN_PORT}/${ELT_DATABASE_NAME}'
-    # Hai Variable mà video_stats.py đang đọc:
-    # Variable.get("API_KEY") và Variable.get("CHANNEL_HANDLE")
-    AIRFLOW_VAR_API_KEY: ${API_KEY}
-    AIRFLOW_VAR_CHANNEL_HANDLE: ${CHANNEL_HANDLE}
-    ### [THÊM MỚI - MinIO] 3 Variable cho task save_to_minio:
-    ### Variable.get("MINIO_ENDPOINT") / ("MINIO_ACCESS_KEY") / ("MINIO_SECRET_KEY")
-    ### Giá trị lấy từ .env (nhớ thêm 3 dòng MINIO_* vào .env!)
-    AIRFLOW_VAR_MINIO_ENDPOINT: ${MINIO_ENDPOINT}
-    AIRFLOW_VAR_MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-    AIRFLOW_VAR_MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-    # Các biến trần (không tiền tố) cho integration test / data quality test
     ELT_DATABASE_NAME: ${ELT_DATABASE_NAME}
     ELT_DATABASE_USERNAME: ${ELT_DATABASE_USERNAME}
     ELT_DATABASE_PASSWORD: ${ELT_DATABASE_PASSWORD}
     POSTGRES_CONN_HOST: ${POSTGRES_CONN_HOST}
     POSTGRES_CONN_PORT: ${POSTGRES_CONN_PORT}
+    # ### [BƯỚC 9] Biến TRẦN cho package youtube_intel.
+    # Vì sao biến TRẦN mà không phải AIRFLOW_VAR_* (Airflow Variable)?
+    # Vì src/youtube_intel/config.py đọc os.environ THUẦN - nó KHÔNG import airflow.
+    # Đó là ranh giới ta giữ suốt từ Buổi 2: nghiệp vụ không biết Airflow tồn tại.
+    # Nhờ vậy cùng một code chạy được ở CLI, pytest, Streamlit và Airflow.
+    API_KEY: ${API_KEY}
+    MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+    MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+    MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    # [Bước 12] Key LLM. Dùng :- để KHÔNG BẮT BUỘC: thiếu key thì biến thành
+    # chuỗi rỗng và lệnh `report` tự rơi về bản mẫu, thay vì compose từ chối khởi động.
+    # Tính năng tùy chọn không được phép chặn cả hệ thống.
+    OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    # PYTHONPATH để `python -m youtube_intel.cli` tìm thấy package.
+    # Đây là giải pháp TẠM: đúng chuẩn là `pip install -e .` với pyproject.toml
+    # (ghi nợ). Dùng PYTHONPATH thì sửa code trên máy là container thấy ngay,
+    # không phải build lại image - vòng lặp phản hồi nhanh hơn khi đang học.
+    PYTHONPATH: /opt/airflow/src
+    # Không ghi file .pyc: thư mục code là bind mount CHIA SẺ HAI CHIỀU với máy
+    # bạn. Container ghi __pycache__ (đường dẫn /opt/airflow/...) vào thư mục
+    # của bạn -> pytest trên máy đọc nhầm, hiện đường dẫn lạ. Tắt đi cho sạch.
+    PYTHONDONTWRITEBYTECODE: '1'
   # Mount thư mục máy bạn <-> trong container:
   # sửa file dags/ trên máy là container thấy NGAY, không cần build lại image
   volumes:
     - ./config:/opt/airflow/config
     - ./dags:/opt/airflow/dags
-    - ./data:/opt/airflow/data
     - ./include:/opt/airflow/include
     - ./logs:/opt/airflow/logs
-    - ./plugins:/opt/airflow/plugins
     - ./tests:/opt/airflow/tests
+    # ### [BƯỚC 9] Mount lõi nghiệp vụ và migration vào container.
+    # src/ là bind mount (không COPY vào image) -> sửa code trên máy là container
+    # thấy NGAY, không phải build lại image. Đánh đổi: image không tự chứa code,
+    # nên KHÔNG dùng cách này ở production (ở đó phải COPY vào image để image là
+    # một artifact bất biến, deploy được ở bất kỳ đâu).
+    - ./src:/opt/airflow/src
+    - ./sql:/opt/airflow/sql
+    - ./dashboard:/opt/airflow/dashboard
   # Chạy bằng UID từ .env để file log/dags không bị root chiếm quyền
   user: "${AIRFLOW_UID}:0"
   # Mọi container Airflow phải ĐỢI redis + postgres KHỎE mới khởi động
@@ -393,8 +409,8 @@ services:
           echo "   https://airflow.apache.org/docs/apache-airflow/stable/howto/docker-compose/index.html#before-you-begin"
           echo
         fi
-        mkdir -p /sources/dags /sources/data /sources/include /sources/logs /sources/tests
-        chown -R "${AIRFLOW_UID}:0" /sources/{dags,data,include,logs,tests}
+        mkdir -p /sources/dags /sources/include /sources/logs /sources/tests
+        chown -R "${AIRFLOW_UID}:0" /sources/{dags,include,logs,tests}
         exec /entrypoint airflow version
     # yamllint enable rule:line-length
     environment:
@@ -408,6 +424,35 @@ services:
     user: "0:0"
     volumes:
       - .:/sources
+
+  # ==========================================================================
+  # ### [BƯỚC 11] DASHBOARD - Streamlit
+  #
+  # Dùng LẠI chính image Airflow (đã có sẵn streamlit + pandas trong
+  # requirements.txt) thay vì build image thứ hai. Đánh đổi:
+  #   + một image, một lần build, không lệch phiên bản thư viện
+  #   - image nặng hơn mức cần cho một dashboard
+  # Ở production nên tách image riêng cho gọn; ở đây gộp là hợp lý.
+  #
+  # KHÔNG depends_on airflow: dashboard chỉ cần POSTGRES. Nó phải xem được
+  # dữ liệu kể cả khi Airflow đang hỏng - đó mới là lúc cần nhìn nhất.
+  # ==========================================================================
+  dashboard:
+    <<: *airflow-common
+    container_name: dashboard
+    # --server.address=0.0.0.0 để truy cập được từ NGOÀI container.
+    # Mặc định Streamlit chỉ nghe localhost = chính container đó -> không ai vào được.
+    command: >
+      bash -c "streamlit run /opt/airflow/dashboard/app.py
+               --server.port=8501
+               --server.address=0.0.0.0
+               --server.headless=true"
+    ports:
+      - "8501:8501"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
 
   # CLI - công cụ debug, chỉ bật khi cần: docker compose --profile debug up
   airflow-cli:

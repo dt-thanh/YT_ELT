@@ -1,101 +1,161 @@
+# =============================================================================
+# CI/CD - ba job, chạy từ RẺ đến ĐẮT, và chỉ PUBLISH khi mọi thứ đã xanh.
+#
+#   unit-tests ──► integration-tests ──► build-and-push
+#   (30 giây,      (vài phút, dựng       (chỉ khi push lên main
+#    không docker)  cả stack bằng docker)  VÀ hai job trước đều xanh)
+#
+# ⭐ SỬA LỖI NGHIÊM TRỌNG CỦA BẢN CŨ: bản cũ build & PUSH image lên DockerHub
+# TRƯỚC, rồi mới test. Test đỏ thì image hỏng ĐÃ nằm trên registry rồi.
+# Nguyên tắc: KHÔNG BAO GIỜ CÔNG BỐ THỨ CHƯA KIỂM TRA.
+#
+# ⭐ CI KHÔNG GỌI YOUTUBE API THẬT. Bản cũ chạy `airflow dags test` - nếu trỏ
+# vào yt_collect thì MỖI LẦN PUSH đốt quota thật. Test ở đây dùng dữ liệu giả
+# (unit) và database rỗng vừa dựng (integration). Brief §13: "Không gọi API
+# thật cho mọi CI run."
+# =============================================================================
 name: CI-CD Pipeline
 
 on:
-    push:
-        branches:
-            - main
-            - 'feature/*'
-    pull_request:
-        branches:
-            - main
-    workflow_dispatch:
+  push:
+    branches: [main, 'feature/*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Hai lần push liên tiếp vào cùng nhánh -> hủy lần chạy cũ, chỉ giữ lần mới.
+# Không có dòng này, push 5 lần = 5 lần dựng cả stack Docker song song.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-    build-and-push-image:
-        runs-on: ubuntu-latest
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
-            - name: Get changed files
-              id: changed-files-build
-              uses: tj-actions/changed-files@v45
-              with:
-                files: |
-                    Dockerfile
-                    requirements.txt
-            - name: Set up Docker Buildx
-              if: steps.changed-files-build.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch'
-              uses: docker/setup-buildx-action@v3
-            - name: Log in to DockerHub
-              if: steps.changed-files-build.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch'
-              uses: docker/login-action@v3
-              with:
-                username: ${{ vars.DOCKERHUB_USERNAME }}
-                password: ${{ secrets.DOCKERHUB_PASSWORD }}
-            - name: Build and push Docker image
-              if: steps.changed-files-build.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch'
-              run: |
-                      docker buildx build --push \
-                        --tag ${{ vars.DOCKERHUB_NAMESPACE }}/${{ vars.DOCKERHUB_REPOSITORY }}:latest \
-                        --tag ${{ vars.DOCKERHUB_NAMESPACE }}/${{ vars.DOCKERHUB_REPOSITORY }}:${{ github.sha }} \
-                        .
+  # ---------------------------------------------------------------------------
+  # JOB 1 - unit test: NHANH, KHÔNG cần Docker. Hỏng ở đây thì dừng ngay,
+  # không tốn vài phút dựng stack. Đây là "fail fast" ở tầng CI.
+  # ---------------------------------------------------------------------------
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
-    unit-and-integration-and-e2e-tests:
-      runs-on: ubuntu-latest
-      needs: build-and-push-image
-      env:
-        AIRFLOW_WWW_USER_PASSWORD: ${{ secrets.AIRFLOW_WWW_USER_PASSWORD }}
-        AIRFLOW_WWW_USER_USERNAME: ${{ secrets.AIRFLOW_WWW_USER_USERNAME }}
-        API_KEY: ${{ secrets.API_KEY }}
-        CELERY_BACKEND_NAME: ${{ secrets.CELERY_BACKEND_NAME }}
-        CELERY_BACKEND_PASSWORD: ${{ secrets.CELERY_BACKEND_PASSWORD }}
-        CELERY_BACKEND_USERNAME: ${{ secrets.CELERY_BACKEND_USERNAME }}
-        ELT_DATABASE_NAME: ${{ secrets.ELT_DATABASE_NAME }}
-        ELT_DATABASE_PASSWORD: ${{ secrets.ELT_DATABASE_PASSWORD }}
-        ELT_DATABASE_USERNAME: ${{ secrets.ELT_DATABASE_USERNAME }}
-        FERNET_KEY: ${{ secrets.FERNET_KEY }}
-        METADATA_DATABASE_NAME: ${{ secrets.METADATA_DATABASE_NAME }}
-        METADATA_DATABASE_PASSWORD: ${{ secrets.METADATA_DATABASE_PASSWORD }}
-        METADATA_DATABASE_USERNAME: ${{ secrets.METADATA_DATABASE_USERNAME }}
-        POSTGRES_USER: ${{ secrets.POSTGRES_CONN_USERNAME }}
-        POSTGRES_PASSWORD: ${{ secrets.POSTGRES_CONN_PASSWORD }}
-        POSTGRES_CONN_HOST: ${{ secrets.POSTGRES_CONN_HOST }}
-        POSTGRES_CONN_PASSWORD: ${{ secrets.POSTGRES_CONN_PASSWORD }}
-        POSTGRES_CONN_PORT: ${{ secrets.POSTGRES_CONN_PORT }}
-        POSTGRES_CONN_USERNAME: ${{ secrets.POSTGRES_CONN_USERNAME }}
-        AIRFLOW_UID: ${{ vars.AIRFLOW_UID }}
-        CHANNEL_HANDLE: ${{ vars.CHANNEL_HANDLE }}
-        DOCKERHUB_NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE }}
-        DOCKERHUB_REPOSITORY: ${{ vars.DOCKERHUB_REPOSITORY }}
-        DOCKERHUB_USERNAME: ${{ vars.DOCKERHUB_USERNAME }}
-        ### [THÊM - MinIO] 3 biến cho data lake, để docker compose up dựng được MinIO
-        MINIO_ENDPOINT: ${{ vars.MINIO_ENDPOINT }}
-        MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
-        MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v4
-        - name: Get changed files
-          id: changed-files-tests
-          uses: tj-actions/changed-files@v45
-          with:
-            files: |
-                dags/**
-                include/**
-                docker-compose.yaml
-        - name: Set up Docker Compose
-          if: steps.changed-files-tests.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch'
-          run: docker compose up -d
-        - name: Run Unit and Integration Tests
-          if: steps.changed-files-tests.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch'
-          run: docker exec -t airflow-worker sh -c "pytest tests/ -v"
-        - name: Run End-to-End DAG Tests
-          if: steps.changed-files-tests.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch'
-          run: |
-            DAG_NAMES=("produce_json" "update_db" "data_quality")
-            for DAG in "${DAG_NAMES[@]}"; do 
-              docker exec -t airflow-worker sh -c "airflow dags test $DAG"
-            done
-        - name: Tear down Docker Compose
-          if: steps.changed-files-tests.outputs.any_changed == 'true' || github.event_name == 'workflow_dispatch'
-          run: docker compose down
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Cài package + công cụ test
+        run: pip install -e ".[dev,llm]"
+
+      # -m "not integration": bỏ qua test cần database thật.
+      # test_dags.py tự BỎ QUA vì runner không có airflow (importorskip).
+      - name: Unit tests
+        run: pytest -m "not integration" -q
+
+  # ---------------------------------------------------------------------------
+  # JOB 2 - dựng CẢ STACK bằng docker compose, chạy migration, chạy toàn bộ test
+  # ---------------------------------------------------------------------------
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    env:
+      # Secret lấy từ GitHub Secrets. Vì sao không commit .env? Vì .env chứa
+      # mật khẩu - GitHub Secrets được mã hóa và che trong log.
+      AIRFLOW_WWW_USER_PASSWORD: ${{ secrets.AIRFLOW_WWW_USER_PASSWORD }}
+      AIRFLOW_WWW_USER_USERNAME: ${{ secrets.AIRFLOW_WWW_USER_USERNAME }}
+      CELERY_BACKEND_NAME: ${{ secrets.CELERY_BACKEND_NAME }}
+      CELERY_BACKEND_PASSWORD: ${{ secrets.CELERY_BACKEND_PASSWORD }}
+      CELERY_BACKEND_USERNAME: ${{ secrets.CELERY_BACKEND_USERNAME }}
+      ELT_DATABASE_NAME: ${{ secrets.ELT_DATABASE_NAME }}
+      ELT_DATABASE_PASSWORD: ${{ secrets.ELT_DATABASE_PASSWORD }}
+      ELT_DATABASE_USERNAME: ${{ secrets.ELT_DATABASE_USERNAME }}
+      FERNET_KEY: ${{ secrets.FERNET_KEY }}
+      METADATA_DATABASE_NAME: ${{ secrets.METADATA_DATABASE_NAME }}
+      METADATA_DATABASE_PASSWORD: ${{ secrets.METADATA_DATABASE_PASSWORD }}
+      METADATA_DATABASE_USERNAME: ${{ secrets.METADATA_DATABASE_USERNAME }}
+      POSTGRES_CONN_HOST: ${{ secrets.POSTGRES_CONN_HOST }}
+      POSTGRES_CONN_PASSWORD: ${{ secrets.POSTGRES_CONN_PASSWORD }}
+      POSTGRES_CONN_PORT: ${{ secrets.POSTGRES_CONN_PORT }}
+      POSTGRES_CONN_USERNAME: ${{ secrets.POSTGRES_CONN_USERNAME }}
+      MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+      MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+      MINIO_ENDPOINT: http://minio:9000
+      # API_KEY để TRỐNG có chủ ý: CI không được phép gọi YouTube.
+      # Config chỉ đòi key khi chạy `collect` - mà CI không chạy lệnh đó.
+      API_KEY: ""
+      CHANNEL_HANDLE: ""
+      AIRFLOW_UID: "50000"
+      DOCKERHUB_NAMESPACE: ci
+      DOCKERHUB_REPOSITORY: yt_api_elt
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build LOCAL (không push). Tên image khớp DOCKERHUB_NAMESPACE/REPOSITORY
+      # ở trên nên docker compose dùng thẳng image vừa build.
+      - name: Build image (local, KHÔNG push)
+        run: |
+          docker build \
+            --build-arg GIT_SHA=${GITHUB_SHA::7} \
+            --build-arg BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+            -t ci/yt_api_elt:latest .
+
+      # --wait: đợi mọi service qua healthcheck rồi mới đi tiếp.
+      # Không có nó, bước sau chạy khi Postgres chưa nhận kết nối -> lỗi ngẫu nhiên.
+      - name: Dựng stack
+        run: docker compose up -d --wait --wait-timeout 300
+
+      # Database CI là database RỖNG vừa tạo -> phải chạy migration.
+      # Đây cũng là bài kiểm tra: migration có chạy được từ số 0 không?
+      - name: Chạy migration
+        run: |
+          for f in sql/migrations/*.sql; do
+            echo "== $f"
+            docker exec -i postgres psql -U "$ELT_DATABASE_USERNAME" \
+              -d "$ELT_DATABASE_NAME" -v ON_ERROR_STOP=1 < "$f"
+          done
+
+      # Container là airflow-scheduler (không còn airflow-worker từ Bước 1).
+      - name: Toàn bộ test (unit + DAG + integration)
+        run: docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/ -q"
+
+      # Smoke test CLI - không gọi API, chỉ kiểm tra lệnh chạy được và nối được DB.
+      - name: Smoke test CLI
+        run: |
+          docker exec airflow-scheduler bash -lc "cd /opt/airflow && python -m youtube_intel.cli status"
+          docker exec airflow-scheduler bash -lc "cd /opt/airflow && python -m youtube_intel.cli retention"
+
+      # if: failure() -> chỉ in log khi hỏng. Không có bước này, CI đỏ mà
+      # không biết container nào chết vì sao.
+      - name: Log khi hỏng
+        if: failure()
+        run: docker compose logs --tail=100
+
+      - name: Dọn dẹp
+        if: always()
+        run: docker compose down -v
+
+  # ---------------------------------------------------------------------------
+  # JOB 3 - PUBLISH. Chỉ chạy khi: push lên main VÀ hai job trước đều xanh.
+  # ---------------------------------------------------------------------------
+  build-and-push:
+    runs-on: ubuntu-latest
+    needs: integration-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      # Hai tag: `latest` để dùng tiện, `<sha>` để ROLLBACK được về đúng commit.
+      # Chỉ có `latest` thì image cũ bị đè mất -> không quay lại được.
+      - name: Build & push
+        run: |
+          docker buildx build --push \
+            --build-arg GIT_SHA=${GITHUB_SHA::7} \
+            --build-arg BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+            --tag ${{ vars.DOCKERHUB_NAMESPACE }}/${{ vars.DOCKERHUB_REPOSITORY }}:latest \
+            --tag ${{ vars.DOCKERHUB_NAMESPACE }}/${{ vars.DOCKERHUB_REPOSITORY }}:${GITHUB_SHA::7} \
+            .
