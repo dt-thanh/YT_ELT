@@ -4,9 +4,10 @@
 > một người mentor ngồi cạnh bạn, mở repository ra và dẫn bạn đi từ file này sang
 > file khác, dừng lại học khái niệm đúng lúc code cần đến nó.
 >
-> **Ảnh chụp trạng thái:** viết dựa trên code ở commit `3dd4133` (24–25/09/2026).
-> Lúc viết, database có 205 video, 850 observation, 5 lần thu; bộ test có 125 test
-> (116 unit + 5 DAG + 4 integration).
+> **Ảnh chụp trạng thái:** viết ngày 24–25/09/2026, **cập nhật 25/09 sau đợt review toàn
+> project** (nhiều lỗi ghi trong các Engineering Note đã được sửa; mỗi note ghi rõ ✅ ĐÃ SỬA
+> hay còn mở). Lúc cập nhật, database có 205 video, 900 observation, 6 lần thu; bộ test có
+> 135 test (124 unit + 6 DAG + 5 integration), tất cả xanh.
 >
 > **Quy tắc vàng khi đọc file này:** CODE là nguồn sự thật. Nếu file này lệch với
 > code (vì code đã được sửa sau này), hãy tin code và sửa lại file này.
@@ -30,7 +31,7 @@ Cheat Sheet để đọc nhanh trước phỏng vấn.
 | 🧩 **Trong project hiện tại** | Code THỰC SỰ đang làm gì. Chỉ mô tả thứ có trong repo. |
 | 📘 **Kiến thức cần hiểu** | Khái niệm đứng phía sau đoạn code. |
 | 🏭 **Nếu ở production** | Cách làm ở quy mô công ty. **KHÔNG phải thứ project đã làm.** |
-| > **Engineering Note** | Hạn chế có thật trong code hiện tại, vì sao chấp nhận được lúc này, và production sẽ làm khác thế nào. File này **không sửa code**, chỉ ghi lại. |
+| > **Engineering Note** | Hạn chế có thật trong code: vì sao chấp nhận được, production làm khác thế nào. Note nào đã được sửa ghi **✅ ĐÃ SỬA** kèm cách sửa; giữ lại phần mô tả lỗi cũ vì đó là bài học. |
 | 🔎 **Chạy & kiểm chứng** | Lệnh để tự nhìn thấy phần vừa học chạy thật. |
 | 🧯 **Khi nó hỏng** | Kịch bản lỗi gắn với đúng đoạn code gây ra nó. |
 | 🧠 **Tư duy tạo file** | Từ requirement nào mà engineer nghĩ ra file/module này. |
@@ -124,7 +125,7 @@ Ghi nhớ ba ý này, vì bạn sẽ gặp lại chúng ở gần như mọi fil
 | **Output 1 — raw** | JSON nguyên văn + `_manifest.json` trên MinIO, bucket `youtube-raw`. |
 | **Output 2 — dữ liệu công bố** | Postgres database `elt_db`, schema `yti`: video, lần quan sát, lần thu, bản tin. |
 | **Output 3 — chỉ số** | VIEW `yti.v_video_growth`: view/giờ giữa hai lần chụp cách nhau ~24h. |
-| **Người dùng nhận** | Dashboard Streamlit (http://localhost:8501), bản tin mỗi nhóm trong bảng `yti.reports` (LLM viết văn, code viết số), cảnh báo Soda trong log Airflow. |
+| **Người dùng nhận** | Dashboard Streamlit 4 màn hình (http://localhost:8501), trong đó màn 4 là bản tin mỗi nhóm (LLM viết văn, code viết số, lưu ở `yti.reports`); cảnh báo Soda trong log Airflow. |
 
 ## 0.3 Kiến trúc thực tế
 
@@ -225,7 +226,7 @@ hoặc Docker Desktop chưa được mở sau khi khởi động lại, thì kh�
 | `dags/` | 3 DAG, wrapper mỏng gọi CLI | hiện hành |
 | `sql/migrations/` | Schema database, đánh số tăng dần | hiện hành |
 | `include/soda/` | Kết nối + check của Soda | hiện hành |
-| `dashboard/app.py` | Streamlit 3 màn hình | hiện hành |
+| `dashboard/app.py` | Streamlit 4 màn hình (màn 4: bản tin) | hiện hành |
 | `tests/` | unit / DAG / integration | hiện hành |
 | `evals/results/` | Kết quả chấm prompt v1, v2, v3 (JSON, có cả đầu ra LLM) | hiện hành |
 | `docker-compose.yaml`, `Dockerfile`, `docker/postgres/` | Hạ tầng local | hiện hành, có comment cũ |
@@ -329,14 +330,14 @@ tới đâu**:
 | `channels[].verified_at`, `source_url` | `verified_at` **không được đọc**; `source_url` lưu vào `tracked_channels` | Ghi chú cho người. |
 | `groups` | `config._parse_channels()` | Danh sách nhóm hợp lệ, gõ sai tên nhóm bị bắt ngay. |
 
-> **Engineering Note — cờ `derived_metrics_enabled` không điều khiển gì cả.**
+> **Engineering Note — cờ `derived_metrics_enabled` không điều khiển gì cả.** *(còn mở, đã ghi rõ)*
 > *Hiện tại:* `config.py` đọc và kiểm kiểu cờ này, nhưng không module nào dùng nó. VIEW
 > `v_video_growth` và bản tin chạy bất kể giá trị của cờ.
-> *Hạn chế:* người đọc config (và `docs/policy_notes.md`) sẽ tưởng chỉ số dẫn xuất đang bị
-> tắt chờ xác minh chính sách, trong khi thực tế đang chạy.
-> *Vì sao chấp nhận được lúc này:* đây là project học, dữ liệu không public ra ngoài.
-> *Production:* hoặc nối cờ vào chỗ tính/hiển thị chỉ số (dashboard màn 3, `run_reports`),
-> hoặc xóa cờ đi. Cờ không nối vào đâu là loại config nguy hiểm nhất: nó nói dối.
+> *Hạn chế:* người đọc config sẽ tưởng chỉ số dẫn xuất đang bị tắt chờ xác minh chính sách,
+> trong khi thực tế đang chạy. Cờ không nối vào đâu là loại config nguy hiểm nhất: nó nói dối.
+> *Đã làm 25/09:* comment trong `channels.yaml` và `docs/policy_notes.md` giờ ghi thẳng "CHƯA
+> được nối vào code", nên cờ không còn nói dối. Chưa nối vào code vì nối với giá trị `false`
+> sẽ **tắt** bảng xếp hạng và bản tin; việc đó chỉ nên làm sau khi đọc xong chính sách.
 
 > **Engineering Note — danh sách nhóm được khai ở HAI nơi.**
 > *Hiện tại:* `groups:` trong YAML **và** ràng buộc `CHECK (group_code IN ('books_learning',
@@ -344,7 +345,7 @@ tới đâu**:
 > *Hạn chế:* thêm kênh vào nhóm có sẵn thì chỉ cần sửa YAML (đúng như comment đầu file
 > hứa). Nhưng thêm **nhóm mới** thì config pass mà database từ chối lúc INSERT.
 > *Production:* bảng tra cứu `groups` + khóa ngoại, hoặc chấp nhận và ghi rõ "thêm nhóm
-> = thêm migration".
+> = thêm migration". *(25/09: comment của `groups:` trong YAML giờ ghi rõ điều này.)*
 
 ### 🔎 Chạy & kiểm chứng
 
@@ -720,9 +721,12 @@ phối (orchestration ở mức code, khác với orchestration ở mức lịch
       except QuotaExceededError:              -> kênh 'failed', DỪNG vòng lặp
       except ConfigurationError:              -> kênh 'failed', DỪNG vòng lặp
       except mọi lỗi khác:                    -> kênh 'failed', kênh SAU vẫn chạy
-      finally: ghi số quota kênh này đã tiêu
+      finally: ghi số quota kênh này đã tiêu;
+               kênh 'failed' -> _record_channel_failure(): ghi dòng batch 'failed'
+               bằng một transaction RIÊNG (transaction của kênh đã rollback)
 7. trạng thái cả lần thu: tất cả OK -> succeeded; không kênh nào OK -> failed; còn lại -> partial
-8. nếu không phải dry-run: transaction ngắn -> finish_collection_run(status, ended_at)
+8. nếu không phải dry-run: transaction ngắn -> finish_collection_run(...)
+      (trạng thái lưu vào DB được TÍNH TỪ channel_batches, xem Engineering Note bên dưới)
 9. trả CollectionResult (CLI dùng để in summary và tính exit code)
 ```
 
@@ -793,23 +797,25 @@ làm rối log.
 là nói dối, gọi là `failed` là phí dữ liệu đã lấy. `partial` trả exit code 1 vì nó
 **cần người xem**.
 
-> **Engineering Note — trong chế độ Airflow, trạng thái lần thu là "ai ghi sau cùng thắng".**
-> *Hiện tại:* DAG chạy **4 tiến trình riêng**, mỗi tiến trình `collect --channel X` với
-> cùng `collection_id`. Mỗi tiến trình tự tính `status` chỉ dựa trên **một** kênh của nó
-> rồi gọi `finish_collection_run()`, ghi đè lẫn nhau. Kênh 1 lỗi, kênh 4 thành công và
-> xong sau cùng thì `collection_runs.status = 'succeeded'`. Trạng thái `partial` chỉ xuất
-> hiện khi chạy tay `collect` cho nhiều kênh trong một tiến trình.
-> *Vì sao chấp nhận được:* từng kênh vẫn hiện rõ đỏ/xanh trong Airflow UI, và bảng
-> `channel_batches` cho biết kênh nào đã publish.
-> *Production:* tính trạng thái lần thu từ `channel_batches` (một task tổng kết cuối DAG,
-> hoặc một VIEW) thay vì để từng tiến trình tự ghi.
+> **Engineering Note — trạng thái lần thu từng là "ai ghi sau cùng thắng".** ✅ **ĐÃ SỬA (25/09)**
+> *Lỗi cũ:* DAG chạy **4 tiến trình riêng**, mỗi tiến trình `collect --channel X` với cùng
+> `collection_id`. Mỗi tiến trình tự tính `status` chỉ dựa trên **một** kênh của nó rồi ghi
+> đè lẫn nhau. Kênh 1 lỗi, kênh 4 thành công và xong sau cùng thì cả lần thu báo `succeeded`.
+> *Cách sửa:* `repository.finish_collection_run()` **không ghi thẳng** tham số `status` nữa mà
+> tính từ bảng `channel_batches` bằng một câu SQL: mọi batch đã xong đều `succeeded` →
+> `succeeded`; đều `failed` → `failed`; lẫn lộn → `partial`. Tiến trình nào đóng sổ cũng ra
+> cùng kết luận, và nó **tự lành**: kênh lỗi được Airflow retry thành công thì lần đóng sổ sau
+> ra `succeeded`. Điều này chỉ đúng khi kênh lỗi **có** dòng batch, nên đi kèm một sửa khác:
+> kênh lỗi giờ được ghi dòng `failed` (Chặng 9). Test canh giữ:
+> `tests/integration/test_database.py::test_run_status_is_derived_from_batches`.
+> *Bài học:* khi nhiều tiến trình cùng cập nhật một trạng thái tổng, đừng để từng tiến trình
+> ghi kết luận riêng của nó. Hãy để mỗi tiến trình ghi **sự kiện** của mình (một dòng batch),
+> rồi **suy ra** trạng thái tổng từ tất cả sự kiện.
 
-> **Engineering Note — số quota trong manifest là số CỘNG DỒN khi chạy nhiều kênh.**
-> *Hiện tại:* `BatchManifest.request_count/estimated_units` và `finish_channel_batch(request_count=...)`
-> lấy từ `yt.meter`, là bộ đếm dùng chung cho cả tiến trình. Chạy tay 4 kênh một lượt thì
-> manifest kênh thứ 4 ghi tổng quota của cả 4 kênh. Trong chế độ Airflow (1 kênh/tiến trình)
-> thì số này đúng.
-> *Production:* lấy hiệu số trước/sau như `outcome.quota_units` đã làm.
+> **Engineering Note — số quota trong manifest từng là số CỘNG DỒN.** ✅ **ĐÃ SỬA (25/09)**
+> *Lỗi cũ:* manifest và `channel_batches.request_count` lấy thẳng từ `yt.meter`, bộ đếm dùng
+> chung cho cả tiến trình; chạy tay 4 kênh một lượt thì kênh thứ 4 ghi tổng quota của cả 4.
+> *Cách sửa:* `_run_one_channel()` ghi lại số đếm **trước** khi bắt đầu kênh và lưu **hiệu số**.
 
 ### 🔎 Chạy & kiểm chứng
 
@@ -891,7 +897,7 @@ thì 1000 video tốn 1000 unit thay vì 20. Batching ở đây không phải đ
 ```
 lặp tối đa max_attempts (=4) lần:
     tính quota cho lần gọi này       <- lần thử lại CŨNG bị tính (request hỏng vẫn có thể tốn quota)
-    GET url?params&key=...
+    GET url?params                   <- API key KHÔNG nằm trong URL, mà trong header X-Goog-Api-Key
     timeout / mất kết nối     -> ném RetryableError
     HTTP 200                  -> trả JSON
     mã khác                   -> _classify_error() quyết định loại lỗi
@@ -924,7 +930,7 @@ báo để đoán, và đó là cách làm mong manh nhất có thể.
 
 **`discover_video_ids()`: phân trang có trần.** Hai cái trần khác nhau: `limit` (quyết
 định nghiệp vụ: 50 video) và `page_limit` (chặn vòng lặp vô hạn). Chạm trần nào cũng
-đặt `truncated=True`. Peppa có 1.274 video mà ta lấy 50, nên **bắt buộc** phải ghi
+đặt `truncated=True`. Video ID trùng (playlist trả lặp) bị bỏ ngay tại đây. Peppa có 1.274 video mà ta lấy 50, nên **bắt buộc** phải ghi
 "đã cắt", để về sau không ai khẳng định "đã phân tích toàn bộ kênh".
 
 **`fetch_video_details()` + `_reconcile()`: đối soát.** Gửi 50 ID có thể chỉ nhận 48
@@ -954,25 +960,30 @@ exception.
 | Thiếu ≤ 5% | log WARNING, `missing_ids` ghi vào manifest | Vẫn chạy tiếp |
 | Video ẩn like | `likeCount` = `None` | Bình thường, thành NULL trong DB |
 
-> **Engineering Note — API key có thể lọt vào log khi mất mạng.** *(đã kiểm chứng)*
-> *Hiện tại:* key được gửi dưới dạng query param `?key=...`. Khi `requests` gặp lỗi kết nối,
-> thông báo của `ConnectionError` **chứa cả URL lẫn query string**. Đã thử bằng một host không
-> tồn tại: thông báo có dạng `...Max retries exceeded with url: /youtube/v3/videos?part=...&key=<KEY>`.
-> Code bọc nguyên thông báo đó vào `RetryableError(f"Lỗi mạng khi gọi {endpoint}: {e}")`, rồi
-> `before_sleep_log` và `logger.error("Kênh %s thất bại: %s", ...)` ghi nó ra log task Airflow.
-> *Mức độ hiện tại:* ngày 24/09 đã quét thư mục `logs/`, **chưa** có file nào chứa key.
-> Chỉ xảy ra khi có lỗi mạng loại "không kết nối được".
-> *Production:* gửi key qua header `X-Goog-Api-Key` thay vì query string, hoặc lọc thông báo
-> lỗi trước khi log (redaction), và bật bộ lọc secret ở tầng thu thập log.
+> **Engineering Note — API key từng có thể lọt vào log khi mất mạng.** ✅ **ĐÃ SỬA (25/09)** — lỗi bảo mật
+> *Lỗi cũ:* key được gửi dưới dạng query param `?key=...`. Khi `requests` gặp lỗi kết nối,
+> thông báo của `ConnectionError` **chứa cả URL lẫn query string**. Thử bằng một host không
+> tồn tại thấy ngay: `...Max retries exceeded with url: /youtube/v3/videos?part=...&key=<KEY>`.
+> Code bọc nguyên thông báo đó vào `RetryableError`, rồi `before_sleep_log` và `logger.error`
+> ghi nó ra log task Airflow. (Ngày 24/09 đã quét `logs/`: chưa file nào bị lộ.)
+> *Cách sửa:* `YouTubeClient.__init__` đặt key vào **header** của session
+> (`self._session.headers["X-Goog-Api-Key"] = api_key`), và `_get()` không còn thêm `key` vào
+> params. Header không bao giờ xuất hiện trong thông báo lỗi của `requests`. Đã kiểm chứng
+> bằng một lần gọi thật (YouTube chấp nhận key qua header, tốn 1 unit).
+> *Test canh giữ:* `test_api_key_goes_in_header_not_in_query` và
+> `test_network_error_message_does_not_leak_key`. Test thứ hai gây **lỗi mạng thật** (gọi vào
+> cổng 9 đang đóng trên chính máy, không cần internet) rồi kiểm key không có trong thông báo.
+> *Bài học:* secret đi trong URL là secret sẽ xuất hiện ở những chỗ bạn không ngờ: log lỗi,
+> log của proxy, lịch sử trình duyệt. Mặc định, đặt secret trong header.
 
-> **Engineering Note — chú thích cũ.** Docstring đầu file còn nhắc `dags/api/youtube_client.py`
-> "vẫn giữ nguyên". File đó đã bị xóa khi chuyển sang kiến trúc mới. Đây là **di sản**, không
-> phải mô tả hiện tại.
+> **Engineering Note — chú thích cũ.** ✅ **ĐÃ SỬA (25/09)** Docstring từng ghi `dags/api/youtube_client.py`
+> "vẫn giữ nguyên" dù file đó đã bị xóa; giờ ghi đúng là lịch sử (strangler fig đã hoàn tất).
 
-> **Engineering Note — không khử trùng video ID khi discovery.**
-> Brief yêu cầu "dedup ID" trước `videos.list`, nhưng `discover_video_ids()` không làm việc đó.
-> Nếu playlist trả trùng ID, lỗi được **bắt ở quality gate** (`duplicate_video_id`, Chặng 10)
-> và batch bị cách ly. An toàn, nhưng là cách ly một lỗi có thể tránh từ sớm.
+> **Engineering Note — không khử trùng video ID khi discovery.** ✅ **ĐÃ SỬA (25/09)**
+> Brief yêu cầu "dedup ID" trước `videos.list`. Trước đây ID trùng lọt tới quality gate và làm
+> **cả batch** bị cách ly vì `duplicate_video_id`. Giờ `discover_video_ids()` bỏ ID trùng ngay
+> tại nguồn. Kèm theo là 3 test phân trang bằng response giả, loại test brief yêu cầu từ đầu
+> (khử trùng, cắt ở trần trang, cắt ở `limit`, playlist đủ thì không `truncated`).
 
 ### 🔎 Chạy & kiểm chứng
 
@@ -980,7 +991,7 @@ exception.
 # Xác minh 4 kênh (~4 quota unit): so tiêu đề API với tiêu đề trong config
 docker exec airflow-scheduler youtube-intel verify-channels
 
-# Test phân loại lỗi — KHÔNG gọi mạng (dùng response giả)
+# 12 test: phân loại lỗi, key không nằm trong URL, phân trang — KHÔNG gọi YouTube thật
 venv/bin/python -m pytest tests/unit/test_youtube.py -v
 
 # Xem trong log một lần thu thật: đối soát và quota (log nằm ngay trong repo, thư mục logs/)
@@ -1308,7 +1319,7 @@ từ raw; raw thì không dựng lại được từ đâu cả.
 - `json.dumps(..., ensure_ascii=False)` giữ nguyên tiếng Việt và emoji, để raw đọc
   được bằng mắt khi điều tra.
 
-> **Engineering Note — `attempt=1` được viết cứng, nên chạy lại sẽ GHI ĐÈ raw.**
+> **Engineering Note — `attempt=1` được viết cứng, nên chạy lại sẽ GHI ĐÈ raw.** *(còn mở, có chủ ý)*
 > *Hiện tại:* đường dẫn raw có phần `attempt=...` (thiết kế để phân biệt các lần thử),
 > nhưng `_run_one_channel()` luôn truyền `attempt=1` cho cả `put_batch` và `BatchManifest`.
 > Airflow retry một task kênh thì dùng **cùng** `collection_id`, nên `put_object` ghi đè
@@ -1318,11 +1329,16 @@ từ raw; raw thì không dựng lại được từ đâu cả.
 > *Vì sao chấp nhận được:* retry hiếm, và lần thử sau là số liệu hợp lệ.
 > *Production:* tăng `attempt` mỗi lần thử (đọc manifest cũ để biết số tiếp theo), hoặc bật
 > **object versioning / object lock** trên bucket để S3 tự giữ mọi phiên bản.
+> *Vì sao chưa sửa (25/09):* tăng `attempt` thì `replay` mặc định (`--attempt 1`) sẽ replay
+> nhầm lần thử cũ; bật versioning thì `delete_keys` của retention chỉ tạo "delete marker" chứ
+> không giải phóng dung lượng. Cả hai cách đều đổi hành vi ở chỗ khác, nên cần thiết kế cùng
+> retention, không vá lẻ. README đã ghi hạn chế này.
 
-> **Engineering Note — `source_object_key` chỉ trỏ tới file raw ĐẦU TIÊN của batch.**
-> `load_staging_rows(..., source_object_key=objects[0]["key"])`. Với 50 video/kênh thì
-> chỉ có đúng 1 file nên không sao. Nếu tăng `initial_video_limit_per_channel` lên > 50,
-> các dòng thuộc file thứ hai sẽ trỏ sai file.
+> **Engineering Note — `source_object_key` từng chỉ trỏ tới file raw ĐẦU TIÊN.** ✅ **ĐÃ SỬA (25/09)**
+> Trước đây mọi dòng của batch nhận `objects[0]["key"]`; tăng giới hạn lên > 50 video thì các
+> dòng thuộc file thứ hai trỏ sai file. Giờ `_run_one_channel()` chia lô **một lần**
+> (`chunks`), ghi mỗi lô thành một file, rồi nạp staging **theo từng lô** với đúng key của file
+> đó. Replay cũng đọc và nạp theo từng file, dùng `observed_at` của chính file đó.
 
 ### ⏸ Dừng lại: MinIO chạy ở đâu? — lần đầu gặp Docker
 
@@ -1692,14 +1708,14 @@ Gom SQL của đường thu thập về một chỗ, và cho tầng trên gọi 
 | Hàm | Bảng | Mẫu SQL | Cơ chế chạy lại an toàn |
 |---|---|---|---|
 | `upsert_channel` | `tracked_channels` | `INSERT ... ON CONFLICT (channel_id) DO UPDATE` | upsert theo khóa |
-| `insert_collection_run` | `collection_runs` | `ON CONFLICT (collection_id) DO NOTHING` | giữ bản ghi đầu tiên |
-| `finish_collection_run` | `collection_runs` | `UPDATE` | ghi đè trạng thái |
+| `insert_collection_run` | `collection_runs` | `ON CONFLICT (collection_id) DO NOTHING`; trả True nếu vừa tạo | giữ bản ghi đầu tiên |
+| `finish_collection_run` | `collection_runs` | `UPDATE ... SET status = (tính từ channel_batches)` | mọi tiến trình ra cùng kết luận |
+| `ensure_channel` | `tracked_channels` | `ON CONFLICT DO NOTHING` | chỉ bảo đảm có dòng, không đụng metadata |
 | `insert_channel_batch` | `channel_batches` | `ON CONFLICT (collection_id, channel_id) DO UPDATE ... RETURNING batch_id` | upsert-and-return |
 | `finish_channel_batch` | `channel_batches` | `UPDATE` | — |
 | `clear_staging_batch` + `load_staging_rows` | staging | `DELETE` rồi `execute_values INSERT` | delete-insert |
 | `fetch_staging_rows` | staging | `SELECT` tường minh cột | — |
 | `publish_batch` | `videos_current` + `video_observations` | 2 × `execute_values ... ON CONFLICT DO UPDATE` | upsert theo grain |
-| `set_batch_quality` | `channel_batches` | `UPDATE` | — |
 
 ### 📘 Kiến thức cần hiểu
 
@@ -1827,21 +1843,23 @@ nếu không có video -> (0, 0)
 
 | Tình huống | Điều xảy ra | Phục hồi |
 |---|---|---|
-| Postgres chết | `psycopg2.OperationalError` → `RepositoryError` → kênh `failed` (hoặc CLI thoát mã 3 nếu chết ngay lúc mở sổ) | Raw đã có → `replay --collection-id` |
+| Postgres chết | `psycopg2.OperationalError` → `RepositoryError` → kênh `failed` (hoặc CLI thoát mã 3 nếu chết ngay lúc mở sổ); ghi dòng batch `failed` cũng hỏng theo, nên chỉ còn log | Raw đã có → `replay --collection-id` |
 | Trùng `video_id` trong cùng một lô | Postgres sẽ báo "ON CONFLICT DO UPDATE command cannot affect row a second time" | Quality gate bắt trước (`duplicate_video_id`) → cách ly, không tới được đây |
-| Vi phạm NOT NULL / CHECK lúc publish | Exception → ROLLBACK toàn bộ transaction của kênh | Xem Engineering Note ở Chặng 10 |
+| Vi phạm NOT NULL / CHECK lúc publish | Exception → ROLLBACK toàn bộ transaction của kênh | Gate giờ bắt trước các ràng buộc này (Chặng 10) |
 | Chạy lại cùng lần thu | Upsert/delete-insert → số dòng không đổi | Không cần làm gì, đó là mục tiêu |
 
-> **Engineering Note — kênh thất bại KHÔNG để lại dòng nào trong `channel_batches`.**
-> *Hiện tại:* `insert_channel_batch` nằm **trong** transaction của kênh. Kênh lỗi thì
-> transaction rollback, dòng batch biến mất cùng. Lỗi xảy ra trước transaction (lỗi API)
-> thì dòng batch chưa từng được tạo. `finish_channel_batch` chỉ được gọi với
-> `status="succeeded"`. Kết quả: **trạng thái `failed` của bảng này không bao giờ được ghi**,
-> dù CHECK cho phép.
-> *Hạn chế:* lỗi của từng kênh chỉ thấy trong log/Airflow UI (và `collection_runs` khi chạy
-> tay nhiều kênh). Truy vấn SQL "tuần này kênh nào lỗi bao nhiêu lần" không trả lời được.
-> *Production:* ghi trạng thái lỗi bằng một transaction **riêng** sau khi transaction chính
-> rollback (hoặc mở dòng batch trong transaction ngắn riêng trước khi xử lý).
+> **Engineering Note — kênh thất bại từng KHÔNG để lại dòng nào trong `channel_batches`.** ✅ **ĐÃ SỬA (25/09)**
+> *Lỗi cũ:* `insert_channel_batch` nằm **trong** transaction của kênh. Kênh lỗi thì transaction
+> rollback, dòng batch biến mất cùng; lỗi ở bước API thì dòng batch chưa từng được tạo. Trạng
+> thái `failed` của bảng này **không bao giờ được ghi**, dù CHECK cho phép. Câu hỏi "tuần này
+> kênh nào lỗi bao nhiêu lần" không trả lời được bằng SQL.
+> *Cách sửa:* `pipeline._record_channel_failure()` chạy **sau khi** transaction chính đã
+> rollback, trong một **transaction riêng**: `ensure_channel` (kênh có thể chưa có trong
+> registry nếu lần thu đầu tiên hỏng ngay ở API, và dòng batch cần khóa ngoại hợp lệ), rồi
+> `insert_channel_batch` + `finish_channel_batch(status='failed', error_code, error_message)`.
+> Nó là *best-effort*: nếu chính database đang sập thì chỉ log, **không** ném lỗi mới đè lên
+> lỗi gốc. Đã kiểm chứng trên DB thật bằng một YouTube giả luôn lỗi mạng (rồi dọn dữ liệu thử).
+> *Bài học:* muốn ghi lại **sự thất bại** của một transaction, phải ghi ở **ngoài** transaction đó.
 
 ### 🔎 Chạy & kiểm chứng
 
@@ -1863,8 +1881,8 @@ SELECT application_name, state, backend_start FROM pg_stat_activity WHERE datnam
 
 **Thí nghiệm idempotency (tự làm):** ghi lại `count(*)` của `video_observations`, chạy
 `docker exec airflow-scheduler youtube-intel replay --collection-id <một collection_id có sẵn>`,
-đếm lại. Số dòng **không đổi**. (Replay tốn 0 quota. Nó có một tác dụng phụ về cột
-`status` của `channel_batches`, xem Engineering Note ở Chặng 11.)
+đếm lại. Số dòng **không đổi**. (Replay tốn 0 quota. Ngày 25/09 chính thí nghiệm này, trên lần
+thu `d8230ea6`, cho kết quả 850 → 850 dòng.)
 
 **Bài tập đo `execute_values`:** viết một script nhỏ INSERT 500 dòng vào một bảng tạm
 bằng vòng lặp `cur.execute` từng dòng, rồi bằng `execute_values`, so thời gian.
@@ -1937,6 +1955,8 @@ gặp "camera" Soda, thứ bổ sung chứ không thay thế ổ khóa.)
 |---|---|---|---|
 | ERROR | `empty_batch` | batch 0 dòng | publish "thành công" 0 dòng là nói dối |
 | ERROR | `missing_video_id` | dòng không có khóa | không định danh, không upsert được |
+| ERROR | `missing_title`, `missing_published_at` | trường **vắng mặt** mà bảng đích bắt buộc (`NOT NULL`) | để lọt thì publish gãy giữa transaction (thêm 25/09) |
+| ERROR | `invalid_video_id` | độ dài ngoài 5..32 ký tự | khớp CHECK của `videos_current` (thêm 25/09) |
 | ERROR | `duplicate_video_id` | trùng video trong batch | vi phạm grain; để lọt thì INSERT gãy giữa transaction |
 | ERROR | `unparsable_view/like/comment_count` | **có** giá trị nhưng không đọc được (`"1,234"`) | nghĩa là YouTube đổi định dạng, hoặc đọc sai file |
 | ERROR | `unparsable_duration`, `unparsable_published_at` | có giá trị nhưng sai định dạng | như trên |
@@ -1978,23 +1998,22 @@ batch bị cách ly. Xóa dữ liệu lỗi là tự bịt mắt mình.
 đếm, đặt alert) và `message` (câu cho người). Đừng bao giờ bắt hệ thống khác parse
 chuỗi message để biết lỗi gì.
 
-> **Engineering Note — gate không bắt `title` / `published_at` VẮNG MẶT, nhưng bảng đích bắt buộc có.**
-> *Hiện tại:* `videos_current.title` và `published_at` là `NOT NULL`. Gate chỉ kiểm
-> `published_at` khi nó **có mặt mà sai định dạng**, không kiểm khi nó **vắng**, và không
-> kiểm `title`. Nếu một video về thiếu một trong hai trường, gate cho qua, rồi `publish_batch`
-> ném lỗi NOT NULL, và **toàn bộ transaction của kênh bị rollback**, kể cả dòng staging.
-> *Hệ quả:* kênh bị đánh `failed` chứ không phải `quarantined`, và bằng chứng trong staging
-> mất (chỉ còn raw trên MinIO và log).
-> *Vì sao chấp nhận được:* YouTube gần như luôn trả hai trường này; chưa từng xảy ra.
-> *Production:* thêm check ERROR cho mọi cột `NOT NULL` của bảng đích. Nguyên tắc: gate phải
-> biết **mọi** ràng buộc mà bảng đích sẽ áp đặt.
+> **Engineering Note — gate từng không bắt `title` / `published_at` VẮNG MẶT.** ✅ **ĐÃ SỬA (25/09)**
+> *Lỗi cũ:* `videos_current.title` và `published_at` là `NOT NULL`, nhưng gate chỉ kiểm
+> `published_at` khi nó **có mặt mà sai định dạng**, và không kiểm `title`. Video về thiếu một
+> trong hai trường thì gate cho qua, `publish_batch` ném lỗi NOT NULL, **toàn bộ transaction của
+> kênh rollback** kể cả dòng staging: kênh bị `failed` thay vì `quarantined`, bằng chứng mất.
+> *Cách sửa:* thêm ERROR `missing_title`, `missing_published_at`, và `invalid_video_id` (khớp
+> CHECK độ dài 5..32 của bảng đích). Test: `test_fields_required_by_target_table_are_errors`,
+> `test_video_id_length_matches_target_check`.
+> *Nguyên tắc rút ra:* gate phải biết **mọi** ràng buộc mà bảng đích sẽ áp đặt. Mỗi lần thêm
+> một `NOT NULL`/`CHECK` vào migration, hỏi: "gate đã biết ràng buộc này chưa?"
 
-> **Engineering Note — báo cáo chất lượng không được lưu lại đầy đủ.**
-> `QualityReport.to_dict()` có sẵn nhưng không được gọi. Khi batch **passed**, các WARNING
-> (ví dụ bao nhiêu video thiếu like) chỉ nằm trong bộ nhớ, và chỉ in ra khi chạy
-> `collect --json`. Không vào DB, không vào log. Muốn biết xu hướng "tỷ lệ thiếu like tăng
-> dần" thì hiện không có dữ liệu. *Production:* lưu `to_dict()` vào một cột JSONB của
-> `channel_batches`.
+> **Engineering Note — báo cáo chất lượng không được lưu vào DB.** *(sửa một phần 25/09)*
+> Trước đây khi batch **passed**, các WARNING (ví dụ bao nhiêu video thiếu like) chỉ nằm trong
+> bộ nhớ. Giờ pipeline ghi `report.summary()` vào **log** mọi lần (dòng `Quality gate <kênh>: ...`).
+> Vẫn chưa vào DB, nên muốn thấy xu hướng "tỷ lệ thiếu like tăng dần" vẫn phải đọc log.
+> *Production:* lưu `to_dict()` vào một cột JSONB của `channel_batches` (cần một migration mới).
 
 ### 🔎 Chạy & kiểm chứng
 
@@ -2005,9 +2024,9 @@ venv/bin/python -m pytest tests/unit/test_quality.py -v
 venv/bin/python -c "
 from youtube_intel.quality import check_batch
 rows = [
-  {'stg_id': 1, 'video_id': 'a', 'raw_view_count': '100', 'raw_like_count': '999',
+  {'stg_id': 1, 'video_id': 'aaaaaaaaaaa', 'title': 'A', 'raw_view_count': '100', 'raw_like_count': '999',
    'raw_comment_count': None, 'raw_duration': 'PT5M', 'raw_published_at': '2026-01-01T00:00:00Z'},
-  {'stg_id': 2, 'video_id': 'b', 'raw_view_count': '1,234', 'raw_like_count': None,
+  {'stg_id': 2, 'video_id': 'bbbbbbbbbbb', 'title': None, 'raw_view_count': '1,234', 'raw_like_count': None,
    'raw_comment_count': '3', 'raw_duration': 'PT5M', 'raw_published_at': '2026-01-01T00:00:00Z'},
 ]
 print(check_batch(batch_id='demo', rows=rows).summary())
@@ -2055,19 +2074,22 @@ Mở lại [src/youtube_intel/pipeline.py](src/youtube_intel/pipeline.py), đọ
 ② yt.discover_video_ids(uploads, limit, page_limit)   youtube.py      (1 quota/trang)
    observed_at = utc_now()                             <- mốc "đọc con số"
 ③ yt.fetch_video_details(ids)                         youtube.py      (1 quota/50 ID)
-   videos = [normalize_video(v) ...]                   normalize.py
    (dry-run thì dừng ở đây)
-④ store.put_batch(...) cho từng lô 50                  storage.py      -> MinIO
+   chunks = chia det.videos thành lô 50 (MỘT lần, dùng cho cả raw lẫn staging)
+④ store.put_batch(...) cho từng lô                     storage.py      -> MinIO
 ⑤ store.put_manifest(...)                              storage.py      -> MinIO (commit marker)
 ── mở TRANSACTION (một kênh) ──────────────────────────────────────────────────────
 ⑥ upsert_channel, insert_channel_batch                 repository.py
-   clear_staging_batch + load_staging_rows             repository.py   (delete-insert)
+   clear_staging_batch + load_staging_rows (từng lô,   repository.py   (delete-insert)
+      normalize_video + key đúng file raw của lô đó)   normalize.py
 ⑦ rows = fetch_staging_rows                            repository.py
-   report = quality.check_batch(rows, ...)             quality.py
+   report = quality.check_batch(rows, ...)             quality.py      (summary ghi vào log)
 ⑧ passed:      publish_batch(from_staging_row(rows))   normalize.py + repository.py
    quarantined: log ERROR, không publish
    finish_channel_batch(status='succeeded', quality_status=...)
 ── COMMIT (ra khỏi `with conn:`) ───────────────────────────────────────────────────
+nếu có exception ở bất kỳ bước nào: run_collection bắt, rồi _record_channel_failure()
+ghi dòng batch 'failed' bằng transaction riêng
 ```
 
 ```mermaid
@@ -2101,11 +2123,11 @@ sequenceDiagram
 
 | Hỏng ở bước | Còn lại trên MinIO | Còn lại trong Postgres | Thấy ở đâu | Cách phục hồi |
 |---|---|---|---|---|
-| ①–③ (API) | không có gì | dòng `collection_runs` (mở sổ); **không** có batch | log task: `Kênh ... thất bại`, task đỏ | Airflow tự retry task; hoặc chạy lại lệnh in trong log |
+| ①–③ (API) | không có gì | dòng `collection_runs` + dòng batch **`failed`** (có `error_code`) | log task: `Kênh ... thất bại`, task đỏ, DAG run đỏ | Airflow tự retry task; hoặc chạy lại lệnh in trong log |
 | ④ giữa các file | vài file, **không** manifest | như trên | log: `StorageError` | chạy lại; file mồ côi được `retention` dọn sau 24h |
-| ⑤→⑥ (DB sập sau khi raw xong) | raw **đầy đủ** + manifest | không có batch cho kênh này | log: `RepositoryError`, mã thoát 1 hoặc 3 | `youtube-intel replay --collection-id <id>` (0 quota) |
+| ⑤→⑥ (DB sập sau khi raw xong) | raw **đầy đủ** + manifest | không có batch (DB sập nên ghi `failed` cũng hỏng) | log: `RepositoryError`, mã thoát 1 hoặc 3 | `youtube-intel replay --collection-id <id>` (0 quota) |
 | ⑦ gate ERROR | raw đầy đủ | staging **còn**, batch `quarantined`, không publish | `channel_batches.error_message`, log `QUARANTINE` | điều tra staging, sửa code, replay |
-| ⑧ publish vi phạm ràng buộc | raw đầy đủ | **rollback sạch** kênh đó (kể cả staging) | log: traceback psycopg2 | sửa code, replay |
+| ⑧ publish vi phạm ràng buộc | raw đầy đủ | **rollback sạch** kênh đó (kể cả staging), dòng batch `failed` | log: traceback psycopg2 | sửa code, replay (gate giờ bắt trước các ràng buộc đã biết) |
 | Tiến trình bị kill giữa transaction | raw đầy đủ | Postgres tự rollback; `collection_runs` kẹt `running` | Soda check `stuck_runs` (sau 2 giờ) | replay; cập nhật tay trạng thái run |
 
 Để ý cột "Còn lại trên MinIO": **hễ qua được bước ⑤ thì không bao giờ mất dữ liệu**. Đó
@@ -2136,34 +2158,40 @@ với từng kênh đang bật trong config:
     MỘT transaction:
         insert_collection_run (ON CONFLICT DO NOTHING, lấy scheduled_for/started_at từ manifest)
         insert_channel_batch (batch_id = uuid5 -> đúng batch cũ)
-        clear_staging + load_staging -> fetch -> check_batch -> publish nếu passed
-        set_batch_quality
+        clear_staging + load_staging TỪNG FILE -> fetch -> check_batch -> publish nếu passed
+        finish_channel_batch(status='succeeded', ...)   <- đóng batch GIỐNG HỆT đường thu thật
+sau vòng lặp: finish_collection_run (trạng thái tính lại từ batch; ended_at chỉ ghi
+              nếu CHÍNH replay tạo ra dòng lần thu)
 ```
 
 Replay giữ **nguyên** `collection_id` và `observed_at`. Không tạo lần thu mới, không tạo
 ảnh chụp mới; chỉ **xử lý lại** ảnh chụp cũ bằng code mới. Nhờ upsert theo grain, số
 dòng không đổi, chỉ giá trị (nếu parse khác) được cập nhật.
 
-> **Engineering Note — replay để lại `channel_batches.status = 'running'`.** *(có trong dữ liệu thật)*
-> *Hiện tại:* replay gọi `insert_channel_batch()`, hàm này (vì mẹo upsert-and-return) đặt
-> `status = 'running'`. Sau đó replay chỉ gọi `set_batch_quality()` (cập nhật
-> `quality_status`), **không** gọi `finish_channel_batch()`. Trạng thái không bao giờ trở lại
-> `succeeded`. Tệ hơn: replay một lần thu vốn đã `succeeded` sẽ **kéo lùi** batch về `running`.
-> *Bằng chứng:* ngày 24/09, lần thu `d8230ea6-...` (đã được replay) có 4 batch ở trạng thái
-> `running/passed`. Truy vấn ở phần kiểm chứng bên dưới sẽ cho bạn thấy.
-> *Vì sao chưa gây hại:* không có gì đọc `channel_batches.status`; Soda chỉ soi `collection_runs`.
-> *Production:* replay gọi `finish_channel_batch(status='succeeded', ...)` giống đường thu thật.
+> **Engineering Note — replay từng để lại `channel_batches.status = 'running'`.** ✅ **ĐÃ SỬA (25/09)**
+> *Lỗi cũ:* replay gọi `insert_channel_batch()` (mẹo upsert-and-return đặt `status='running'`)
+> rồi chỉ cập nhật `quality_status`, **không** đóng batch. Trạng thái không bao giờ trở lại
+> `succeeded`; replay một lần thu đã xong còn **kéo lùi** batch về `running`. Bằng chứng thật:
+> ngày 24/09, lần thu `d8230ea6-...` (đã được replay trước đó) có 4 batch `running/passed`.
+> *Cách sửa:* replay gọi `finish_channel_batch(status='succeeded', ...)` y như đường thu thật
+> (hàm `set_batch_quality` không còn ai dùng nên đã bị xóa). Sau khi sửa, đã **replay lại
+> `d8230ea6`** (0 quota): 4 batch thành `succeeded/passed`, số observation không đổi (850),
+> đúng như idempotency hứa. Soda có thêm check `stuck_batches` để bắt lỗi loại này (Chặng 17).
+> *Bài học:* mọi đường ghi vào cùng một bảng (thu thật, replay) phải **đóng** bản ghi theo cùng
+> một cách. Hai đường đóng sổ khác nhau là hai định nghĩa của cùng một trạng thái.
 
-> **Engineering Note — replay không đóng sổ lần thu.**
-> Nếu `collection_runs` chưa có dòng cho `collection_id` đó (ví dụ database đã được dựng lại
-> từ đầu), replay tạo dòng với `status='running'` và không bao giờ gọi `finish_collection_run`.
-> Sau 2 giờ, check `stuck_runs` của Soda sẽ báo đỏ. Replay cũng chỉ duyệt các kênh **đang
-> bật trong config hiện tại**.
+> **Engineering Note — replay từng không đóng sổ lần thu.** ✅ **ĐÃ SỬA (25/09)**
+> Nếu `collection_runs` chưa có dòng cho `collection_id` đó (database dựng lại từ đầu), replay
+> từng tạo dòng `running` và không bao giờ đóng. Giờ replay gọi `finish_collection_run` ở cuối;
+> `insert_collection_run` trả về "có phải vừa tạo không" để replay biết khi nào được ghi
+> `ended_at` (lần thu thật đã có `ended_at` thì giữ nguyên lịch sử). Còn một giới hạn: replay
+> chỉ duyệt các kênh **đang bật trong config hiện tại**.
 
 ### 🔎 Chạy & kiểm chứng
 
 ```sql
--- Trạng thái lần thu so với trạng thái từng batch: nơi phát hiện 2 Engineering Note ở trên
+-- Trạng thái lần thu so với trạng thái từng batch: nơi đã phát hiện 2 lỗi ở trên
+-- (sau khi sửa: mọi lần thu succeeded, mọi batch succeeded/passed)
 SELECT left(r.collection_id::text, 8) AS coll, r.scheduled_for, r.status AS run_status,
        count(b.*) AS batches,
        string_agg(b.status || '/' || b.quality_status, ', ') AS batch_states
@@ -2220,7 +2248,7 @@ nghiệp vụ nào nằm ở đây.
 
 **1. DAG, task, operator, scheduler.**
 - **DAG** (Directed Acyclic Graph): một quy trình gồm nhiều bước có thứ tự, không vòng lặp.
-  Ở đây: `start >> [4 task collect_*] >> done`.
+  Ở đây: `start >> [4 task collect_*] >> done`, và `[4 task collect_*] >> all_channels_ok`.
 - **Task**: một bước. **Operator**: loại bước (`BashOperator` chạy lệnh shell,
   `EmptyOperator` không làm gì, chỉ để nối).
 - **Scheduler**: tiến trình luôn chạy, **đọc lại các file DAG khoảng 30 giây một lần**, tính
@@ -2301,16 +2329,17 @@ không chờ run hôm qua thành công. Biến môi trường `AIRFLOW__CORE__DA
 trong compose: **DAG mới luôn bị tạm dừng**, phải gạt công tắc trên UI. (Chuyện thật:
 `yt_quality` và `yt_report` từng nằm im vì chưa được bật.)
 
-> **Engineering Note — DAG run hiện XANH dù có task kênh bị ĐỎ.**
-> *Hiện tại:* Airflow quyết định trạng thái DAG run dựa trên các **task lá** (leaf). Task lá
-> duy nhất là `done`, và với `all_done` nó luôn chạy thành công. Vậy kênh lỗi thì ô task đó
-> đỏ, nhưng **vòng tròn DAG run vẫn xanh**. Dataset event vẫn phát, `yt_report` vẫn chạy
-> (trên dữ liệu cũ).
-> *Hạn chế:* nhìn lướt danh sách run sẽ bỏ sót lỗi. Kết hợp với Engineering Note ở Chặng 4
-> (trạng thái `collection_runs` "ai ghi sau cùng thắng"), hiện **không có một chỗ duy nhất**
-> báo đúng "lần thu hôm nay có kênh lỗi".
-> *Production:* thêm một task lá kiểm tra (fail nếu có task collect fail), hoặc callback
-> `on_failure_callback` gửi Slack/email cho từng task; tính trạng thái lần thu từ `channel_batches`.
+> **Engineering Note — DAG run từng hiện XANH dù có task kênh bị ĐỎ.** ✅ **ĐÃ SỬA (25/09)**
+> *Lỗi cũ:* Airflow quyết định trạng thái DAG run dựa trên các **task lá** (leaf). Task lá duy
+> nhất là `done`, và với `all_done` nó luôn thành công. Kênh lỗi thì ô task đỏ, nhưng **vòng
+> tròn DAG run vẫn xanh**; nhìn lướt danh sách run sẽ bỏ sót lỗi.
+> *Cách sửa:* thêm task lá thứ hai `all_channels_ok` (EmptyOperator, trigger rule mặc định
+> `all_success`) phụ thuộc cả 4 task kênh. Một kênh lỗi thì nó thành `upstream_failed`, nên DAG
+> run **đỏ**. `done` vẫn `all_done` và vẫn phát Dataset, nên bản tin vẫn được sinh cho các kênh
+> thành công. Test: `test_collect_run_turns_red_when_any_channel_fails`.
+> *Bài học:* muốn một trạng thái hiện ra ở mức DAG run, phải có một **task lá** mang trạng thái
+> đó. Giờ có hai chỗ nhất quán báo "lần thu có kênh lỗi": DAG run đỏ, và `collection_runs.status
+> = partial` (Chặng 4).
 
 > **Engineering Note — cũng như ở Chặng 3:** lỗi không đáng retry (hết quota, sai cấu hình)
 > vẫn bị Airflow retry 2 lần, vì BashOperator coi mọi mã thoát khác 0 là như nhau.
@@ -2375,7 +2404,8 @@ lỗi "task kẹt ở queued". Với 4 kênh, ~12 quota/lần, chọn Celery là
 | 21:00 qua mà không có run | DAG đang pause; máy/Docker tắt; scheduler chết | công tắc trên UI; `docker compose ps` |
 | Task kẹt `queued` | scheduler không khỏe | `docker logs airflow-scheduler --tail 50` |
 | Ô task đỏ, run vẫn xanh | Engineering Note ở trên | mở Grid, không chỉ nhìn vòng tròn run |
-| `docker ps` trống | Docker Desktop chưa mở sau khi khởi động máy | mở Docker Desktop; `docker context show` |
+| `docker ps` trống | Docker Desktop chưa mở sau khi khởi động máy | mở Docker Desktop (hoặc `systemctl --user start docker-desktop`); `docker context show` |
+| Sửa file trên máy mà container vẫn chạy code CŨ | Công cụ sửa file bằng cách **tạo file mới rồi đổi tên** (vd `sed -i`); file-sharing của Docker Desktop giữ bản cũ trong cache | so `md5sum` hai bên; `docker compose restart <service>` (gặp thật ngày 25/09 với `dashboard/app.py`) |
 
 ### 🔎 Chạy & kiểm chứng
 
@@ -2598,8 +2628,8 @@ Mở [dashboard/app.py](dashboard/app.py).
 ### File này sinh ra để làm gì?
 
 Cho người dùng **nhìn** hệ thống: dữ liệu có tươi không, mỗi kênh cập nhật tới đâu, video
-nào tính được tăng trưởng, video nào tăng nhanh nhất. Ba màn hình, mỗi màn trả lời một câu
-hỏi (câu hỏi được ghi ngay dưới tiêu đề từng màn).
+nào tính được tăng trưởng, video nào tăng nhanh nhất, và bản tin gần nhất nói gì. Bốn màn
+hình, mỗi màn trả lời một câu hỏi (câu hỏi được ghi ngay dưới tiêu đề từng màn).
 
 **Nguyên tắc số một: dashboard KHÔNG tính chỉ số.** Nếu Streamlit tự tính `views_per_hour`
 bằng Python, sẽ có **hai công thức** cho cùng một chỉ số (một trong SQL, một trong Python),
@@ -2632,17 +2662,20 @@ còn tệ hơn không có dashboard.
 tính được" và bảng lý do (`validity_reason` dịch ra tiếng người) **trước** bảng chi tiết. Màn
 3 hiện cảnh báo phạm vi ("chỉ 4 kênh đang theo dõi, không đại diện YouTube") và độ bao phủ.
 
-**Ba màn hình:**
+**Bốn màn hình:**
 
 | Màn | Câu hỏi | Nguồn |
 |---|---|---|
 | 1 · Nguồn & độ tươi | Hệ thống có đang sống? Mỗi kênh cập nhật tới đâu? Lần thu trễ bao nhiêu phút? | `tracked_channels`, `videos_current`, `video_observations`, `collection_runs`, `channel_batches` |
 | 2 · Video & khoảng quan sát | Video nào tính được tăng trưởng, vì sao chưa? | `v_video_growth` |
 | 3 · Bảng xếp hạng | Video nào tăng nhanh nhất **trong tập đang theo dõi**? | `v_video_growth WHERE is_rankable` |
+| 4 · Bản tin (thêm 25/09) | Bản tin gần nhất của mỗi nhóm nói gì, do LLM hay bản mẫu viết? | `yti.reports` (bản mới nhất mỗi nhóm, `DISTINCT ON`) |
 
 Phần Python được làm chỉ là **trình bày**: đổi timestamp thành "3 giờ trước" (`age_text`),
 tính cột "trễ (phút)" = `started_at − scheduled_for`, sắp xếp và cắt top N theo slider. Không
-có công thức nghiệp vụ nào.
+có công thức nghiệp vụ nào. Màn 4 render bản tin bằng **chính** hàm
+`reporting.render_markdown()` mà lệnh `report --show` dùng, từ `validated_payload` và
+`evidence_bundle` đã lưu cùng bản tin: số trên màn hình là số lúc bản tin được sinh ra.
 
 **4. Service `dashboard` trong compose.** Dùng **lại** image Airflow (đã có streamlit và pandas
 trong `requirements.txt`) thay vì build image thứ hai: một image, không lệch phiên bản thư
@@ -2651,12 +2684,18 @@ dashboard phải xem được dữ liệu kể cả khi Airflow hỏng, vì đó
 `--server.address=0.0.0.0` để truy cập được từ **ngoài** container (mặc định Streamlit chỉ
 nghe localhost của chính container).
 
-> **Engineering Note — bản tin LLM không hiện trên dashboard.** Brief thiết kế màn 3 là
-> "bản tin + duyệt ý tưởng", nhưng code hiện thực màn 3 là bảng xếp hạng. Bản tin chỉ xem
-> được qua SQL (`yti.reports`) hoặc `youtube-intel report --show`.
+> **Engineering Note — bản tin LLM từng không hiện trên dashboard.** ✅ **ĐÃ SỬA (25/09)**
+> Trước đây bản tin chỉ xem được qua SQL hoặc `report --show`. Giờ có màn 4, ghi rõ bản tin do
+> LLM nào + prompt nào viết hay do **bản mẫu** viết. (Phần "duyệt ý tưởng" của brief vẫn chưa làm.)
 
-> **Engineering Note — câu cảnh báo phạm vi được viết cứng.** "4 kênh đang theo dõi, mỗi kênh
-> tối đa 50 video" là chuỗi cố định trong code, không đọc từ config. Thêm kênh thì câu này sai.
+> **Engineering Note — câu cảnh báo phạm vi từng được viết cứng.** ✅ **ĐÃ SỬA (25/09)**
+> "4 kênh, tối đa 50 video" và "1 lần/ngày" giờ đọc từ config (`CFG.enabled_channels()`,
+> `initial_video_limit_per_channel`, `snapshot_hours`), nên thêm kênh hay đổi lịch vẫn đúng.
+
+> **Kiểm chứng dashboard không cần mở trình duyệt.** Streamlit có `AppTest`: chạy app ở chế độ
+> không giao diện, bấm chuyển màn bằng code, rồi đọc lỗi và nội dung. Ngày 25/09 đã dùng nó chạy
+> qua cả 4 màn trên dữ liệu thật; nó còn lộ ra tham số `use_container_width` đã bị Streamlit
+> bỏ (hạn 31/12/2025), nên đã đổi sang `width="stretch"`.
 
 ### 🧯 Khi nó hỏng
 
@@ -2664,12 +2703,22 @@ nghe localhost của chính container).
 - Màn 3 trống với thông báo "Cần 2 lần quan sát cách nhau 18–30 giờ" → không phải lỗi,
   xem `validity_reason` ở màn 2.
 - Số không đổi sau lần thu mới → cache 60 giây, đợi rồi refresh.
+- Sửa `app.py` mà trang vẫn như cũ → xem dòng "container vẫn chạy code CŨ" ở Chặng 12.
 
 ### 🔎 Chạy & kiểm chứng
 
 ```bash
 # Trình duyệt: http://localhost:8501
 docker logs dashboard --tail 30          # lỗi Python của dashboard nằm ở đây
+
+# Chạy cả 4 màn không cần trình duyệt (AppTest), in lỗi của từng màn
+docker exec dashboard bash -lc 'cd /opt/airflow && python -c "
+from streamlit.testing.v1 import AppTest
+at = AppTest.from_file(\"dashboard/app.py\", default_timeout=60).run()
+for label in at.sidebar.radio[0].options:
+    at.sidebar.radio[0].set_value(label).run()
+    print(label, [e.value for e in at.exception] or \"OK\")
+"'
 ```
 
 ### 🧠 Tư duy tạo file
@@ -2729,15 +2778,15 @@ sao config với `llm_enabled=False`. Mã thoát 1 **chỉ** khi có nhóm `fail
 ```
 run_reports(cfg, db):                               (MỘT nhóm lỗi không chặn nhóm khác)
   với mỗi nhóm:
-    ① build_evidence(cur, group, top_n, as_of, forbidden_names)   SQL trên v_video_growth
+    [transaction 1] ① build_evidence(...)  SQL trên v_video_growth -> đóng transaction ngay
     không có ứng viên -> status 'skipped' (KHÔNG gọi LLM, KHÔNG tạo bản tin rỗng)
-    ② ③ ④ ⑤ generate_payload(evidence, settings, api_key):
+    [NGOÀI transaction] ② ③ ④ ⑤ generate_payload(evidence, settings, api_key):
          LLM tắt / thiếu key          -> template_payload, status 'template'
          lần 1: call_llm -> validate  -> hợp lệ: status 'validated'
          không hợp lệ -> lần 2: gửi lại KÈM DANH SÁCH LỖI CỤ THỂ -> validate
          vẫn hỏng (hoặc gọi LLM lỗi) -> template_payload, status 'template_fallback'
     render_markdown(payload, evidence)   <- SỐ LIỆU lấy từ evidence, định dạng bằng Python
-    ⑥ save_report(...)                   <- yti.reports, ON CONFLICT (group_code, as_of)
+    [transaction 2] ⑥ save_report(...)   <- yti.reports, ON CONFLICT (group_code, as_of)
 ```
 
 ### ① Evidence bundle: chỉ đưa thứ cần thiết
@@ -2828,22 +2877,23 @@ DO UPDATE`. `as_of` mặc định là **bây giờ**, nên mỗi lần chạy t�
 ngược lại `draft`. Lưu kèm `coverage`, `evidence_bundle` (để **tái lập** được đầu vào),
 `validated_payload`, `model_name`, `prompt_version`, `input_hash`, `tokens_used`, `latency_ms`.
 
-> **Engineering Note — gọi LLM khi transaction database đang mở.**
-> *Hiện tại:* `run_reports()` mở connection + transaction, chạy `build_evidence`, **gọi OpenAI
-> (vài giây, có thể tới 60 giây timeout, gọi 2 lần)**, rồi mới `save_report` và commit.
-> *Hạn chế:* giữ một connection và một transaction mở trong lúc chờ mạng bên ngoài. Ở quy mô
-> 2 nhóm/ngày thì không sao; nhiều request đồng thời thì cạn connection, transaction dài giữ lock.
-> *Production:* transaction 1 đọc evidence → đóng → gọi LLM → transaction 2 ghi kết quả.
+> **Engineering Note — từng gọi LLM khi transaction database đang mở.** ✅ **ĐÃ SỬA (25/09)**
+> *Lỗi cũ:* `run_reports()` mở connection + transaction, chạy `build_evidence`, **gọi OpenAI
+> (vài giây, tới 60 giây timeout, có thể 2 lần)**, rồi mới `save_report` và commit: giữ
+> connection và transaction mở trong lúc chờ mạng bên ngoài.
+> *Cách sửa:* transaction 1 chỉ đọc evidence rồi đóng; gọi LLM ở ngoài; transaction 2 ghi kết
+> quả. Đã kiểm chứng trên DB thật ở chế độ bản mẫu (thay hàm ghi bằng hàm rỗng để không để lại dữ liệu).
+> *Bài học:* không bao giờ giữ transaction mở trong lúc chờ một hệ thống bên ngoài.
 
-> **Engineering Note — `input_hash` gần như luôn khác nhau.** Hash được tính trên toàn bộ
-> evidence, **bao gồm `as_of`** (thời điểm chạy). Hai lần chạy trên cùng dữ liệu vẫn ra hai hash
-> khác nhau, nên không dùng được để trả lời "cùng input mà LLM ra khác". *Production:* băm
-> evidence **không** kèm `as_of`.
+> **Engineering Note — `input_hash` từng luôn khác nhau.** ✅ **ĐÃ SỬA (25/09)** Hash từng băm cả
+> `as_of` (thời điểm chạy), nên hai lần chạy trên cùng dữ liệu ra hai hash khác nhau. Giờ
+> `evidence_hash()` bỏ `as_of` trước khi băm. Test: `test_input_hash_ignores_run_time`.
 
-> **Engineering Note — vài chi tiết chưa khớp thiết kế.** Markdown của bản tin không được lưu
-> (chỉ render lúc chạy, xem bằng `--show`); `MAX_DESC_CHARS` được khai nhưng evidence không
-> gửi description; `status` không phân biệt `template` với `template_fallback` (đều là `draft`),
-> muốn biết phải xem `model_name` (NULL khi dùng bản mẫu) và log.
+> **Engineering Note — vài chi tiết còn lại.** Markdown của bản tin không được lưu, nhưng
+> dashboard màn 4 và `--show` đều render lại từ `validated_payload` + `evidence_bundle` đã lưu,
+> nên không mất gì. `status` không phân biệt `template` với `template_fallback` (đều là `draft`),
+> muốn biết phải xem `model_name` (NULL khi dùng bản mẫu) và log. (`MAX_DESC_CHARS` không dùng
+> đã được xóa.)
 
 ### 🔎 Chạy & kiểm chứng
 
@@ -3076,7 +3126,8 @@ dữ liệu, rồi báo pass/warn/fail.
 | | `invalid_count(format_label)` với `valid values` | | nhãn lạ (đổi luật mà quên cập nhật) |
 | | `max(duration_seconds) < 86400`, `warn: when > 0` | chỉ **cảnh báo** | video dài bất thường (đáng liếc qua, không đáng chặn) |
 | `collection_runs` | `stuck_runs = 0` (tự viết) | | lần chạy treo ở `running` > 2 giờ (tiến trình chết không ai dọn) |
-| `channel_batches` | `recent_quarantined = 0`, `warn` | chỉ cảnh báo | có batch bị cách ly trong 7 ngày: gate đã làm việc, nhưng **cần người xem** |
+| `channel_batches` | `stuck_batches = 0` (tự viết, thêm 25/09) | | batch treo ở `running` > 2 giờ (lỗi replay cũ để lại đúng dấu vết này) |
+| | `recent_quarantined = 0`, `warn` | chỉ cảnh báo | có batch bị cách ly trong 7 ngày: gate đã làm việc, nhưng **cần người xem** |
 
 **Mã thoát của Soda và wrapper bash trong DAG:**
 
@@ -3088,7 +3139,7 @@ Soda trả 0 (mọi check pass), 1 (có warning), 2 (có failure), 3 (lỗi kỹ
 **warning thành xanh**: Airflow chỉ có xanh/đỏ, và nếu warning cũng đỏ thì người vận hành quen
 với màu đỏ rồi **ngừng nhìn** (alert fatigue). Warning vẫn nằm đầy đủ trong log.
 
-**Output thật** (log ngày 24/09, rút gọn):
+**Output thật** (log ngày 24/09, rút gọn; từ 25/09 có 14 check vì thêm `stuck_batches`):
 
 ```
 Soda Core 3.3.14
@@ -3108,10 +3159,10 @@ All is good. No failures. No warnings. No errors.
 > máy cá nhân, đây là điểm yếu thật: camera ghi hình nhưng không có chuông.
 > *Production:* `on_failure_callback` gửi Slack/email; hoặc công cụ observability có alerting.
 
-> **Engineering Note — comment hứa nhiều hơn check thật.** Đầu `checks.yml` nói Soda bắt được
-> "trôi dạt theo thời gian: hôm nay số video giảm 30% so với hôm qua". Hiện **không có** check
-> nào làm việc đó (cần check so sánh với lần trước, ví dụ `change` hoặc anomaly detection).
-> Và `stuck_runs` chỉ soi `collection_runs`, không thấy batch kẹt `running` do replay (Chặng 11).
+> **Engineering Note — comment từng hứa nhiều hơn check thật.** ✅ **ĐÃ SỬA (25/09)**
+> Đầu `checks.yml` từng nói Soda bắt được "trôi dạt: hôm nay số video giảm 30%". Không có check
+> nào làm việc đó; comment giờ ghi rõ **"CHƯA CÓ"**. Và `stuck_runs` chỉ soi `collection_runs`,
+> nên không thấy batch kẹt `running` do replay (Chặng 11); đã thêm check `stuck_batches`.
 
 ### 🔎 Chạy & kiểm chứng
 
@@ -3239,15 +3290,15 @@ Mở [tests/conftest.py](tests/conftest.py) và lướt các file trong `tests/`
 ### 📘 Test pyramid của project
 
 ```
-          /\         integration  (4)   cần Postgres thật            tests/integration/
-         /  \        DAG          (5)   cần Airflow (trong container) tests/test_dags.py
-        /____\       unit       (116)   hàm thuần, mili giây          tests/unit/
+          /\         integration  (5)   cần Postgres thật            tests/integration/
+         /  \        DAG          (6)   cần Airflow (trong container) tests/test_dags.py
+        /____\       unit       (124)   hàm thuần, mili giây          tests/unit/
 ```
 
 Đáy rộng vì test unit **rẻ và nhanh**, nên được chạy mỗi lần sửa code. Test chậm, cần hạ tầng thì
 người ta ngại chạy, và nó thành vật trang trí. Điều đáng nhận ra: **kiến trúc làm cho test rẻ**.
 Vì `normalize`, `quality`, `validate`, `evals` là hàm thuần không đụng mạng/DB (quyết định từ
-Chặng 5, 6, 10), 116 test chạy trong chưa tới 1 giây.
+Chặng 5, 6, 10), 124 test chạy trong khoảng 1 giây.
 
 ### Mỗi file canh cái gì
 
@@ -3256,12 +3307,12 @@ Chặng 5, 6, 10), 116 test chạy trong chưa tới 1 giây.
 | `unit/test_normalize.py` | 41 | duration có phần ngày, `"PT"` không thành 0, NULL ≠ 0, `bool` không thành 1, ba trạng thái, không suy Shorts |
 | `unit/test_evals.py` | 31 | mỗi bộ chấm **trượt được** với câu lỗi thật của v1; 20 ca hợp lệ; bản mẫu = trượt |
 | `unit/test_config.py` | 14 | fail-fast, báo mọi biến thiếu một lần, secret ẩn, cron suy từ config, `current_slot` theo giờ VN, `batch_id` tất định |
-| `unit/test_reporting.py` | 12 | validator chặn ID bịa, chữ số, URL, tên cấm; bản mẫu luôn hợp lệ; số render từ evidence |
-| `unit/test_quality.py` | 8 | ERROR chặn, WARNING cho qua, vắng ≠ hỏng, cắt có chủ ý không báo thiếu |
-| `unit/test_youtube.py` | 7 | phân loại 403 theo `reason`; lỗi vĩnh viễn không phải lớp con của `RetryableError` |
+| `unit/test_reporting.py` | 13 | validator chặn ID bịa, chữ số, URL, tên cấm; bản mẫu luôn hợp lệ; số render từ evidence; `input_hash` không phụ thuộc giờ chạy |
+| `unit/test_youtube.py` | 12 | phân loại 403 theo `reason`; lỗi vĩnh viễn không retry; **key không nằm trong URL**, kể cả trong lỗi mạng thật; phân trang, trần, khử trùng |
+| `unit/test_quality.py` | 10 | ERROR chặn, WARNING cho qua, vắng ≠ hỏng, cắt có chủ ý không báo thiếu; gate biết ràng buộc của bảng đích |
 | `unit/test_retention.py` | 3 | hệ thống mới tinh không gãy |
-| `test_dags.py` | 5 | không lỗi import; mỗi kênh một task; `catchup=False`; lịch monitor khác lịch collect |
-| `integration/test_database.py` | 4 | đủ 3 migration; ràng buộc grain tồn tại; không trùng grain; VIEW không giấu video |
+| `test_dags.py` | 6 | không lỗi import; đủ 3 DAG; mỗi kênh một task; `catchup=False`; lịch monitor riêng; **DAG run đỏ khi có kênh lỗi** |
+| `integration/test_database.py` | 5 | đủ 3 migration; ràng buộc grain; không trùng grain; VIEW không giấu video; **trạng thái lần thu tính từ batch** |
 
 **Chi tiết kỹ thuật đáng biết:**
 - `pytest_configure` trong `conftest.py` đăng ký marker `integration`, `live`. Vì sao không chỉ
@@ -3275,20 +3326,20 @@ Chặng 5, 6, 10), 116 test chạy trong chưa tới 1 giây.
 - `tests/unit/test_retention.py` dùng một **fake** (object giả tự viết, có hành vi) thay vì
   **mock** (object giả ghi lại lời gọi). Fake đơn giản và dễ đọc hơn cho trường hợp này.
 
-> **Engineering Note — những gì CHƯA được test tự động.**
-> - `pipeline.py`, `storage.py`, `repository.py` không có unit test (cần fake S3/DB hoặc
->   testcontainers). Luồng collect đầy đủ và **replay** chỉ được kiểm chứng bằng chạy thật.
-> - `youtube.py` chỉ test phân loại lỗi, chưa test phân trang/`truncated`/`_reconcile` bằng
->   response giả (brief có yêu cầu "pagination fixture hơn 50 video").
-> - `test_dags.py` có `EXPECTED = {"yt_collect", "yt_quality"}`, **thiếu `yt_report`**.
-> - Fixture `now_utc` trong `conftest.py` không được test nào dùng.
+> **Engineering Note — những gì CHƯA được test tự động.** *(sửa một phần 25/09)*
+> - ✅ Đã thêm: test phân trang/`truncated`/khử trùng của `youtube.py`; `yt_report` vào
+>   `EXPECTED` của `test_dags.py`; test integration cho trạng thái lần thu. Fixture `now_utc`
+>   không ai dùng đã được xóa.
+> - Còn mở: `pipeline.py` và `storage.py` chưa có unit test (cần fake S3/DB hoặc testcontainers).
+>   Luồng collect đầy đủ và **replay** vẫn chỉ được kiểm chứng bằng chạy thật (ngày 25/09: một
+>   lần thu thật 1 kênh, một lần replay, một lần giả lập kênh lỗi).
 
 ### 🔎 Chạy & kiểm chứng
 
 ```bash
-venv/bin/python -m pytest -m "not integration" -q                        # 116 passed, trên máy
+venv/bin/python -m pytest -m "not integration" -q                        # 124 passed, trên máy
 venv/bin/python -m pytest tests/unit/test_quality.py -k engagement -v     # chạy vài test theo tên
-docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/ -q"   # cả 125, trong container
+docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/ -q"   # cả 135, trong container
 ```
 
 ### 🧠 Tư duy tạo file
@@ -3315,17 +3366,17 @@ Các file: [pyproject.toml](pyproject.toml), [requirements.txt](requirements.txt
 | File | Dùng khi | Nội dung |
 |---|---|---|
 | `pyproject.toml` | cài package **trên máy** (`pip install -e ".[dev,llm]"`) và trong CI job unit | `requests`, `tenacity`, `PyYAML`, `boto3`, `psycopg2-binary`; extras `dashboard`, `llm`, `dev` |
-| `requirements.txt` | build **image** | `soda-core-postgres==3.3.14`, `pytest==8.3.3`, `boto3`, `psycopg2-binary`, `pandas`, `streamlit`, `openai` |
+| `requirements.txt` | build **image** | mọi thư viện đều **ghim phiên bản** (`boto3==1.34.106`, `streamlit==1.60.0`, `openai==3.19.2`...), kể cả `requests`, `tenacity`, `PyYAML` |
 
 `pyproject.toml` **cố ý không khai airflow**: package không import airflow; Airflow chỉ là một
 trong nhiều cách gọi nó.
 
-> **Engineering Note — build image không tái lập được hoàn toàn.** `requirements.txt` không có
-> `requests`, `tenacity`, `PyYAML` (chúng đến từ image Airflow gốc, vì Airflow cần chúng), và
-> `boto3`, `pandas`, `streamlit`, `openai`, `psycopg2-binary` **không ghim phiên bản**. Build hôm
-> nay và build 6 tháng sau có thể ra hai bộ thư viện khác nhau. Airflow cũng khuyến nghị cài kèm
-> *constraints file* chính thức, và Dockerfile chưa dùng.
-> *Production:* ghim mọi phiên bản (lock file), dùng constraints của Airflow.
+> **Engineering Note — build image từng không tái lập được.** ✅ **ĐÃ SỬA phần chính (25/09)**
+> *Lỗi cũ:* `requirements.txt` thiếu `requests`, `tenacity`, `PyYAML` (dùng ngầm từ image
+> Airflow gốc) và không ghim phiên bản `boto3`, `pandas`, `streamlit`, `openai`,
+> `psycopg2-binary`. Build hôm nay và build 6 tháng sau có thể ra hai bộ thư viện khác nhau.
+> *Cách sửa:* ghim **đúng** phiên bản đang chạy trong image (lấy bằng `pip list` trong container),
+> nên build lại không đổi gì. Còn mở: chưa dùng *constraints file* chính thức của Airflow.
 
 ### `Dockerfile`: thứ tự layer có chủ ý
 
@@ -3380,7 +3431,7 @@ unit-tests ──► integration-tests ──► build-and-push
     nên compose dùng thẳng image vừa build.
   - `docker compose up -d --wait --wait-timeout 300`: đợi mọi service qua healthcheck.
   - Chạy migration từ **database rỗng** (cũng là bài kiểm tra: migration có chạy được từ số 0 không).
-  - `pytest tests/` **trong** container `airflow-scheduler` (cả 125 test).
+  - `pytest tests/` **trong** container `airflow-scheduler` (cả 135 test).
   - Smoke test CLI: `status`, `retention`.
   - `if: failure()` → in `docker compose logs`; `if: always()` → `docker compose down -v`.
 - **Job 3 `build-and-push`:** chỉ khi `push` lên `main` **và** biến `vars.DOCKERHUB_USERNAME` đã được
@@ -3397,16 +3448,16 @@ unit-tests ──► integration-tests ──► build-and-push
 | 1 | CI đỏ sau 17 giây | bản cũ lấy 19 biến từ Secrets, repo chỉ có 1 → mật khẩu Postgres rỗng → Postgres thoát | giá trị giả viết thẳng trong workflow | secret chỉ cho thứ cần bảo vệ |
 | 2 | (tìm ra khi **mô phỏng CI trên máy**) `retention` gãy `NoSuchBucket` | hệ thống mới chưa có bucket | `bucket_exists()` | mô phỏng môi trường sạch trước khi đẩy |
 | 3 | bước "Dựng stack" đỏ sau 2 giây: `minio Error unauthorized` | `quay.io/minio/minio` khóa (401); máy local chạy được nhờ cache | mirror image sang `thanh1910/minio` | cache che giấu vấn đề tái lập |
-| 4 | `build-and-push` đỏ: `401 Unauthorized: access token has insufficient scopes` | token Docker Hub trong `DOCKERHUB_PASSWORD` chỉ có quyền **Read** | tạo token **Read & Write**, cập nhật secret, *Re-run failed jobs* | đăng nhập được ≠ được phép ghi; cấp quyền vừa đủ |
+| 4 | `build-and-push` đỏ: `401 Unauthorized: access token has insufficient scopes` | token Docker Hub trong `DOCKERHUB_PASSWORD` chỉ có quyền **Read** | tạo token **Read & Write**, cập nhật secret, *Re-run failed jobs* (**ngày 25/09 vẫn chưa làm**: job này vẫn đỏ) | đăng nhập được ≠ được phép ghi; cấp quyền vừa đủ |
 
 **Cách mô phỏng CI trên máy (cách đã làm ngày 24/09):** clone repo sạch vào thư mục tạm (không có
 `.env`), đặt đúng các biến `env:` của workflow, chạy `docker compose config -q` để kiểm cấu hình.
 Muốn dựng cả stack thì phải **tắt stack chính trước** (giữ volume): mọi service có `container_name`
 cố định (`postgres`, `minio`, `airflow-scheduler`...), nên hai stack không chạy song song được.
 
-> **Engineering Note — image được push không phải image đã test.** Job 3 **build lại** từ đầu thay
-> vì đẩy đúng image mà job 2 đã test. Thường thì giống nhau, nhưng với thư viện không ghim phiên bản,
-> hai lần build có thể khác. *Production:* **build once, promote**: build một lần, test chính image
+> **Engineering Note — image được push không phải image đã test.** *(còn mở; rủi ro đã giảm)* Job 3
+> **build lại** từ đầu thay vì đẩy đúng image mà job 2 đã test. Từ khi thư viện được ghim phiên bản
+> (25/09), hai lần build gần như chắc chắn giống nhau, nhưng "gần như" vẫn chưa phải "chắc chắn". *Production:* **build once, promote**: build một lần, test chính image
 > đó, rồi đẩy đúng digest đó lên registry.
 
 ### 🔎 Chạy & kiểm chứng
@@ -3424,9 +3475,10 @@ toàn; bạn cần biết chỗ nào còn đúng, chỗ nào đã cũ.
 
 # Chặng 21 — `docs/`, README, brief: hiện hành và di sản
 
-### `docs/data_contract.md`: phần lớn là di sản
+### `docs/data_contract.md`: phần lớn là di sản (đầu file giờ có ghi chú)
 
-Viết ở giai đoạn đầu (07–08/09), **trước** kiến trúc hiện tại. Nó mô tả bảng `core.yt_api`, grain
+Viết ở giai đoạn đầu (07–08/09), **trước** kiến trúc hiện tại. Từ 25/09, đầu file có ghi chú nói
+rõ mục nào còn đúng, mục nào đã bị thay thế. Nó mô tả bảng `core.yt_api`, grain
 "1 video × 1 ngày", khóa `(Video_ID, Snapshot_Date)`, cột `Duration TIME`, và dòng trạng thái
 "CHƯA SỬA — chờ Buổi 4" cho lỗi `TIME`. **Tất cả những thứ đó không còn trong code**: grain giờ là
 (video, lần thu), duration là `duration_seconds BIGINT`.
@@ -3442,17 +3494,15 @@ Khung câu hỏi về chính sách YouTube (lưu dữ liệu bao lâu, chỉ s�
 Trạng thái "⚠️ CHƯA XÁC MINH". Nó là lý do `raw_retention_days: null` (Chặng 18) và
 `derived_metrics_enabled: false` (cờ này hiện không điều khiển gì, Chặng 1).
 
-### `README.md`: đúng về thiết kế, cũ về số liệu
+### `README.md`: đã cập nhật ngày 25/09
 
-Kiến trúc, quyết định thiết kế, bảng eval đều khớp code. Những chỗ đã cũ (ngày 25/09):
+Kiến trúc, quyết định thiết kế, bảng eval đều khớp code. Ngày 25/09 đã sửa những chỗ cũ: số
+video/observation (con số đổi mỗi ngày nên thay bằng mô tả phạm vi; số mới lấy bằng
+`youtube-intel status`), số test (135), trạng thái CI (đã chạy trên GitHub), và thêm vào
+*Limitations* hai hạn chế thật: không có cảnh báo chủ động, retry ghi đè raw. Bài học: README
+ghi **con số thay đổi theo thời gian** thì sẽ cũ; ghi **phạm vi và cách lấy số** thì không.
 
-| README ghi | Thực tế |
-|---|---|
-| "203 / 650 across 4 collection runs" | 205 video, 850 observation, 5 lần thu (lấy số mới bằng `youtube-intel status`) |
-| "122 (113 unit, 5 DAG, 4 integration)" | 125 (116 unit, 5 DAG, 4 integration) |
-| "CI workflow ... has not yet run on GitHub" | CI đã chạy trên GitHub (4 sự cố ở Chặng 20) |
-
-### `YOUTUBE_PROJECT_AGENT_BRIEF.md`: thiết kế, không phải mô tả
+### `YOUTUBE_PROJECT_AGENT_BRIEF.md`: thiết kế, không phải mô tả (đầu file giờ có ghi chú)
 
 Đây là tài liệu **thiết kế và bàn giao** (bản 2.0 đã cắt phạm vi: bỏ FastAPI, Celery, gộp bảng,
 metric thành VIEW...). Rất đáng đọc để hiểu **vì sao** codebase có hình dạng này. Nhưng một số thứ
@@ -3461,10 +3511,10 @@ brief mô tả **chưa được làm** hoặc **đã làm khác**:
 | Brief nói | Code hiện tại |
 |---|---|
 | thu thập mỗi 12 giờ | 1 lần/ngày lúc 21:00 (đổi có chủ ý: máy cá nhân, dữ liệu đều đặn quan trọng hơn) |
-| dedup video ID khi discovery | không dedup; gate bắt trùng |
+| dedup video ID khi discovery | đã làm (25/09) |
 | `unavailable_reason`, `expiry_at` | cột có, không được ghi |
 | cleanup hằng ngày | chỉ chạy tay |
-| dashboard màn 3 = bản tin + duyệt ý tưởng | màn 3 là bảng xếp hạng; bản tin chỉ xem qua SQL/CLI |
+| dashboard màn 3 = bản tin + duyệt ý tưởng | màn 3 là bảng xếp hạng; bản tin ở màn 4 (25/09); chưa có "duyệt ý tưởng" |
 | `docs/progress.md`, `docs/audit.md`, `tests/fixtures/synthetic/` | không tồn tại |
 | một lần smoke test lên S3 thật | chưa làm |
 | "không I/O lúc import DAG" | DAG đọc YAML lúc parse (có giải thích trong code vì sao chấp nhận được) |
@@ -3490,7 +3540,8 @@ không nhìn code:
 > lời được **ghi nguyên văn lên MinIO trước**, kèm manifest ghi sau cùng làm dấu "đã xong". Sau đó,
 > trong **một transaction cho mỗi kênh**, dữ liệu vào staging dạng TEXT, qua một quality gate
 > (ERROR chặn, WARNING cho qua), rồi mới upsert sang vùng công bố: một bảng fact có grain
-> (video, lần thu) và hai dimension SCD1. Batch hỏng bị cách ly, giữ nguyên để điều tra. Mọi thao
+> (video, lần thu) và hai dimension SCD1. Batch hỏng bị cách ly, giữ nguyên để điều tra; kênh lỗi
+> được ghi thành một dòng `failed` riêng, và trạng thái lần thu được suy ra từ các kênh. Mọi thao
 > tác ghi đều idempotent: upsert theo grain, delete-insert cho staging, ID sinh bằng uuid5 từ logical
 > date của Airflow. Hỏng sau khi raw đã ghi thì replay từ raw, 0 quota.
 >
@@ -3525,6 +3576,7 @@ flowchart TD
     RET --> STO
     DASH[dashboard/app.py] --> CFG
     DASH --> REPO
+    DASH --> REP
 ```
 
 Để ý hình dạng: **không mũi tên nào đi vào Airflow**. `youtube.py`, `normalize.py`, `quality.py`
@@ -3537,7 +3589,7 @@ tất cả lại.
    Luật chất lượng đổi → `quality.py`. Mỗi file có **một** lý do để thay đổi.
 2. **Lõi thuần, vỏ I/O** (*functional core, imperative shell*). Quyết định nằm trong hàm thuần
    (`normalize`, `quality`, `validate`, scorer), I/O nằm ở rìa (`youtube`, `storage`, `repository`).
-   Kết quả: 116 test chạy trong chưa tới 1 giây.
+   Kết quả: 124 test chạy trong khoảng 1 giây.
 3. **Orchestrator mỏng.** Airflow chỉ hẹn giờ, retry, ghi log. Nghiệp vụ nằm trong package.
 4. **Một khái niệm, một nơi định nghĩa.** Lịch chạy (YAML → cron), chỉ số tăng trưởng (VIEW), URI
    Dataset (`pipeline.py`), logic parse (`normalize.py`), regex channel ID (config + CHECK DB, cố ý hai lớp).
@@ -3662,35 +3714,46 @@ Thứ tự dưới đây cũng gần đúng với thứ tự project thật đã
 
 # Tổng hợp Engineering Notes
 
-Tất cả hạn chế đã ghi trong file này, gom về một chỗ. **File này không sửa code.** Mức độ là đánh
-giá của người viết, dựa trên hậu quả nếu xảy ra.
+Tất cả hạn chế đã ghi trong file này, gom về một chỗ. Ngày 25/09 project được review toàn bộ và
+**những lỗi đáng sửa đã được sửa**, mỗi cái kèm test hoặc kiểm chứng trên dữ liệu thật. Những cái
+còn mở là **quyết định có chủ ý** (sửa sẽ đổi hành vi ở chỗ khác, hoặc cần thứ project chưa có).
+Mức độ là đánh giá dựa trên hậu quả nếu xảy ra.
 
-| # | Chặng | Vấn đề | Mức độ | Hướng xử lý |
+| # | Chặng | Vấn đề | Mức độ | Trạng thái |
 |---|---|---|---|---|
-| 1 | 5 | API key có thể lọt vào log khi lỗi kết nối (đã kiểm chứng cơ chế; log hiện chưa có) | **cao** (bảo mật) | gửi key qua header `X-Goog-Api-Key`, hoặc lọc thông báo lỗi |
-| 2 | 12 | DAG run xanh dù task kênh đỏ; report vẫn chạy | trung bình | task lá kiểm tra, hoặc callback cảnh báo |
-| 3 | 4, 12 | `collection_runs.status` "ai ghi sau cùng thắng" ở chế độ Airflow | trung bình | tính trạng thái từ `channel_batches` |
-| 4 | 9 | kênh lỗi không để lại dòng batch; `failed` không bao giờ được ghi | trung bình | ghi lỗi bằng transaction riêng |
-| 5 | 11 | replay đặt batch về `running` và không trả lại `succeeded` (có trong dữ liệu thật) | trung bình | replay gọi `finish_channel_batch` |
-| 6 | 17 | cảnh báo Soda không gửi tới ai | trung bình | Slack/email callback |
-| 7 | 10 | gate không kiểm `title`/`published_at` vắng mặt dù bảng đích NOT NULL | trung bình | check ERROR cho mọi cột NOT NULL |
-| 8 | 7 | `attempt=1` cứng → retry ghi đè raw | trung bình | tăng attempt, hoặc bật versioning bucket |
-| 9 | 20 | thư viện không ghim phiên bản; image push không phải image đã test | trung bình | lock file; build once, promote |
-| 10 | 3, 12 | Airflow retry cả lỗi không đáng retry (quota, cấu hình) | thấp | `skip_on_exit_code` / `AirflowFailException` |
-| 11 | 1 | `derived_metrics_enabled` không điều khiển gì | thấp | nối cờ vào code hoặc xóa |
-| 12 | 1 | danh sách nhóm khai ở YAML và CHECK SQL | thấp | bảng tra cứu + FK |
-| 13 | 4 | quota trong manifest cộng dồn khi chạy tay nhiều kênh | thấp | dùng hiệu số trước/sau |
-| 14 | 8 | không có migration runner | thấp | Alembic/Flyway |
-| 15 | 8 | cột/giá trị khai mà chưa dùng (`unavailable_reason`, `expiry_at`, status `published`) | thấp | làm nốt hoặc bỏ |
-| 16 | 10 | báo cáo chất lượng (warnings) không được lưu | thấp | lưu `to_dict()` vào JSONB |
-| 17 | 15 | gọi LLM khi transaction DB đang mở | thấp (ở quy mô này) | tách 2 transaction |
-| 18 | 15 | `input_hash` gồm cả `as_of` nên luôn khác | thấp | băm evidence không kèm `as_of` |
-| 19 | 18 | retention không được lập lịch; raw retention chờ đọc chính sách | thấp | DAG retention; hoàn thành `policy_notes.md` |
-| 20 | 19 | chưa test pipeline/storage/repository/replay; DAG test thiếu `yt_report` | thấp | fake/testcontainers; thêm vào `EXPECTED` |
-| 21 | 5 | không dedup video ID khi discovery (gate bắt) | thấp | dedup trước `videos.list` |
-| 22 | 7 | `source_object_key` chỉ trỏ file raw đầu tiên | thấp | ghi key theo từng lô |
-| 23 | 14 | bản tin không hiện trên dashboard; câu phạm vi viết cứng | thấp | thêm màn bản tin; đọc từ config |
-| 24 | 5, 12, 21 | comment/tài liệu cũ (docstring `youtube.py`, comment compose, README, data_contract) | thấp | cập nhật tài liệu |
+| 1 | 5 | API key nằm trong URL → lọt vào log khi lỗi kết nối | **cao** (bảo mật) | ✅ key đi trong header; test gây lỗi mạng thật |
+| 2 | 12 | DAG run xanh dù task kênh đỏ | trung bình | ✅ task lá `all_channels_ok` |
+| 3 | 4 | `collection_runs.status` "ai ghi sau cùng thắng" | trung bình | ✅ suy ra từ `channel_batches`; test integration |
+| 4 | 9 | kênh lỗi không để lại dòng batch; `failed` không bao giờ được ghi | trung bình | ✅ `_record_channel_failure`, transaction riêng |
+| 5 | 11 | replay để batch kẹt `running`, không đóng sổ lần thu | trung bình | ✅ replay đóng batch + lần thu; dữ liệu `d8230ea6` đã replay lại |
+| 6 | 10 | gate không biết ràng buộc NOT NULL/CHECK của bảng đích | trung bình | ✅ `missing_title`, `missing_published_at`, `invalid_video_id` |
+| 7 | 20 | thư viện không ghim phiên bản | trung bình | ✅ ghim đúng bản đang chạy |
+| 8 | 15 | gọi LLM khi transaction DB đang mở | thấp | ✅ tách 2 transaction |
+| 9 | 15 | `input_hash` gồm cả `as_of` | thấp | ✅ bỏ `as_of` trước khi băm |
+| 10 | 4 | quota trong manifest cộng dồn | thấp | ✅ lưu hiệu số |
+| 11 | 5 | không khử trùng video ID; thiếu test phân trang | thấp | ✅ khử trùng + 3 test |
+| 12 | 7 | `source_object_key` chỉ trỏ file raw đầu tiên | thấp | ✅ nạp staging theo từng file |
+| 13 | 14 | bản tin không có trên dashboard; câu phạm vi viết cứng | thấp | ✅ màn 4; đọc từ config |
+| 14 | 17 | Soda không thấy batch kẹt; comment hứa check "trôi dạt" | thấp | ✅ `stuck_batches`; comment ghi "CHƯA CÓ" |
+| 15 | 19 | DAG test thiếu `yt_report`; fixture thừa | thấp | ✅ |
+| 16 | 5, 12, 21 | comment/tài liệu cũ (docstring, compose, README, data_contract, brief) | thấp | ✅ cập nhật / đánh dấu di sản |
+| 17 | 10 | báo cáo chất lượng không vào DB | thấp | ◐ giờ ghi vào log; vào DB cần migration mới |
+| 18 | 1 | `derived_metrics_enabled` không điều khiển gì | thấp | ◐ đã ghi rõ trong YAML + policy_notes; nối vào code sau khi đọc chính sách |
+| 19 | 1 | danh sách nhóm khai ở YAML và CHECK SQL | thấp | ◐ đã ghi rõ trong YAML |
+| 20 | 7 | `attempt=1` cứng → retry ghi đè raw | trung bình | **còn mở**: cần thiết kế cùng replay + retention (Chặng 7) |
+| 21 | 17 | cảnh báo không gửi tới ai | trung bình | **còn mở**: cần Slack/email (chưa có kênh nhận) |
+| 22 | 20 | image push không phải image đã test | thấp | **còn mở** (rủi ro giảm nhờ ghim phiên bản) |
+| 23 | 3, 12 | Airflow retry cả lỗi không đáng retry | thấp | **còn mở** |
+| 24 | 8 | không có migration runner | thấp | **còn mở** (Alembic/Flyway) |
+| 25 | 8 | cột khai mà chưa dùng (`unavailable_reason`, `expiry_at`, status `published`) | thấp | **còn mở** |
+| 26 | 18 | retention không được lập lịch; raw retention chờ đọc chính sách | thấp | **còn mở** (`docs/policy_notes.md`) |
+| 27 | 19 | chưa có unit test cho `pipeline.py`/`storage.py`; replay chỉ kiểm chứng tay | thấp | **còn mở** |
+| 28 | 6 | staging không giữ nguyên văn `liveBroadcastContent` | thấp | **còn mở** |
+
+**Bài học của đợt review này:** lỗi nguy hiểm nhất (#1) và lỗi "trạng thái nói dối" (#2–#5) đều
+**không làm test đỏ, không làm pipeline hỏng**. Pipeline vẫn chạy xanh mỗi ngày. Chúng chỉ lộ ra
+khi đọc code với câu hỏi "chuyện gì xảy ra khi X hỏng?" và đối chiếu với dữ liệu thật. Test xanh
+là điều kiện cần, không phải điều kiện đủ.
 
 ---
 
@@ -3838,8 +3901,9 @@ viết ngắn để bạn nói lại bằng lời của mình, không phải đ�
 > DAG nào cần X tự nghe. Report chạy đúng khi có dữ liệu mới, không phụ thuộc giờ.
 
 **28. `trigger_rule="all_done"` có hệ quả phụ gì?**
-> (Trả lời trung thực.) Nó giúp `done` và Dataset vẫn chạy khi một kênh lỗi. Nhưng trạng thái DAG run lấy
-> từ task lá, nên run vẫn xanh dù có task đỏ. Tôi sẽ thêm task kiểm tra ở cuối hoặc callback cảnh báo.
+> Nó giúp `done` và Dataset vẫn chạy khi một kênh lỗi. Nhưng trạng thái DAG run lấy từ task lá, nên nếu
+> `done` là lá duy nhất thì run vẫn xanh dù có task đỏ. Tôi từng mắc đúng lỗi này và sửa bằng một task lá
+> thứ hai `all_channels_ok` (all_success): kênh lỗi thì run đỏ, còn Dataset vẫn phát cho các kênh xong.
 
 **29. LocalExecutor chạy task ở đâu?**
 > Trong tiến trình con của scheduler, ngay trong container `airflow-scheduler`. Vì vậy mọi lệnh debug của
@@ -3866,8 +3930,9 @@ viết ngắn để bạn nói lại bằng lời của mình, không phải đ�
 ### I. Test, CI, Docker
 
 **34. Test của project được tổ chức thế nào? Cái gì chưa được test?**
-> 116 unit (hàm thuần, < 1 giây), 5 DAG integrity, 4 integration trên Postgres thật. Chưa có test tự động cho
-> pipeline/storage/repository và replay; tôi sẽ thêm bằng fake hoặc testcontainers.
+> 124 unit (hàm thuần, ~1 giây), 6 DAG integrity, 5 integration trên Postgres thật. Mỗi bug từng gặp thành
+> một test (ví dụ test gây lỗi mạng thật để chắc API key không lọt vào thông báo lỗi). Chưa có unit test cho
+> `pipeline.py`/`storage.py` và replay; tôi sẽ thêm bằng fake hoặc testcontainers.
 
 **35. Vì sao CI dùng mật khẩu giả thay vì GitHub Secrets?**
 > Stack CI sống vài phút trên máy ảo dùng xong là hủy; mật khẩu không bảo vệ gì. Secret chỉ dành cho thứ cần
@@ -3890,12 +3955,15 @@ viết ngắn để bạn nói lại bằng lời của mình, không phải đ�
 > quét toàn bảng (materialized view/bảng tăng dần, partition theo thời gian), connection (pool).
 
 **39. Điểm yếu lớn nhất hiện tại?**
-> Chạy trên máy cá nhân: máy tắt là mất ngày đó. Không có cảnh báo chủ động. Trạng thái lần thu không phản ánh
-> đúng khi có kênh lỗi. Và nguy cơ lộ API key trong log khi mất mạng. Tôi biết cách sửa từng điểm.
+> Chạy trên máy cá nhân: máy tắt là mất ngày đó. Không có cảnh báo chủ động: lỗi hiện đỏ trên UI nhưng không
+> ai được báo. Retry dùng lại `attempt=1` nên ghi đè raw của lần thử trước. Khi review lại project tôi đã sửa
+> một lỗi bảo mật (API key trong URL lọt vào log) và bốn lỗi "trạng thái nói dối" (DAG run xanh dù có kênh lỗi...).
 
 **40. Nếu làm lại, bạn đổi gì?**
-> Gửi API key qua header; ghi trạng thái lỗi của batch bằng transaction riêng; tính trạng thái lần thu từ
-> batches; thêm alerting; ghim phiên bản thư viện và build-once-promote; test pipeline bằng fake storage/DB.
+> Ngay từ đầu: secret đi trong header, không trong URL; ghi **sự kiện** của từng kênh rồi suy ra trạng thái
+> tổng, thay vì để từng tiến trình tự ghi kết luận; gate đọc được mọi ràng buộc của bảng đích. Những thứ này
+> tôi đã sửa sau. Việc còn lại: alerting, build-once-promote, versioning cho raw, và test `pipeline.py` bằng
+> fake storage/DB.
 
 ### K. Câu hỏi tình huống debug
 
@@ -3982,7 +4050,8 @@ gate trong transaction mỗi kênh, tính view/giờ bằng VIEW SQL, và sinh b
 | `001/002/003.sql` | grain, fact/dim, staging TEXT, VIEW tăng trưởng |
 | `dags/yt_collect.py` | cron từ config, uuid5 từ logical date, catchup off |
 | `reporting.py`, `evals.py` | LLM viết văn, code viết số; đo prompt |
-| `yt_quality.py` + Soda | camera, freshness 30h |
+| `yt_quality.py` + Soda | camera, freshness 30h, lần thu/batch kẹt |
+| `dashboard/app.py` | 4 màn: độ tươi, video, xếp hạng, bản tin; không tính gì |
 
 **Quyết định thiết kế:** raw trước DB · grain (video, lần thu) · transaction mỗi kênh · idempotency bằng
 upsert/delete-insert/uuid5 · gate trước publish, Soda sau · NULL ≠ 0 · catchup=False · Airflow chỉ gọi CLI ·
@@ -3994,7 +4063,7 @@ Compose, GitHub Actions, pytest.
 
 **Con số cần nhớ:** 4 kênh · 2 nhóm · 50 video/kênh · 3 unit/kênh, 12 unit/lần, hạn mức 10.000/ngày ·
 21:00 VN = 14:00 UTC · cửa sổ tăng trưởng 18–30h · freshness 30h · Soda 6h/lần · retry 4 lần (request),
-2 lần (task) · 125 test (116/5/4) · eval v1 13/20 → v2 17/20 → v3 20/20.
+2 lần (task) · 135 test (124/6/5) · eval v1 13/20 → v2 17/20 → v3 20/20.
 
 **Vấn đề khó đã giải:** nguồn không có lịch sử (raw + replay) · song song mà không phối hợp (uuid5 từ
 logical date) · nhất quán giữa MinIO và Postgres (thứ tự ghi + manifest) · chọn cặp quan sát công bằng
@@ -4006,7 +4075,8 @@ image bên thứ ba biến mất (mirror).
 (chi phí 0, lỡ ngày là mất) · object storage cho raw (tách vòng đời, thêm một hệ thống phải vận hành).
 
 **Câu hỏi dễ gặp:** grain? · retry vs replay? · idempotency? · dual write? · gate vs Soda? · logical date?
-· catchup? · NULL vs 0? · LLM bịa số? · vì sao không Spark/dbt/Celery? · điểm yếu lớn nhất?
+· catchup? · NULL vs 0? · LLM bịa số? · vì sao không Spark/dbt/Celery? · điểm yếu lớn nhất? · bạn đã
+review và sửa gì trong chính project của mình?
 
 **Lệnh hay dùng:**
 
@@ -4016,6 +4086,6 @@ docker exec airflow-scheduler youtube-intel status             # lần thu gần
 docker exec airflow-scheduler youtube-intel replay --collection-id <id>   # dựng lại từ raw, 0 quota
 docker exec airflow-scheduler youtube-intel retention          # xem trước, không xóa
 docker exec -it postgres bash -c 'psql -U "$POSTGRES_USER" -d elt_db'
-venv/bin/python -m pytest -m "not integration" -q              # 116 test, < 1 giây
+venv/bin/python -m pytest -m "not integration" -q              # 124 test, ~1 giây
 # UI: Airflow :8080 · Dashboard :8501 · MinIO console :9001
 ```

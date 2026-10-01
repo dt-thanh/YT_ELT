@@ -9,9 +9,9 @@ daily brief that cannot invent numbers.
 | | |
 |---|---|
 | Channels tracked | 4 (2 groups: `books_learning`, `kids_animation`) |
-| Videos / observations | 203 / 650 across 4 collection runs |
+| Scope | 50 most recent videos per channel (~200 videos), one snapshot per day |
 | Quota per run | 12 units of YouTube's 10,000/day |
-| Tests | 122 (113 unit, 5 DAG, 4 integration) |
+| Tests | 135 (124 unit, 6 DAG, 5 integration) |
 | LLM prompt eval | v1 13/20 → v2 17/20 → **v3 20/20** on 20 synthetic cases |
 
 ---
@@ -34,7 +34,8 @@ flowchart LR
 
 Three Airflow DAGs, all thin wrappers around a CLI:
 
-- **`yt_collect`** — daily at 21:00 (Asia/Ho_Chi_Minh), one task per channel in parallel.
+- **`yt_collect`** — daily at 21:00 (Asia/Ho_Chi_Minh), one task per channel in parallel. A final
+  check task turns the run red if any channel fails; the Dataset event still fires for the rest.
 - **`yt_report`** — runs when `yt_collect` publishes new observations (Airflow Dataset),
   not on a clock, so it never reads half-finished data.
 - **`yt_quality`** — every 6 hours, **on its own schedule** so it still fires if collection stops.
@@ -86,9 +87,12 @@ scorers can be fixed and re-run without new API calls.
 v2 fixed its three target issues but regressed on character names — caught only because the
 harness scores every check, not just the ones being fixed. v3 is in production.
 
-**Classified failures.** API errors are split into quota exhausted / misconfiguration /
-transient. Only transient errors are retried; the CLI exit code (`0`/`1`/`2`/`3`) tells
-the orchestrator whether a retry can help.
+**Classified failures, recorded honestly.** API errors are split into quota exhausted /
+misconfiguration / transient; only transient errors are retried. A failed channel is written to
+`channel_batches` as `failed` in its own transaction (its main transaction has rolled back), and a
+run's status is derived from its channel batches, so four parallel tasks agree on `partial` instead
+of the last writer winning. The API key travels in a request header, so it can never appear in a
+logged URL.
 
 ### What I deliberately did not use
 
@@ -170,9 +174,9 @@ erDiagram
 
 ```bash
 pip install -e ".[dev,llm]"
-pytest -m "not integration"          # 113 unit tests, no Docker, < 1 s
+pytest -m "not integration"          # 124 unit tests, no Docker, ~1 s
 
-docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 122
+docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 135
 ```
 
 CI runs unit tests, then brings up the full stack with migrations from an empty database,
@@ -196,7 +200,7 @@ dags/                thin Airflow wrappers
 sql/migrations/      forward-only, numbered
 evals/results/       one JSON per eval run, including raw LLM output
 include/soda/        post-publish monitoring
-dashboard/           Streamlit (reads SQL, computes nothing)
+dashboard/           Streamlit, 4 screens incl. the latest brief (reads SQL, computes nothing)
 docs/                data contract, policy notes
 ```
 
@@ -213,6 +217,10 @@ docs/                data contract, policy notes
 - **LLM evaluation has limits.** 20/20 is on synthetic cases, one run per prompt version, with
   keyword-based scorers — a paraphrase that avoids the banned words is not caught. Suggested
   content angles still need human review before use.
+- **No active alerting.** A failed Soda check or channel shows up red in the Airflow UI, but
+  nothing pushes a notification. Retention runs only when invoked from the CLI.
+- **Retries overwrite raw.** A retried task reuses `attempt=1`, so the earlier raw attempt of that
+  channel is replaced (the retry's data is real, only the first attempt's evidence is lost).
 - **Verification status:** collection, replay, quality gate, dashboard, and LLM reports
-  (`gpt-4o-mini`, prompt v3) are verified on live data. CI workflow syntax is validated but has
-  not yet run on GitHub.
+  (`gpt-4o-mini`, prompt v3) are verified on live data. On GitHub, unit and integration jobs pass;
+  pushing the image needs a Docker Hub access token with write scope.

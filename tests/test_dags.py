@@ -12,7 +12,7 @@ import pytest
 airflow = pytest.importorskip("airflow")      # máy dev không có airflow -> BỎ QUA, không fail
 from airflow.models import DagBag            # noqa: E402
 
-EXPECTED = {"yt_collect", "yt_quality"}
+EXPECTED = {"yt_collect", "yt_quality", "yt_report"}
 
 
 @pytest.fixture(scope="module")
@@ -48,3 +48,15 @@ def test_quality_runs_on_independent_schedule(dagbag):
     c = dagbag.get_dag("yt_collect").timetable.summary
     q = dagbag.get_dag("yt_quality").timetable.summary
     assert c != q
+
+
+def test_collect_run_turns_red_when_any_channel_fails(dagbag):
+    # Airflow tính trạng thái DAG run từ task LÁ. `done` (all_done) luôn xanh, nên
+    # phải có một lá ALL_SUCCESS phụ thuộc mọi task kênh - nếu không, kênh lỗi mà
+    # DAG run vẫn xanh.
+    dag = dagbag.get_dag("yt_collect")
+    check = dag.get_task("all_channels_ok")
+    assert check.trigger_rule == "all_success"
+    collect = {t for t in dag.task_ids if t.startswith("collect_")}
+    assert collect == check.upstream_task_ids
+    assert dag.get_task("done").trigger_rule == "all_done"

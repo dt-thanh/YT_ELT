@@ -10,14 +10,7 @@ Vì sao tầng unit nhiều nhất? Vì nó RẺ và NHANH -> chạy mỗi lần
 Test chậm và cần hạ tầng thì người ta ngại chạy -> thành vật trang trí.
 Hình dung: "test pyramid" - đáy rộng (unit), đỉnh hẹp (e2e).
 """
-from datetime import datetime, timezone
-
 import pytest
-
-
-@pytest.fixture
-def now_utc():
-    return datetime(2026, 9, 24, 12, 0, tzinfo=timezone.utc)
 
 
 @pytest.fixture

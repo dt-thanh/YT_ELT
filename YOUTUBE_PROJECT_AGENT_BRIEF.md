@@ -2,6 +2,11 @@
 
 Phiên bản: 2.0 · Ngày nghiên cứu: 20/09/2026 · Sửa đổi: 20/09/2026 · Ngôn ngữ báo cáo: tiếng Việt.
 
+> **Trạng thái (25/09/2026):** đây là tài liệu **thiết kế**, không phải mô tả code. Project đã được
+> xây theo nó, nhưng một số điểm đã làm khác có chủ ý (vd thu 1 lần/ngày lúc 21:00 thay vì 12 giờ/lần)
+> hoặc chưa làm (vd `docs/progress.md`, smoke test S3 thật). Danh sách chênh lệch: `learning.md`,
+> Chặng 21. Khi tài liệu và code lệch nhau, **tin code**.
+
 > **Cập nhật 2.0 — CẮT PHẠM VI (quyết định sau review kỹ thuật):**
 >
 > Bản 1.1 đúng về kỹ thuật nhưng **quá lớn để hoàn thành**: 9 bảng, 15 module,

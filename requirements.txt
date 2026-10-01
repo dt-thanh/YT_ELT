@@ -1,8 +1,23 @@
+# =============================================================================
+# Thư viện cài vào IMAGE (Dockerfile, layer 1), cùng apache-airflow==2.9.2.
+#
+# GHIM ĐÚNG PHIÊN BẢN đang chạy trong image (lấy bằng `pip list` trong container
+# ngày 25/09/2026). Không ghim thì build hôm nay và build 6 tháng sau ra hai bộ
+# thư viện khác nhau dù code y hệt - và image CI đẩy lên Docker Hub (build lại ở
+# job build-and-push) có thể khác image vừa được test.
+# Muốn nâng phiên bản: sửa số ở đây -> build lại -> chạy toàn bộ test.
+# =============================================================================
 soda-core-postgres==3.3.14
 pytest==8.3.3
-boto3
+boto3==1.34.106
 # [Bước 11] dashboard: streamlit + pandas. psycopg2 cho repository.
-psycopg2-binary
-pandas
-streamlit
-openai
+psycopg2-binary==2.9.9
+pandas==2.1.4
+streamlit==1.60.0
+openai==3.19.2
+# requests, tenacity, PyYAML: package youtube_intel dùng trực tiếp. Chúng vốn đi kèm
+# image apache/airflow (Airflow cần chúng) - ghi rõ ra đây để không phụ thuộc NGẦM
+# vào image gốc. Phiên bản = đúng bản image gốc đang có, nên không đổi gì khi build.
+requests==2.31.0
+tenacity==8.3.0
+PyYAML==6.0.1

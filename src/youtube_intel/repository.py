@@ -1,7 +1,10 @@
 """
-TẦNG TRUY CẬP DATABASE - nơi DUY NHẤT trong project chứa câu SQL.
+TẦNG TRUY CẬP DATABASE - nơi chứa MỌI câu SQL GHI của đường thu thập/replay.
 
-Vì sao gom hết SQL về một file?
+(Các truy vấn ĐỌC phục vụ riêng một tính năng - `cli status`, bản tin, retention,
+dashboard - nằm cạnh tính năng đó. Thứ quan trọng cần gom là thao tác GHI.)
+
+Vì sao gom SQL ghi về một file?
   - Đổi schema -> biết chính xác phải sửa ở đâu (grep một file, không phải cả repo)
   - Không lẫn SQL vào logic nghiệp vụ -> logic test được mà không cần database
   - Đây là mẫu REPOSITORY PATTERN: tầng trên gọi hàm có tên nghiệp vụ
@@ -114,13 +117,16 @@ def upsert_channel(cur, *, channel_id: str, group_code: str, title: str | None,
 # =============================================================================
 
 def insert_collection_run(cur, *, collection_id: str, scheduled_for: datetime,
-                          started_at: datetime, code_version: str | None = None) -> None:
+                          started_at: datetime, code_version: str | None = None) -> bool:
     """Mở một lần thu. Ghi NGAY khi bắt đầu, không đợi chạy xong.
 
     Vì sao ghi trước? Vì nếu chết giữa chừng, ta vẫn còn bằng chứng "đã từng có
     một lần chạy lúc X và nó không kết thúc". Chỉ ghi khi thành công thì mọi lần
     thất bại đều BIẾN MẤT không dấu vết - và bạn không bao giờ biết hệ thống
     hỏng bao nhiêu lần.
+
+    Trả True nếu dòng được TẠO MỚI ở lần gọi này (False = đã có từ trước).
+    Replay cần biết điều này để quyết định có được ghi ended_at hay không.
     """
     cur.execute(
         """
@@ -131,23 +137,65 @@ def insert_collection_run(cur, *, collection_id: str, scheduled_for: datetime,
         """,
         (collection_id, scheduled_for, started_at, code_version),
     )
+    return cur.rowcount == 1
 
 
 def finish_collection_run(cur, *, collection_id: str, status: str,
-                          ended_at: datetime, notes: str | None = None) -> None:
-    """Đóng lần thu. status: succeeded | failed | partial.
+                          ended_at: datetime | None, notes: str | None = None) -> None:
+    """Đóng lần thu. Trạng thái được TÍNH TỪ channel_batches, không lấy thẳng tham số.
 
-    'partial' là trạng thái TRUNG THỰC cho trường hợp 3/4 kênh thành công.
-    Không được gọi là 'succeeded' (nói dối) cũng không phải 'failed' (phí dữ
-    liệu đã lấy được). Hệ thống nghiêm túc phải có chỗ cho 'một phần'.
+    ⭐ VÌ SAO KHÔNG GHI THẲNG `status` NHƯ TRƯỚC?
+    Airflow chạy MỖI KÊNH MỘT TIẾN TRÌNH, cùng một collection_id. Mỗi tiến trình
+    chỉ biết kết quả của một kênh. Ghi thẳng thì "ai ghi sau cùng thắng": kênh 1
+    lỗi, kênh 4 thành công và xong sau cùng -> cả lần thu báo 'succeeded' (nói dối).
+    Tính từ bảng batch thì tiến trình nào đóng sổ cũng ra CÙNG một kết luận:
+        mọi batch đã xong đều succeeded -> succeeded
+        mọi batch đã xong đều failed    -> failed
+        lẫn lộn                         -> partial   <- trạng thái trung thực cho 3/4
+    Và nó TỰ LÀNH: kênh lỗi được Airflow retry thành công -> lần đóng sổ sau ra
+    'succeeded'. Tham số `status` chỉ dùng khi chưa có batch nào (không có gì để tính).
+
+    ended_at lấy MUỘN NHẤT (GREATEST bỏ qua NULL): 4 tiến trình đóng sổ lúc khác
+    nhau, lần thu kết thúc khi tiến trình cuối cùng xong. Truyền None để giữ nguyên.
     """
     cur.execute(
         """
-        UPDATE yti.collection_runs
-           SET status = %s, ended_at = %s, notes = COALESCE(%s, notes)
-         WHERE collection_id = %s;
+        UPDATE yti.collection_runs r
+           SET status = COALESCE((
+                   SELECT CASE
+                            WHEN count(*) = 0                    THEN NULL
+                            WHEN bool_and(b.status = 'succeeded') THEN 'succeeded'
+                            WHEN bool_and(b.status = 'failed')    THEN 'failed'
+                            ELSE 'partial'
+                          END
+                     FROM yti.channel_batches b
+                    WHERE b.collection_id = r.collection_id
+                      AND b.status IN ('succeeded', 'failed')
+               ), %(status)s),
+               ended_at = GREATEST(r.ended_at, %(ended_at)s),
+               notes    = COALESCE(%(notes)s, r.notes)
+         WHERE r.collection_id = %(collection_id)s;
         """,
-        (status, ended_at, notes, collection_id),
+        {"status": status, "ended_at": ended_at, "notes": notes,
+         "collection_id": collection_id},
+    )
+
+
+def ensure_channel(cur, *, channel_id: str, group_code: str, source_url: str | None) -> None:
+    """Bảo đảm kênh có trong registry, KHÔNG đụng tới metadata đã có.
+
+    Dùng khi ghi batch LỖI: channel_batches có khóa ngoại tới tracked_channels.
+    Nếu lần thu ĐẦU TIÊN của một kênh hỏng ngay ở bước gọi API, kênh chưa có trong
+    registry và dòng batch 'failed' sẽ vi phạm khóa ngoại. Khác upsert_channel:
+    DO NOTHING -> không ghi đè title/metadata thật bằng giá trị trong config.
+    """
+    cur.execute(
+        """
+        INSERT INTO yti.tracked_channels (channel_id, group_code, source_url)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (channel_id) DO NOTHING;
+        """,
+        (channel_id, group_code, source_url),
     )
 
 
@@ -421,27 +469,6 @@ def publish_batch(cur, *, batch_id: str, collection_id: str, videos) -> tuple[in
 
     logger.info("Publish: %d video (dimension), %d observation (fact)", dim_count, fact_count)
     return dim_count, fact_count
-
-
-def set_batch_quality(cur, *, batch_id: str, quality_status: str,
-                      error_code: str | None = None,
-                      error_message: str | None = None) -> None:
-    """Ghi kết quả quality gate. quality_status: passed | quarantined.
-
-    Batch bị 'quarantined' KHÔNG bị xóa: dữ liệu vẫn nằm nguyên trong staging
-    để điều tra. Nó chỉ không được phép sang vùng công bố.
-    Xóa dữ liệu lỗi = mất luôn bằng chứng để hiểu vì sao lỗi.
-    """
-    cur.execute(
-        """
-        UPDATE yti.channel_batches
-           SET quality_status = %s,
-               error_code     = COALESCE(%s, error_code),
-               error_message  = COALESCE(%s, error_message)
-         WHERE batch_id = %s;
-        """,
-        (quality_status, error_code, error_message, batch_id),
-    )
 
 
 def count_staging(cur, *, batch_id: str) -> int:

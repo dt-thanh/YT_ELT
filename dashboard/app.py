@@ -1,5 +1,5 @@
 """
-Dashboard Streamlit - 3 màn hình.
+Dashboard Streamlit - 4 màn hình.
 
 NGUYÊN TẮC SỐ MỘT: DASHBOARD KHÔNG TÍNH TOÁN.
 Mọi con số hiển thị ở đây đều đến từ SQL (chủ yếu là VIEW v_video_growth).
@@ -34,6 +34,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from youtube_intel.config import load_config          # noqa: E402
 from youtube_intel import repository as repo          # noqa: E402
+from youtube_intel.reporting import render_markdown   # noqa: E402
 
 st.set_page_config(page_title="YouTube Content Intelligence",
                    page_icon="📊", layout="wide")
@@ -134,6 +135,7 @@ page = st.sidebar.radio("Màn hình", [
     "1 · Nguồn & độ tươi",
     "2 · Video & khoảng quan sát",
     "3 · Bảng xếp hạng tăng trưởng",
+    "4 · Bản tin",
 ])
 
 st.sidebar.caption(
@@ -169,7 +171,7 @@ if page.startswith("1"):
             channels[["title", "group_code", "videos", "observations", "độ tươi", "enabled"]]
             .rename(columns={"title": "Kênh", "group_code": "Nhóm", "videos": "Video",
                              "observations": "Quan sát", "enabled": "Đang bật"}),
-            use_container_width=True, hide_index=True,
+            width="stretch", hide_index=True,
         )
 
     st.subheader("Các lần thu gần nhất")
@@ -198,7 +200,7 @@ if page.startswith("1"):
                              "status": "Trạng thái", "passed": "Pass",
                              "quarantined": "Cách ly", "rows_received": "Dòng",
                              "code_version": "Phiên bản code"}),
-            use_container_width=True, hide_index=True,
+            width="stretch", hide_index=True,
         )
         st.caption(
             "**Lịch hẹn** là ô lịch mà lần chạy đại diện; **Thực chạy** là lúc nó "
@@ -241,7 +243,7 @@ elif page.startswith("2"):
         "chưa có quan sát": "Video có trong danh mục nhưng chưa được thu lần nào",
     }
     reasons["Nghĩa là gì"] = reasons["Lý do"].map(GIAI_THICH).fillna("—")
-    st.dataframe(reasons, use_container_width=True, hide_index=True)
+    st.dataframe(reasons, width="stretch", hide_index=True)
 
     st.subheader("Chi tiết từng video")
     groups = ["(tất cả)"] + sorted(growth["group_code"].dropna().unique().tolist())
@@ -259,23 +261,25 @@ elif page.startswith("2"):
             "elapsed_hours": "Giờ", "start_view_count": "View đầu",
             "end_view_count": "View cuối", "delta_views": "Tăng",
             "views_per_hour": "View/giờ", "validity_reason": "Trạng thái"}),
-        use_container_width=True, hide_index=True,
+        width="stretch", hide_index=True,
     )
 
 
 # =============================================================================
 # MÀN HÌNH 3 - BẢNG XẾP HẠNG
 # =============================================================================
-else:
+elif page.startswith("3"):
     st.title("Bảng xếp hạng tăng trưởng")
     st.caption("Trả lời: *video nào đang tăng view nhanh nhất TRONG TẬP ĐANG THEO DÕI?*")
 
     # ⚠️ TUYÊN BỐ PHẠM VI - bắt buộc, không phải trang trí.
     # 200 video của 4 kênh KHÔNG đại diện cho YouTube. Bảng xếp hạng không nói
     # rõ phạm vi sẽ bị hiểu thành "video hot nhất YouTube" - một tuyên bố sai.
+    # Con số lấy từ CONFIG, không viết cứng: thêm kênh thì câu này vẫn đúng.
     st.warning(
-        "**Phạm vi:** chỉ gồm video trong 4 kênh đang theo dõi, mỗi kênh tối đa "
-        "50 video mới nhất. **Không** đại diện cho YouTube nói chung."
+        f"**Phạm vi:** chỉ gồm video trong {len(CFG.enabled_channels())} kênh đang "
+        f"theo dõi, mỗi kênh tối đa {CFG.settings.initial_video_limit_per_channel} "
+        "video mới nhất. **Không** đại diện cho YouTube nói chung."
     )
 
     growth = q("SELECT * FROM yti.v_video_growth WHERE is_rankable = true;")
@@ -286,7 +290,8 @@ else:
         st.info(
             "Chưa video nào đủ điều kiện xếp hạng.\n\n"
             "Cần **2 lần quan sát cách nhau 18–30 giờ**. "
-            "Lịch thu là 1 lần/ngày, nên hãy đợi lần chạy kế tiếp."
+            f"Lịch thu là {24 // CFG.settings.snapshot_hours} lần/ngày, "
+            "nên hãy đợi lần chạy kế tiếp."
         )
         st.stop()
 
@@ -310,7 +315,7 @@ else:
                 "views_per_hour": "View/giờ", "delta_views": "Tăng",
                 "elapsed_hours": "Trong (giờ)", "end_view_count": "Tổng view",
                 "end_like_count": "Like", "format_label": "Loại"}),
-            use_container_width=True, hide_index=True,
+            width="stretch", hide_index=True,
         )
         st.bar_chart(sub.set_index("video_title")["views_per_hour"])
 
@@ -320,3 +325,37 @@ else:
         "lượt xem thật từng giờ. Video thiếu dữ liệu bị **loại khỏi bảng**, "
         "không bị gán 0."
     )
+
+
+# =============================================================================
+# MÀN HÌNH 4 - BẢN TIN
+# =============================================================================
+else:
+    st.title("Bản tin theo nhóm")
+    st.caption("Trả lời: *bản tin gần nhất của mỗi nhóm nói gì, và nó được sinh ra thế nào?*")
+
+    # Bản tin mới nhất của MỖI nhóm (DISTINCT ON - cùng kỹ thuật với VIEW tăng trưởng).
+    reports = q("""
+        SELECT DISTINCT ON (group_code)
+               group_code, as_of, status, model_name, prompt_version,
+               tokens_used, latency_ms, validated_payload, evidence_bundle
+          FROM yti.reports
+         ORDER BY group_code, as_of DESC;
+    """)
+
+    if reports.empty:
+        st.info("Chưa có bản tin nào. DAG `yt_report` tự chạy sau mỗi lần thu, "
+                "hoặc chạy tay: `youtube-intel report`.")
+        st.stop()
+
+    for _, r in reports.iterrows():
+        # Nói rõ AI HAY BẢN MẪU viết - người đọc có quyền biết văn bản đến từ đâu.
+        writer = (f"LLM `{r['model_name']}` · prompt `{r['prompt_version']}` · "
+                  f"{int(r['tokens_used'] or 0):,} token"
+                  if r["model_name"] else "bản mẫu (không dùng LLM)")
+        st.caption(f"Sinh lúc {r['as_of']:%Y-%m-%d %H:%M} UTC ({age_text(r['as_of'])}) · "
+                   f"trạng thái `{r['status']}` · {writer}")
+        # KHÔNG tính gì ở đây: số liệu render từ evidence đã lưu cùng bản tin,
+        # bằng CHÍNH hàm mà lệnh `report --show` dùng.
+        st.markdown(render_markdown(r["validated_payload"], r["evidence_bundle"]))
+        st.divider()

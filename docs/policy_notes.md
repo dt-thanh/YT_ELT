@@ -3,6 +3,11 @@
 > **Trạng thái: ⚠️ CHƯA XÁC MINH.** Chưa ai đọc tài liệu gốc và ghi trích dẫn.
 > Vì vậy `raw_retention_days: null` trong `config/channels.yaml` (= không xóa raw),
 > và `derived_metrics_enabled: false`.
+>
+> ⚠️ Lưu ý (25/09/2026): cờ `derived_metrics_enabled` **chưa được nối vào code**.
+> VIEW `v_video_growth`, dashboard và bản tin vẫn tính/hiển thị `views_per_hour` bất kể
+> giá trị của cờ. Sau khi đọc xong chính sách, nếu chỉ số dẫn xuất cần điều kiện, phải
+> nối cờ vào dashboard màn 3/4 và `reporting.run_reports` rồi mới coi là "đã tắt".
 
 ## Vì sao file này tồn tại
 

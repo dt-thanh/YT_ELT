@@ -43,16 +43,19 @@ from youtube_intel.config import ChannelConfig, Config
 from youtube_intel.normalize import from_staging_row, normalize_video
 from youtube_intel.storage import BatchManifest, MANIFEST_SCHEMA_VERSION, RawStore, utc_now
 from youtube_intel.youtube import (
+    MAX_RESULTS,
     ConfigurationError,
     QuotaExceededError,
     YouTubeClient,
-    YouTubeError,
 )
 from youtube_intel import quality, repository as repo
 
 logger = logging.getLogger(__name__)
 
 RESOURCE = "videos"
+
+# Số video mỗi file raw = đúng cỡ lô của videos.list (tối đa 50 ID/request).
+RAW_BATCH_SIZE = MAX_RESULTS
 
 # Định danh "tập dữ liệu" mà yt_collect GHI và yt_report ĐỌC. Airflow dùng nó
 # để lập lịch theo dữ liệu (Dataset): report chạy khi bảng này vừa được cập nhật.
@@ -302,7 +305,8 @@ def run_collection(
                 break
 
             # ---- LỖI CHỈ ẢNH HƯỞNG MỘT KÊNH ------------------------------
-            except (YouTubeError, repo.RepositoryError, Exception) as e:
+            # (YouTubeError, RepositoryError, StorageError... đều là Exception)
+            except Exception as e:
                 outcome.status = "failed"
                 outcome.error_code = type(e).__name__
                 outcome.error_message = str(e)[:500]
@@ -311,7 +315,13 @@ def run_collection(
                 logger.error("Kênh %s thất bại: %s", channel.title, e, exc_info=True)
 
             finally:
+                # `finally` chạy cả khi nhánh except ở trên `break`.
                 outcome.quota_units = yt.meter.estimated_units - units_before
+                if outcome.status == "failed" and not dry_run:
+                    # Transaction của kênh đã rollback -> không có gì được công bố.
+                    outcome.quality_status = "pending"
+                    _record_channel_failure(db, collection_id=collection_id,
+                                            channel=channel, outcome=outcome)
 
         result.total_quota_units = yt.meter.estimated_units
 
@@ -342,6 +352,10 @@ def _run_one_channel(cfg, yt, store, db, channel: ChannelConfig,
                      dry_run: bool) -> None:
     """Toàn bộ luồng cho MỘT kênh. Ném ngoại lệ khi lỗi - nơi gọi bắt."""
     settings = cfg.settings
+    # yt.meter đếm cho CẢ tiến trình. Chạy tay nhiều kênh một lượt thì con số cộng
+    # dồn qua các kênh -> ghi HIỆU SỐ để manifest/batch nói đúng quota của kênh này.
+    requests_before = yt.meter.request_count
+    units_before = yt.meter.estimated_units
 
     # ---- 1-3. Gọi API ----------------------------------------------------
     info = yt.fetch_channel(channel_id=channel.channel_id)
@@ -357,24 +371,27 @@ def _run_one_channel(cfg, yt, store, db, channel: ChannelConfig,
     outcome.received_count = det.received_count
     outcome.truncated = disc.truncated
 
-    videos = [normalize_video(v) for v in det.videos]
-
     if dry_run:
         logger.info("[DRY RUN] %s: %d video, truncated=%s",
-                    channel.title, len(videos), disc.truncated)
+                    channel.title, len(det.videos), disc.truncated)
         return
+
+    # Chia lô MỘT lần, dùng chung cho file raw VÀ staging -> mỗi dòng staging trỏ
+    # đúng file raw đã sinh ra nó (data lineage), kể cả khi một kênh có > 1 file.
+    chunks = [list(det.videos[s:s + RAW_BATCH_SIZE])
+              for s in range(0, len(det.videos), RAW_BATCH_SIZE)]
 
     # ---- 4-5. RAW TRƯỚC, rồi MANIFEST ------------------------------------
     # Thứ tự này là quyết định thiết kế: raw KHÔNG THỂ tạo lại (YouTube không
     # trả số liệu quá khứ), còn database thì LUÔN dựng lại được từ raw.
     # Luôn bảo vệ thứ không thể tạo lại trước.
     objects = []
-    for i, start in enumerate(range(0, len(det.videos), 50), start=1):
+    for i, chunk in enumerate(chunks, start=1):
         obj = store.put_batch(resource=RESOURCE, channel_id=channel.channel_id,
                               collection_id=collection_id, attempt=1, batch_index=i,
-                              payload=list(det.videos[start:start + 50]),
-                              observed_at=observed_at)
+                              payload=chunk, observed_at=observed_at)
         objects.append(obj.__dict__)
+    requests_used = yt.meter.request_count - requests_before
 
     manifest = BatchManifest(
         schema_version=MANIFEST_SCHEMA_VERSION, collection_id=collection_id,
@@ -385,7 +402,8 @@ def _run_one_channel(cfg, yt, store, db, channel: ChannelConfig,
         missing_ids=list(det.missing_ids),
         discovery_total_reported=disc.total_reported,
         discovery_truncated=disc.truncated,
-        request_count=yt.meter.request_count, estimated_units=yt.meter.estimated_units,
+        request_count=requests_used,
+        estimated_units=yt.meter.estimated_units - units_before,
         objects=objects,
         request_params={"part": "snippet,contentDetails,statistics,status", "maxResults": 50},
         code_version=git_version(),
@@ -410,11 +428,12 @@ def _run_one_channel(cfg, yt, store, db, channel: ChannelConfig,
 
                 # Xóa trước khi nạp -> chạy lại không nhân đôi (delete-insert).
                 repo.clear_staging_batch(cur, batch_id=batch_id)
-                repo.load_staging_rows(cur, batch_id=batch_id, collection_id=collection_id,
-                                       channel_id=channel.channel_id,
-                                       observed_at=observed_at,
-                                       source_object_key=objects[0]["key"] if objects else None,
-                                       videos=videos)
+                for chunk, obj in zip(chunks, objects):
+                    repo.load_staging_rows(cur, batch_id=batch_id, collection_id=collection_id,
+                                           channel_id=channel.channel_id,
+                                           observed_at=observed_at,
+                                           source_object_key=obj["key"],
+                                           videos=[normalize_video(v) for v in chunk])
 
                 # ---- QUALITY GATE ----
                 rows = repo.fetch_staging_rows(cur, batch_id=batch_id)
@@ -426,6 +445,9 @@ def _run_one_channel(cfg, yt, store, db, channel: ChannelConfig,
                     {"severity": i.severity, "code": i.code, "count": i.count}
                     for i in report.issues
                 ]
+                # Ghi báo cáo chất lượng vào log - kể cả khi PASSED. Trước đây các
+                # WARNING (vd bao nhiêu video thiếu like) chỉ nằm trong bộ nhớ.
+                logger.info("Quality gate %s: %s", channel.title, report.summary())
 
                 if report.passed:
                     pub = [from_staging_row(r) for r in rows]
@@ -444,11 +466,47 @@ def _run_one_channel(cfg, yt, store, db, channel: ChannelConfig,
                     cur, batch_id=batch_id, status="succeeded",
                     quality_status=report.quality_status,
                     expected_count=det.expected_count, received_count=det.received_count,
-                    request_count=yt.meter.request_count,
+                    request_count=requests_used,
                     discovery_truncated=disc.truncated,
                     manifest_key=outcome.manifest_key,
                     error_code=outcome.error_code, error_message=outcome.error_message,
                 )
+
+
+def _record_channel_failure(db, *, collection_id: str, channel: ChannelConfig,
+                            outcome: ChannelOutcome) -> None:
+    """Ghi dòng channel_batches 'failed' bằng một transaction RIÊNG.
+
+    ⭐ VÌ SAO CẦN?
+    Transaction của kênh đã ROLLBACK (hoặc chưa từng mở, nếu hỏng ở bước gọi API),
+    nên dòng batch biến mất cùng nó. Không ghi riêng thì lỗi chỉ còn trong log, và
+    câu hỏi "tuần này kênh nào lỗi, lỗi gì" không trả lời được bằng SQL. Nó cũng
+    là thứ giúp finish_collection_run tính đúng 'partial'/'failed'.
+
+    BEST-EFFORT: nếu chính database đang sập thì không ghi được - chỉ log, KHÔNG
+    ném lỗi mới đè lên lỗi gốc (lỗi gốc mới là thứ người vận hành cần thấy).
+    """
+    try:
+        with db.connect() as conn:
+            with conn:
+                with repo.dict_cursor(conn) as cur:
+                    # Lần thu ĐẦU TIÊN của kênh hỏng ngay ở API -> kênh chưa có trong
+                    # registry -> dòng batch sẽ vi phạm khóa ngoại. Bảo đảm trước.
+                    repo.ensure_channel(cur, channel_id=channel.channel_id,
+                                        group_code=channel.group,
+                                        source_url=channel.source_url)
+                    batch_id = repo.insert_channel_batch(
+                        cur, batch_id=deterministic_batch_id(collection_id, channel.channel_id),
+                        collection_id=collection_id, channel_id=channel.channel_id)
+                    repo.finish_channel_batch(
+                        cur, batch_id=batch_id, status="failed", quality_status="pending",
+                        expected_count=outcome.expected_count or None,
+                        received_count=outcome.received_count or None,
+                        request_count=None, discovery_truncated=outcome.truncated,
+                        manifest_key=outcome.manifest_key,
+                        error_code=outcome.error_code, error_message=outcome.error_message)
+    except Exception as e:
+        logger.error("Không ghi được trạng thái lỗi của kênh %s vào DB: %s", channel.title, e)
 
 
 # =============================================================================
@@ -472,6 +530,7 @@ def replay_collection(cfg: Config, *, collection_id: str, attempt: int = 1) -> C
 
     result = CollectionResult(collection_id=collection_id,
                               scheduled_for=utc_now(), started_at=utc_now())
+    run_created = False          # replay có phải là người TẠO dòng collection_runs?
 
     for channel in cfg.enabled_channels():
         outcome = ChannelOutcome(channel_id=channel.channel_id, title=channel.title)
@@ -487,49 +546,70 @@ def replay_collection(cfg: Config, *, collection_id: str, attempt: int = 1) -> C
         try:
             man = store.read_manifest(resource=RESOURCE, channel_id=channel.channel_id,
                                       collection_id=collection_id, attempt=attempt)
-            raw_rows = []
-            for o in man["objects"]:
-                raw_rows += store.read_batch(o["key"])
-
-            videos = [normalize_video(r) for r in raw_rows]
+            # Summary phải in ô lịch GỐC của lần thu, không phải giờ chạy replay.
+            result.scheduled_for = datetime.fromisoformat(man["scheduled_for"])
+            manifest_key = store.manifest_key(resource=RESOURCE, channel_id=channel.channel_id,
+                                              collection_id=collection_id, attempt=attempt)
+            # Đọc TỪNG file kèm key và observed_at của CHÍNH nó -> mỗi dòng staging
+            # trỏ đúng file raw đã sinh ra nó (lineage), giống đường thu thật.
+            parts = [(o["key"], datetime.fromisoformat(o["observed_at"]), store.read_batch(o["key"]))
+                     for o in man["objects"]]
             outcome.expected_count = man["expected_count"]
-            outcome.received_count = len(videos)
-            observed_at = datetime.fromisoformat(man["objects"][0]["observed_at"])
+            outcome.received_count = sum(len(raw_rows) for _, _, raw_rows in parts)
+            outcome.manifest_key = manifest_key
 
             with db.connect() as conn:
                 with conn:
                     with repo.dict_cursor(conn) as cur:
-                        repo.insert_collection_run(
+                        created = repo.insert_collection_run(
                             cur, collection_id=collection_id,
                             scheduled_for=datetime.fromisoformat(man["scheduled_for"]),
                             started_at=datetime.fromisoformat(man["started_at"]),
                             code_version=man.get("code_version"))
+                        run_created = run_created or created
                         batch_id = repo.insert_channel_batch(
                             cur, batch_id=deterministic_batch_id(collection_id, channel.channel_id),
                             collection_id=collection_id, channel_id=channel.channel_id)
                         outcome.batch_id = batch_id
 
                         repo.clear_staging_batch(cur, batch_id=batch_id)
-                        repo.load_staging_rows(cur, batch_id=batch_id,
-                                               collection_id=collection_id,
-                                               channel_id=channel.channel_id,
-                                               observed_at=observed_at,
-                                               source_object_key=man["objects"][0]["key"],
-                                               videos=videos)
+                        for key, observed_at, raw_rows in parts:
+                            repo.load_staging_rows(cur, batch_id=batch_id,
+                                                   collection_id=collection_id,
+                                                   channel_id=channel.channel_id,
+                                                   observed_at=observed_at,
+                                                   source_object_key=key,
+                                                   videos=[normalize_video(r) for r in raw_rows])
                         rows = repo.fetch_staging_rows(cur, batch_id=batch_id)
                         report = quality.check_batch(
                             batch_id=batch_id, rows=rows,
                             expected_count=man["expected_count"],
                             discovery_truncated=man["discovery_truncated"])
                         outcome.quality_status = report.quality_status
+                        logger.info("Quality gate %s: %s", channel.title, report.summary())
 
                         if report.passed:
                             pub = [from_staging_row(r) for r in rows]
                             d, f = repo.publish_batch(cur, batch_id=batch_id,
                                                       collection_id=collection_id, videos=pub)
                             outcome.published_videos, outcome.published_observations = d, f
-                        repo.set_batch_quality(cur, batch_id=batch_id,
-                                               quality_status=report.quality_status)
+                        else:
+                            outcome.error_code = "quality_gate_failed"
+                            outcome.error_message = ",".join(i.code for i in report.errors)
+
+                        # Đóng batch GIỐNG HỆT đường thu thật. Trước đây replay chỉ cập
+                        # nhật quality_status, mà insert_channel_batch (mẹo upsert-and-
+                        # return) đã đặt status='running' -> batch kẹt 'running' mãi mãi,
+                        # và replay một lần thu đã xong còn KÉO LÙI nó về 'running'.
+                        repo.finish_channel_batch(
+                            cur, batch_id=batch_id, status="succeeded",
+                            quality_status=report.quality_status,
+                            expected_count=man["expected_count"],
+                            received_count=outcome.received_count,
+                            request_count=man.get("request_count"),
+                            discovery_truncated=man["discovery_truncated"],
+                            manifest_key=manifest_key,
+                            error_code=outcome.error_code, error_message=outcome.error_message)
             outcome.status = "succeeded"
 
         except Exception as e:
@@ -542,4 +622,21 @@ def replay_collection(cfg: Config, *, collection_id: str, attempt: int = 1) -> C
     n_ok = len(result.succeeded)
     result.status = ("succeeded" if n_ok == len(result.outcomes) and n_ok
                      else "failed" if n_ok == 0 else "partial")
+
+    # Đóng sổ lần thu. Trạng thái được tính lại từ channel_batches, nên replay cứu
+    # được kênh từng hỏng ở bước DB thì lần thu tự chuyển partial -> succeeded.
+    # ended_at chỉ ghi khi CHÍNH replay tạo ra dòng lần thu (database dựng lại từ
+    # đầu); lần thu thật đã có ended_at thì giữ nguyên lịch sử của nó.
+    # Trước đây replay không đóng sổ -> dòng do replay tạo kẹt 'running' mãi mãi.
+    if result.outcomes:
+        try:
+            with db.connect() as conn:
+                with conn:
+                    with repo.dict_cursor(conn) as cur:
+                        repo.finish_collection_run(
+                            cur, collection_id=collection_id, status=result.status,
+                            ended_at=result.ended_at if run_created else None,
+                            notes="dựng lại bằng replay" if run_created else None)
+        except Exception as e:
+            logger.error("Không đóng được sổ lần thu %s: %s", collection_id, e)
     return result

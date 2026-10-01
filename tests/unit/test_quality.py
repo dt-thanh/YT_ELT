@@ -3,7 +3,8 @@ from youtube_intel.quality import check_batch
 
 
 def row(i, **over):
-    base = {"stg_id": i, "video_id": f"vid{i:08d}", "raw_view_count": "1000",
+    base = {"stg_id": i, "video_id": f"vid{i:08d}", "title": f"Video {i}",
+            "raw_view_count": "1000",
             "raw_like_count": "50", "raw_comment_count": "5",
             "raw_duration": "PT5M", "raw_published_at": "2026-01-01T00:00:00Z"}
     base.update(over)
@@ -58,3 +59,16 @@ def test_truncation_does_not_trigger_shortfall_alarm():
     r = check_batch(batch_id="b", rows=[row(1)], expected_count=1274,
                     discovery_truncated=True)
     assert r.passed and "received_below_expected" not in codes(r)
+
+
+def test_fields_required_by_target_table_are_errors():
+    # videos_current.title / published_at là NOT NULL. Để lọt thì publish gãy giữa
+    # transaction -> rollback cả kênh, mất bằng chứng. Phải CÁCH LY ngay ở gate.
+    r = check_batch(batch_id="b", rows=[row(1, title=None), row(2, raw_published_at=None)])
+    assert not r.passed
+    assert {"missing_title", "missing_published_at"} <= codes(r)
+
+
+def test_video_id_length_matches_target_check():
+    r = check_batch(batch_id="b", rows=[row(1, video_id="abc")])     # < 5 ký tự
+    assert not r.passed and "invalid_video_id" in codes(r)

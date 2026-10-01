@@ -9,10 +9,13 @@
 #
 #   1. "Pipeline 3 ngày không chạy"  <- gate soi TỪNG BATCH; không có batch nào
 #      thì gate KHÔNG CHẠY, nên không thể báo. Chỉ thứ nhìn TOÀN BẢNG mới thấy.
-#   2. Trôi dạt theo thời gian: hôm nay số video giảm 30% so với hôm qua -
-#      từng batch đều hợp lệ, nhưng XU HƯỚNG thì bất thường.
-#   3. Hồi quy do đổi code: một migration làm hỏng dữ liệu CŨ - gate chỉ soi
+#   2. Hồi quy do đổi code: một migration làm hỏng dữ liệu CŨ - gate chỉ soi
 #      dữ liệu MỚI nên không thấy.
+#   3. Trạng thái VẬN HÀNH kẹt lại: lần thu / batch treo ở 'running'.
+#
+# CHƯA CÓ: check "trôi dạt" (vd hôm nay số video giảm 30% so với hôm qua). Việc
+# đó cần so với lần đo trước (anomaly/change check) - ghi ra để không ai tưởng
+# camera đang canh cả thứ này.
 #
 # Một phần các check dưới đây TRÙNG với quality.py. Trùng là CÓ CHỦ Ý:
 # đó là lớp phòng thủ thứ hai (defense in depth). Nếu gate có bug mà lọt,
@@ -92,6 +95,17 @@ checks for collection_runs:
           AND started_at < now() - interval '2 hours'
 
 checks for channel_batches:
+  # Batch kẹt 'running' = transaction của kênh chưa bao giờ đóng đúng. Trước đây
+  # replay để lại đúng lỗi này (đã sửa) mà stuck_runs ở trên KHÔNG thấy, vì nó chỉ
+  # soi collection_runs. Camera phải soi cả trạng thái từng kênh.
+  - stuck_batches = 0:
+      name: Không có batch nào treo ở trạng thái running quá 2 giờ
+      stuck_batches query: |
+        SELECT COUNT(*)
+        FROM yti.channel_batches
+        WHERE status = 'running'
+          AND created_at < now() - interval '2 hours'
+
   # Batch bị cách ly trong 7 ngày gần đây. Không phải LỖI - đúng là gate đã làm
   # việc của nó - nhưng CẦN NGƯỜI XEM: vì sao dữ liệu bẩn xuất hiện?
   - recent_quarantined = 0:

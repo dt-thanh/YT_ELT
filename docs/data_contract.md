@@ -1,5 +1,12 @@
 # Data Contract — YT_ELT
 
+> ⚠️ **TÀI LIỆU LỊCH SỬ (07–08/09/2026) — đọc kèm ghi chú này.**
+> Viết ở giai đoạn đầu, TRƯỚC kiến trúc hiện tại. Mục **3** (ba cạm bẫy của API) và mục **6**
+> (bằng chứng đo thật) vẫn đúng, và là lý do code hiện tại viết như vậy. Mục **1, 4, 4b, 5**
+> mô tả bảng `core.yt_api`, grain "1 video × 1 ngày", cột `Duration TIME` — **đã bị thay thế**:
+> grain hiện hành là (video, lần thu), duration là `duration_seconds BIGINT`.
+> Schema hiện hành: `sql/migrations/`. Giải thích: `learning.md` Chặng 8 và Chặng 21.
+
 > Tài liệu này viết TRƯỚC khi code. Nó là "hợp đồng" giữa nguồn (YouTube API)
 > và kho dữ liệu (core.yt_api). Mọi thay đổi schema phải cập nhật file này.
 

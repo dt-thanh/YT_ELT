@@ -47,3 +47,30 @@ def test_growth_view_never_hides_videos(cur):
                           (SELECT count(*) FROM yti.v_video_growth) AS b""")
     r = cur.fetchone()
     assert r["a"] == r["b"]
+
+
+def test_run_status_is_derived_from_batches(cur):
+    # Mô phỏng chế độ Airflow: 2 tiến trình, CÙNG một lần thu; kênh A lỗi, kênh B
+    # thành công và đóng sổ SAU CÙNG. Trước đây "ai ghi sau cùng thắng" -> lần thu
+    # báo 'succeeded' (nói dối). Giờ trạng thái tính từ channel_batches -> 'partial'.
+    # Chạy trong transaction của fixture rồi ROLLBACK -> không để lại dữ liệu.
+    import uuid
+    from datetime import datetime, timezone
+    from youtube_intel import repository as repo
+
+    cid, now = str(uuid.uuid4()), datetime.now(timezone.utc)
+    try:
+        repo.insert_collection_run(cur, collection_id=cid, scheduled_for=now, started_at=now)
+        for ch, status in (("UC" + "A" * 22, "failed"), ("UC" + "B" * 22, "succeeded")):
+            repo.ensure_channel(cur, channel_id=ch, group_code="books_learning", source_url=None)
+            bid = repo.insert_channel_batch(cur, batch_id=str(uuid.uuid4()),
+                                            collection_id=cid, channel_id=ch)
+            repo.finish_channel_batch(cur, batch_id=bid, status=status, quality_status="pending",
+                                      expected_count=None, received_count=None,
+                                      request_count=None, discovery_truncated=False,
+                                      manifest_key=None)
+            repo.finish_collection_run(cur, collection_id=cid, status=status, ended_at=now)
+        cur.execute("SELECT status FROM yti.collection_runs WHERE collection_id = %s", (cid,))
+        assert cur.fetchone()["status"] == "partial"
+    finally:
+        cur.connection.rollback()

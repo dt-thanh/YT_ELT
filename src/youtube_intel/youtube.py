@@ -5,7 +5,7 @@ QUY TẮC SỐ MỘT: file này KHÔNG import airflow, KHÔNG import boto3, KHÔ
 psycopg2. Chỉ requests + tenacity. Nhờ vậy test chạy trong mili giây và debug
 được ngay trong terminal khi hạ tầng chưa lên.
 
-BA NÂNG CẤP SO VỚI dags/api/youtube_client.py:
+BỐN ĐIỂM CHÍNH CỦA FILE:
   1. PHÂN LOẠI LỖI: 403 của YouTube có nhiều nguyên nhân khác hẳn nhau.
      quotaExceeded -> dừng hẳn (retry chỉ tốn thời gian, không bao giờ thành công)
      keyInvalid    -> dừng hẳn (lỗi cấu hình, người phải sửa)
@@ -14,11 +14,10 @@ BA NÂNG CẤP SO VỚI dags/api/youtube_client.py:
   2. ĐẾM QUOTA: biết mỗi lần chạy tiêu bao nhiêu unit trong hạn mức 10.000/ngày.
      Không đo thì không quản được.
   3. LẤY THÊM status.madeForKids - trường ba trạng thái (true/false/KHÔNG BIẾT).
+  4. API KEY ĐI TRONG HEADER, KHÔNG NẰM TRONG URL (xem YouTubeClient.__init__).
 
-VỀ MẶT DI CHUYỂN CODE: file cũ dags/api/youtube_client.py vẫn GIỮ NGUYÊN cho tới
-khi DAG mới thay xong DAG cũ. Xây cái mới song song, chuyển dần, rồi mới xóa cái
-cũ - kỹ thuật này tên là STRANGLER FIG PATTERN. Đập cũ trước khi mới chạy được
-là cách nhanh nhất để có một hệ thống không chạy được.
+LỊCH SỬ: file này là hạt giống từ dags/api/youtube_client.py của repo cũ. Cái mới
+được xây song song rồi mới xóa cái cũ (STRANGLER FIG PATTERN); file cũ đã bị xóa.
 """
 
 from __future__ import annotations
@@ -190,11 +189,17 @@ class YouTubeClient:
     ) -> None:
         if not api_key:
             raise ConfigurationError("Thiếu API key.")
-        self._api_key = api_key
         self._timeout = timeout
         self._max_attempts = max_attempts
         self.meter = meter or QuotaMeter()
         self._session = requests.Session()
+        # ⭐ KEY ĐI TRONG HEADER, KHÔNG NẰM TRONG URL.
+        # Trước đây key là query param `?key=...`. Khi mất mạng, thông báo lỗi của
+        # requests.ConnectionError chứa NGUYÊN URL kèm query string -> key bị ghi
+        # thẳng vào log Airflow qua before_sleep_log / logger.error (đã tái hiện
+        # được bằng một host không tồn tại). Header không bao giờ xuất hiện trong
+        # thông báo lỗi của requests, và Google API chấp nhận key qua header này.
+        self._session.headers["X-Goog-Api-Key"] = api_key
 
     def close(self) -> None:
         self._session.close()
@@ -227,11 +232,11 @@ class YouTubeClient:
         )
         def _call() -> dict:
             url = f"{YOUTUBE_API}/{endpoint}"
-            query = {**params, "key": self._api_key}
             self.meter.charge(endpoint)
 
             try:
-                response = self._session.get(url, params=query, timeout=self._timeout)
+                # KHÔNG có "key" trong params - key đã nằm trong header của session.
+                response = self._session.get(url, params=params, timeout=self._timeout)
             except (requests.Timeout, requests.ConnectionError) as e:
                 # Mạng chập chờn -> tạm thời -> đáng retry.
                 raise RetryableError(f"Lỗi mạng khi gọi {endpoint}: {e}") from e
@@ -297,6 +302,7 @@ class YouTubeClient:
         sẽ vô tình khẳng định "đã lấy toàn bộ kênh" trong khi mới lấy 50/1274.
         """
         video_ids: list[str] = []
+        seen: set[str] = set()
         page_token: str | None = None
         total_reported: int | None = None
         pages = 0
@@ -318,7 +324,14 @@ class YouTubeClient:
                 total_reported = data.get("pageInfo", {}).get("totalResults")
 
             for entry in data.get("items", []):
-                video_ids.append(entry["contentDetails"]["videoId"])
+                vid = entry["contentDetails"]["videoId"]
+                # KHỬ TRÙNG ngay tại nguồn: playlist trả lặp một ID thì bỏ bản sau.
+                # Để lọt, videos.list tốn quota cho ID thừa, và quality gate sẽ cách
+                # ly CẢ batch vì duplicate_video_id - chặn một lỗi tránh được từ sớm.
+                if vid in seen:
+                    continue
+                seen.add(vid)
+                video_ids.append(vid)
                 if len(video_ids) >= limit:
                     break
 

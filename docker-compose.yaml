@@ -39,13 +39,12 @@
 # ----------------------------------------------------------------------------
 x-airflow-common:
   &airflow-common
-  # Image Airflow TỰ BUILD từ Dockerfile của bạn (đã cài soda, pytest, boto3),
-  # tên image ghép từ .env -> vd: dt-thanh/yt_api_elt:latest
-  # Lần đầu phải build thủ công: docker build -t dt-thanh/yt_api_elt:latest .
+  # Image Airflow TỰ BUILD từ Dockerfile (Airflow + thư viện trong requirements.txt
+  # + package youtube_intel). Tên ghép từ .env: <DOCKERHUB_NAMESPACE>/<DOCKERHUB_REPOSITORY>:latest
+  # Lần đầu phải build thủ công (xem README, mục Quick start).
   image: ${DOCKERHUB_NAMESPACE}/${DOCKERHUB_REPOSITORY}:latest
-  # Use the .env file to read the connection params and variables - SWITCH THIS OFF WHEN USING GITHUB ACTIONS
-  # env_file:
-  #   - .env
+  # KHÔNG dùng env_file: docker compose TỰ đọc file .env cạnh file này để thay các
+  # ${...} bên dưới. Trong CI không có .env - biến đến từ khối `env:` của workflow.
   environment:
     &airflow-common-env
     # ### [BƯỚC 1] CeleryExecutor -> LocalExecutor.
@@ -108,10 +107,10 @@ x-airflow-common:
     # chuỗi rỗng và lệnh `report` tự rơi về bản mẫu, thay vì compose từ chối khởi động.
     # Tính năng tùy chọn không được phép chặn cả hệ thống.
     OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-    # PYTHONPATH để `python -m youtube_intel.cli` tìm thấy package.
-    # Đây là giải pháp TẠM: đúng chuẩn là `pip install -e .` với pyproject.toml
-    # (ghi nợ). Dùng PYTHONPATH thì sửa code trên máy là container thấy ngay,
-    # không phải build lại image - vòng lặp phản hồi nhanh hơn khi đang học.
+    # Package youtube_intel ĐÃ được cài sẵn trong image (Dockerfile, layer 2).
+    # PYTHONPATH trỏ vào ./src được mount -> code trên máy ĐÈ LÊN code trong image:
+    # sửa code là container thấy ngay, không phải build lại (chế độ dev).
+    # Bỏ mount + biến này thì container chạy đúng code đã "nướng" trong image.
     PYTHONPATH: /opt/airflow/src
     # Không ghi file .pyc: thư mục code là bind mount CHIA SẺ HAI CHIỀU với máy
     # bạn. Container ghi __pycache__ (đường dẫn /opt/airflow/...) vào thư mục
@@ -126,21 +125,20 @@ x-airflow-common:
     - ./logs:/opt/airflow/logs
     - ./tests:/opt/airflow/tests
     # ### [BƯỚC 9] Mount lõi nghiệp vụ và migration vào container.
-    # src/ là bind mount (không COPY vào image) -> sửa code trên máy là container
-    # thấy NGAY, không phải build lại image. Đánh đổi: image không tự chứa code,
-    # nên KHÔNG dùng cách này ở production (ở đó phải COPY vào image để image là
-    # một artifact bất biến, deploy được ở bất kỳ đâu).
+    # Image ĐÃ chứa code (Dockerfile COPY src/ và cài package) nên tự chạy được ở
+    # bất kỳ đâu. Mount ./src chỉ để DEV: sửa code là container thấy ngay (nhờ
+    # PYTHONPATH ở trên). Production: bỏ các mount này, dùng code trong image.
     - ./src:/opt/airflow/src
     - ./sql:/opt/airflow/sql
     - ./dashboard:/opt/airflow/dashboard
   # Chạy bằng UID từ .env để file log/dags không bị root chiếm quyền
   user: "${AIRFLOW_UID}:0"
-  # Mọi container Airflow phải ĐỢI redis + postgres KHỎE mới khởi động
+  # Mọi container Airflow phải ĐỢI postgres + minio KHỎE mới khởi động
   # ("khỏe" = qua được healthcheck, không phải chỉ "đã bật")
   depends_on:
     &airflow-common-depends-on
     # ### [BƯỚC 1] Bỏ redis (không còn Celery). THÊM minio - đây là bug thật:
-    # task save_to_minio ghi vào MinIO, nhưng Airflow trước đây không hề đợi MinIO
+    # lệnh thu thập ghi raw vào MinIO, nhưng Airflow trước đây không hề đợi MinIO
     # sẵn sàng. Lúc khởi động cả cụm, Airflow có thể chạy task trước khi MinIO nhận
     # kết nối -> lỗi ngẫu nhiên, lúc được lúc không ("race condition").
     #
@@ -160,10 +158,7 @@ services:
   postgres:
     container_name: postgres
     image: postgres:13
-    # Use the .env file to read the connection params - SWITCH THIS OFF WHEN USING GITHUB ACTIONS
-    # env_file:
-    #   - .env
-    # Env vars after POSTGRES_PASSWORD are needed for CI-CD workflow - SWITCH THIS ALL ON WHEN USING GITHUB ACTIONS
+    # Biến lấy từ .env (máy dev) hoặc khối `env:` của workflow (CI) - xem ghi chú ở trên.
     environment:
       # 2 biến đầu là của image postgres: tạo user siêu quyền
       - POSTGRES_USER=${POSTGRES_CONN_USERNAME}
@@ -225,7 +220,8 @@ services:
 
   # ==========================================================================
   # ### [THÊM MỚI] MINIO - DATA LAKE (object storage tương thích S3)
-  # Task save_to_minio đẩy raw JSON vào đây, partition theo ngày.
+  # Lệnh `collect` ghi raw JSON + _manifest.json vào đây, phân vùng theo
+  # kênh / lần thu (youtube/resource=videos/channel_id=.../collection_id=...).
   # Code dùng boto3 (thư viện S3) nên sau này lên AWS chỉ đổi endpoint.
   # ==========================================================================
   minio:
@@ -301,7 +297,8 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
-  # SCHEDULER - "bộ não": canh lịch, đến giờ thì thả task vào Redis
+  # SCHEDULER - "bộ não": canh lịch, đến giờ thì TỰ chạy task (LocalExecutor).
+  # Code youtube_intel chạy TRONG container này -> mọi lệnh debug: docker exec airflow-scheduler ...
   airflow-scheduler:
     <<: *airflow-common
     command: scheduler
@@ -325,9 +322,9 @@ services:
   # HỆ QUẢ PHẢI NHỚ - nơi chạy test cũng đổi theo:
   #   Cũ:  docker exec -t airflow-worker sh -c "pytest tests/ -v"
   #   Mới: docker exec -t airflow-scheduler sh -c "pytest tests/ -v"
-  # File .github/workflows/ci-cd_yt-elt.yaml còn đang trỏ vào airflow-worker
-  # -> sẽ sửa ở bước CI. Đây là ví dụ "đổi một chỗ, vỡ chỗ khác": mọi thay đổi
-  # hạ tầng đều có bán kính ảnh hưởng, phải đi tìm hết trước khi coi là xong.
+  # (CI đã được sửa theo: test chạy trong airflow-scheduler.) Đây là ví dụ "đổi
+  # một chỗ, vỡ chỗ khác": mọi thay đổi hạ tầng đều có bán kính ảnh hưởng, phải
+  # đi tìm hết trước khi coi là xong.
   # airflow-worker:
   #   <<: *airflow-common
   #   command: celery worker

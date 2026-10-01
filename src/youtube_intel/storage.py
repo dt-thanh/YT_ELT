@@ -204,6 +204,12 @@ class RawStore:
             f"/attempt={attempt}"
         )
 
+    def manifest_key(self, *, resource: str, channel_id: str, collection_id: str, attempt: int) -> str:
+        """Key của manifest cho một batch. MỘT nơi định nghĩa, dùng cho ghi, kiểm và đọc."""
+        return (self.batch_prefix(resource=resource, channel_id=channel_id,
+                                  collection_id=collection_id, attempt=attempt)
+                + f"/{MANIFEST_FILENAME}")
+
     # -------------------------------------------------------------- write --
 
     def put_batch(
@@ -263,15 +269,8 @@ class RawStore:
         Gọi hàm này TRƯỚC khi ghi xong hết batch là phá vỡ toàn bộ cơ chế:
         replay sẽ tin là đủ trong khi thực tế còn thiếu file.
         """
-        key = (
-            self.batch_prefix(
-                resource=manifest.resource,
-                channel_id=manifest.channel_id,
-                collection_id=manifest.collection_id,
-                attempt=manifest.attempt,
-            )
-            + f"/{MANIFEST_FILENAME}"
-        )
+        key = self.manifest_key(resource=manifest.resource, channel_id=manifest.channel_id,
+                                collection_id=manifest.collection_id, attempt=manifest.attempt)
 
         body = json.dumps(asdict(manifest), ensure_ascii=False, indent=2).encode("utf-8")
 
@@ -300,7 +299,8 @@ class RawStore:
         Dùng head_object: chỉ lấy metadata, KHÔNG tải nội dung. Rẻ hơn get_object
         rất nhiều khi chỉ cần biết "có tồn tại không".
         """
-        key = self.batch_prefix(resource=resource, channel_id=channel_id, collection_id=collection_id, attempt=attempt) + f"/{MANIFEST_FILENAME}"
+        key = self.manifest_key(resource=resource, channel_id=channel_id,
+                                collection_id=collection_id, attempt=attempt)
         try:
             self._s3.head_object(Bucket=self.bucket, Key=key)
             return True
@@ -311,8 +311,8 @@ class RawStore:
 
     def read_manifest(self, *, resource: str, channel_id: str, collection_id: str, attempt: int) -> dict:
         """Đọc manifest. Đây là ĐIỂM VÀO CỦA REPLAY."""
-        key = self.batch_prefix(resource=resource, channel_id=channel_id, collection_id=collection_id, attempt=attempt) + f"/{MANIFEST_FILENAME}"
-        return self._read_json(key)
+        return self._read_json(self.manifest_key(resource=resource, channel_id=channel_id,
+                                                 collection_id=collection_id, attempt=attempt))
 
     def read_batch(self, key: str) -> list[dict]:
         """Đọc một file raw đã ghi."""

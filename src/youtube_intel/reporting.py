@@ -38,12 +38,12 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-# Cắt ngắn metadata trước khi đưa LLM. Hai lý do:
+# Cắt ngắn tiêu đề trước khi đưa LLM. Hai lý do:
 #   - tiết kiệm token (tiền)
-#   - giảm bề mặt tấn công prompt injection: mô tả video dài 5000 ký tự là chỗ
-#     lý tưởng để giấu câu lệnh độc hại
+#   - giảm bề mặt tấn công prompt injection.
+# Description thì KHÔNG gửi chút nào: mô tả dài hàng nghìn ký tự là chỗ lý tưởng
+# để giấu câu lệnh độc hại, và bản tin chỉ cần tiêu đề + số liệu.
 MAX_TITLE_CHARS = 200
-MAX_DESC_CHARS = 400
 
 # Trường nào của LLM là VĂN XUÔI -> áp dụng luật cấm chữ số.
 PROSE_FIELDS = ("topic_inference", "why_selected", "original_angle")
@@ -178,8 +178,13 @@ def evidence_hash(evidence: dict) -> str:
     Dùng để làm gì? Đối chiếu: cùng input + cùng prompt_version mà ra kết quả
     khác -> biết ngay là do LLM không tất định, không phải do dữ liệu đổi.
     sort_keys=True để cùng nội dung luôn ra cùng hash bất kể thứ tự khóa.
+
+    BỎ `as_of` trước khi băm: as_of là THỜI ĐIỂM CHẠY, đổi ở mọi lần chạy. Băm cả
+    nó thì hai lần chạy trên cùng dữ liệu vẫn ra hai hash khác nhau -> cột
+    input_hash mất tác dụng so sánh.
     """
-    blob = json.dumps(evidence, sort_keys=True, ensure_ascii=False, default=str)
+    stable = {k: v for k, v in evidence.items() if k != "as_of"}
+    blob = json.dumps(stable, sort_keys=True, ensure_ascii=False, default=str)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
@@ -686,34 +691,42 @@ def run_reports(cfg, db, *, as_of: datetime | None = None,
         out = ReportOutcome(group=group)
         outcomes.append(out)
         try:
+            # ---- Transaction 1: CHỈ đọc bằng chứng, rồi đóng ngay ----
+            names = tuple(n for ch in cfg.channels_in_group(group)
+                          for n in ch.reference_names)
             with db.connect() as conn:
                 with conn:
                     with repo.dict_cursor(conn) as cur:
-                        names = tuple(n for ch in cfg.channels_in_group(group)
-                                      for n in ch.reference_names)
                         evidence = build_evidence(
                             cur, group=group, top_n=settings.report_top_n, as_of=as_of,
                             forbidden_names=names)
-                        out.candidates = len(evidence["candidates"])
-                        out.coverage = evidence["coverage"]
+            out.candidates = len(evidence["candidates"])
+            out.coverage = evidence["coverage"]
 
-                        # Không có ứng viên thì KHÔNG gọi LLM (tốn tiền vô ích)
-                        # và KHÔNG tạo báo cáo rỗng giả vờ có nội dung.
-                        if not evidence["candidates"]:
-                            out.status = "skipped"
-                            out.error = ("Chưa video nào đủ điều kiện xếp hạng "
-                                         "trong nhóm này.")
-                            continue
+            # Không có ứng viên thì KHÔNG gọi LLM (tốn tiền vô ích)
+            # và KHÔNG tạo báo cáo rỗng giả vờ có nội dung.
+            if not evidence["candidates"]:
+                out.status = "skipped"
+                out.error = "Chưa video nào đủ điều kiện xếp hạng trong nhóm này."
+                continue
 
-                        payload, meta, status = generate_payload(
-                            evidence, settings=settings,
-                            api_key=secrets.openai_api_key)
+            # ---- Gọi LLM NGOÀI mọi transaction ----
+            # Một lần gọi có thể mất vài giây tới 60 giây (x2 nếu phải sửa). Giữ
+            # connection + transaction mở trong lúc chờ mạng bên ngoài là chiếm tài
+            # nguyên database vô ích, và ở quy mô lớn sẽ cạn connection.
+            payload, meta, status = generate_payload(
+                evidence, settings=settings, api_key=secrets.openai_api_key)
 
-                        out.status = status
-                        out.tokens_used = meta.get("tokens_used")
-                        out.latency_ms = meta.get("latency_ms")
-                        out.attempts = meta.get("attempts", 0)
-                        out.markdown = render_markdown(payload, evidence)
+            out.status = status
+            out.tokens_used = meta.get("tokens_used")
+            out.latency_ms = meta.get("latency_ms")
+            out.attempts = meta.get("attempts", 0)
+            out.markdown = render_markdown(payload, evidence)
+
+            # ---- Transaction 2: ghi kết quả ----
+            with db.connect() as conn:
+                with conn:
+                    with repo.dict_cursor(conn) as cur:
                         out.report_id = save_report(
                             cur, group=group, as_of=as_of, evidence=evidence,
                             payload=payload, meta=meta, status=status,

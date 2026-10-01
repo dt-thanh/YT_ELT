@@ -172,4 +172,13 @@ with DAG(
     # cả run treo - đúng tinh thần trạng thái 'partial' ở Bước 8.
     done.trigger_rule = "all_done"
 
+    # ⭐ TASK LÁ KIỂM TRA - để DAG run ĐỎ khi có kênh lỗi.
+    # Airflow tính trạng thái DAG run từ các task LÁ (không có task nào sau nó).
+    # Nếu `done` (all_done, luôn xanh) là lá duy nhất thì kênh lỗi vẫn cho ra một
+    # DAG run XANH - nhìn danh sách run sẽ bỏ sót lỗi. Task này dùng trigger rule
+    # mặc định ALL_SUCCESS: một kênh lỗi -> nó thành upstream_failed -> DAG run đỏ.
+    # `done` vẫn chạy và vẫn phát Dataset, nên bản tin vẫn có cho các kênh xong.
+    all_ok = EmptyOperator(task_id="all_channels_ok")
+
     start >> collect_tasks >> done
+    collect_tasks >> all_ok

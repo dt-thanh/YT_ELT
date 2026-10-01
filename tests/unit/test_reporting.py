@@ -1,5 +1,5 @@
 """Validator LLM: KHÔNG TIN, HÃY KIỂM TRA."""
-from youtube_intel.reporting import render_markdown, template_payload, validate
+from youtube_intel.reporting import evidence_hash, render_markdown, template_payload, validate
 
 
 def item(vid="REAL_VIDEO_1", ev=None, **over):
@@ -79,3 +79,12 @@ def test_reference_name_allowed_when_describing_source_video(evidence):
     ev = _with_names(evidence, ["Wolfoo"])
     r = validate(payload(item(topic_inference="Tình huống gia đình của Wolfoo")), ev)
     assert r.ok, r.errors
+
+
+def test_input_hash_ignores_run_time(evidence):
+    # as_of là THỜI ĐIỂM CHẠY. Cùng dữ liệu, chạy hai lúc khác nhau -> cùng hash,
+    # nếu không cột input_hash mất tác dụng so sánh.
+    a = {**evidence, "as_of": "2026-09-24T14:00:00+00:00"}
+    b = {**evidence, "as_of": "2026-09-25T14:00:00+00:00"}
+    assert evidence_hash(a) == evidence_hash(b)
+    assert evidence_hash(a) != evidence_hash({**a, "group": "khác"})

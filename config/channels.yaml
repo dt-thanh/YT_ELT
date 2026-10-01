@@ -51,7 +51,11 @@ project:
   request_timeout_seconds: 30
   max_attempts: 4
 
-  # Feature flag: bật sau khi đã đọc và xác minh điều kiện chính sách YouTube.
+  # Feature flag DỰ PHÒNG cho chỉ số dẫn xuất (views_per_hour...), chờ đọc và xác
+  # minh chính sách YouTube (docs/policy_notes.md).
+  # ⚠️ HIỆN CHƯA ĐƯỢC NỐI VÀO CODE: config.py đọc và kiểm kiểu, nhưng VIEW tăng
+  # trưởng, dashboard và bản tin chạy BẤT KỂ giá trị này. Đừng tưởng đặt false là
+  # chỉ số đang bị tắt. Nối cờ vào code là việc làm SAU khi đọc xong chính sách.
   derived_metrics_enabled: false
   # ---------------------------------------------------------------------------
   # LLM - sinh bản tin (Bước 12)
@@ -143,6 +147,10 @@ channels:
 # Nhóm hợp lệ. Khai báo ở đây để config.py validate được:
 # gõ sai "book_learning" (thiếu chữ s) sẽ bị bắt NGAY lúc khởi động,
 # thay vì âm thầm tạo ra một nhóm thứ ba không ai để ý.
+# ⚠️ Danh sách này còn được khai lần hai trong database (CHECK group_code của
+# yti.tracked_channels và yti.reports, file sql/migrations/001_init.sql).
+# Thêm KÊNH vào nhóm có sẵn: chỉ sửa file này. Thêm NHÓM MỚI: sửa file này VÀ
+# viết một migration mới đổi hai ràng buộc CHECK đó.
 groups:
   - books_learning
   - kids_animation

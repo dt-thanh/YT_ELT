@@ -143,6 +143,29 @@ def check_batch(
                             "Có dòng không có video_id.", len(missing_id),
                             _samples(missing_id, "stg_id")))
 
+    # ---- ERROR 2b: vi phạm ràng buộc mà BẢNG ĐÍCH sẽ áp đặt -----------------
+    # Nguyên tắc: gate phải biết MỌI ràng buộc của yti.videos_current. Để lọt, câu
+    # INSERT lúc publish gãy giữa transaction -> ROLLBACK cả kênh, mất luôn dòng
+    # staging (bằng chứng), và kênh bị đánh 'failed' thay vì 'quarantined'.
+    # Bắt ở đây thì batch bị CÁCH LY có kiểm soát, staging còn nguyên để điều tra.
+    #   videos_current.title        NOT NULL
+    #   videos_current.published_at NOT NULL   (vắng mặt; còn "có mà sai" là ERROR 6)
+    #   videos_current.video_id     CHECK độ dài 5..32 (ID thật của YouTube: 11 ký tự)
+    for col, code, what in (("title", "missing_title", "title"),
+                            ("raw_published_at", "missing_published_at", "publishedAt")):
+        absent = [r for r in rows if r.get(col) is None]
+        if absent:
+            issues.append(Issue(ERROR, code,
+                                f"{what} vắng mặt - bảng đích bắt buộc có (NOT NULL).",
+                                len(absent), _samples(absent, "video_id")))
+
+    bad_len = [r for r in rows
+               if (vid := (r.get("video_id") or "").strip()) and not 5 <= len(vid) <= 32]
+    if bad_len:
+        issues.append(Issue(ERROR, "invalid_video_id",
+                            "video_id có độ dài ngoài 5..32 ký tự (vi phạm CHECK của bảng đích).",
+                            len(bad_len), _samples(bad_len, "video_id")))
+
     # ---- ERROR 3: trùng video_id trong cùng batch -----------------------
     # Đây là vi phạm GRAIN. Bảng published có UNIQUE(video_id, collection_id),
     # nên nếu để lọt, câu INSERT sẽ gãy giữa transaction. Bắt ở đây thì ta
