@@ -9,3 +9,6 @@ __pycache__/
 
 # Log chạy của Airflow - dữ liệu vận hành, không phải mã nguồn
 logs/
+
+# Tài liệu cá nhân (đặc tả, CV) - không đưa lên repo
+*.docx

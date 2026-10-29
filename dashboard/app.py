@@ -1,9 +1,9 @@
 """
-Dashboard Streamlit - 4 màn hình.
+Dashboard Streamlit - 6 màn hình.
 
 NGUYÊN TẮC SỐ MỘT: DASHBOARD KHÔNG TÍNH TOÁN.
-Mọi con số hiển thị ở đây đều đến từ SQL (chủ yếu là VIEW v_video_growth).
-Streamlit chỉ ĐỌC và VẼ.
+Mọi con số hiển thị ở đây đều đến từ SQL (chủ yếu là VIEW v_video_growth và
+yti.v_llm_daily) hoặc từ hàm lõi (trợ lý). Streamlit chỉ ĐỌC và VẼ.
 
 Vì sao nghiêm ngặt thế? Vì nếu dashboard tự tính views_per_hour bằng Python,
 ta sẽ có HAI công thức cho cùng một chỉ số: một trong SQL, một trong Python.
@@ -12,9 +12,9 @@ khiến "báo cáo của phòng A khác báo cáo của phòng B" dù cùng mộ
 MỘT chỉ số = MỘT định nghĩa = MỘT nơi.
 
 NGUYÊN TẮC SỐ HAI: LUÔN HIỂN THỊ ĐỘ BAO PHỦ VÀ ĐỘ TƯƠI.
-Bảng xếp hạng mà không nói "dựa trên bao nhiêu / tổng bao nhiêu video" là
-bảng xếp hạng gây hiểu nhầm. Người xem phải biết mình đang nhìn bao nhiêu phần
-của sự thật, và dữ liệu cũ đến mức nào.
+
+Every query lives in dashboard/queries.py (named functions), so tests can swap
+in a fake module and run every screen without a database or an LLM.
 
 CHẠY:
     streamlit run dashboard/app.py
@@ -22,56 +22,24 @@ CHẠY:
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+import uuid
 from datetime import datetime, timezone
 
 import pandas as pd
 import streamlit as st
 
-# Cho phép import package khi chạy streamlit từ thư mục gốc
+# Cho phép import package (src/) và queries.py khi chạy streamlit từ thư mục gốc
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+sys.path.insert(0, os.path.dirname(__file__))
 
-from youtube_intel.config import load_config          # noqa: E402
-from youtube_intel import repository as repo          # noqa: E402
+import queries as Q                                    # noqa: E402
 from youtube_intel.reporting import render_markdown   # noqa: E402
 
 st.set_page_config(page_title="YouTube Content Intelligence",
                    page_icon="📊", layout="wide")
-
-
-# =============================================================================
-# TRUY CẬP DỮ LIỆU
-# =============================================================================
-
-@st.cache_resource
-def get_db():
-    """cache_resource: giữ MỘT đối tượng kết nối dùng chung cho mọi lần rerun.
-
-    Streamlit chạy lại TOÀN BỘ file mỗi khi người dùng bấm gì đó. Không cache
-    thì mỗi cú click là một lần đọc config + mở kết nối mới -> chậm và cạn slot
-    Postgres. cache_resource dành cho thứ KHÔNG serialize được (connection,
-    client); cache_data dành cho DataFrame.
-    """
-    cfg = load_config(require=("db",))     # dashboard chỉ đọc database
-    s = cfg.secrets
-    return repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
-                         user=s.db_user, password=s.db_password), cfg
-
-
-@st.cache_data(ttl=60)
-def q(sql: str, params: tuple = ()) -> pd.DataFrame:
-    """Chạy SQL, trả DataFrame. Cache 60 giây.
-
-    ttl=60: dữ liệu chỉ cập nhật 1 lần/ngày nên không cần đọc lại database mỗi
-    giây. Nhưng cũng không cache vĩnh viễn - người dùng bấm refresh phải thấy
-    thay đổi trong vòng 1 phút.
-    """
-    db, _ = get_db()
-    with db.connect() as conn:
-        with repo.dict_cursor(conn) as cur:
-            cur.execute(sql, params)
-            return pd.DataFrame([dict(r) for r in cur.fetchall()])
 
 
 def age_text(ts) -> str:
@@ -97,29 +65,19 @@ def age_text(ts) -> str:
 st.sidebar.title("📊 YouTube Intelligence")
 
 try:
-    _, CFG = get_db()
+    CFG = Q.config()
+    health = Q.health()
 except Exception as e:
     st.error(f"Không kết nối được database: {e}")
     st.info("Kiểm tra: `docker compose ps` — postgres đã chạy chưa? "
             "Chạy ngoài Docker thì POSTGRES_CONN_HOST phải là `localhost`.")
     st.stop()
 
-health = q("""
-    SELECT (SELECT max(observed_at) FROM yti.video_observations)     AS last_obs,
-           (SELECT count(*) FROM yti.video_observations)             AS n_obs,
-           (SELECT count(*) FROM yti.videos_current)                 AS n_videos,
-           (SELECT count(DISTINCT collection_id) FROM yti.video_observations) AS n_runs,
-           (SELECT count(*) FROM yti.channel_batches
-             WHERE quality_status = 'quarantined')                   AS n_quarantined
-""").iloc[0]
-
 last_obs_age = age_text(health["last_obs"])
-is_stale = (health["last_obs"] is not None
+is_stale = (health["last_obs"] is not None and not pd.isna(health["last_obs"])
             and (datetime.now(timezone.utc) - health["last_obs"]).total_seconds() > 30 * 3600)
 
 # ⭐ ĐỘ TƯƠI LÀ THỨ ĐẦU TIÊN NGƯỜI XEM PHẢI THẤY.
-# Một dashboard đẹp với dữ liệu 5 ngày tuổi còn tệ hơn không có dashboard:
-# nó khiến người ta tin rằng mình đang nhìn tình hình hiện tại.
 if is_stale:
     st.sidebar.error(f"⚠️ DỮ LIỆU CŨ\n\nQuan sát mới nhất: {last_obs_age}")
 else:
@@ -135,11 +93,13 @@ page = st.sidebar.radio("Màn hình", [
     "1 · Nguồn & độ tươi",
     "2 · Video & khoảng quan sát",
     "3 · Bảng xếp hạng tăng trưởng",
-    "4 · Bản tin",
+    "4 · Bản tin AI",
+    "5 · Trợ lý AI",
+    "6 · LLM Observability",
 ])
 
 st.sidebar.caption(
-    "Mọi số liệu đến từ SQL (`yti.v_video_growth`). "
+    "Mọi số liệu đến từ SQL (`yti.v_video_growth`, `yti.v_llm_daily`). "
     "Dashboard KHÔNG tự tính toán."
 )
 
@@ -151,17 +111,7 @@ if page.startswith("1"):
     st.title("Nguồn dữ liệu & trạng thái thu thập")
     st.caption("Trả lời: *hệ thống có đang sống không, và mỗi kênh cập nhật tới đâu?*")
 
-    channels = q("""
-        SELECT c.channel_id, c.title, c.group_code, c.enabled,
-               count(DISTINCT v.video_id)        AS videos,
-               count(o.observation_id)           AS observations,
-               max(o.observed_at)                AS last_observed
-          FROM yti.tracked_channels c
-          LEFT JOIN yti.videos_current v USING (channel_id)
-          LEFT JOIN yti.video_observations o ON o.video_id = v.video_id
-         GROUP BY c.channel_id, c.title, c.group_code, c.enabled
-         ORDER BY c.group_code, c.title;
-    """)
+    channels = Q.channels()
 
     if channels.empty:
         st.info("Chưa có kênh nào. Chạy `cli collect` để bắt đầu.")
@@ -175,18 +125,7 @@ if page.startswith("1"):
         )
 
     st.subheader("Các lần thu gần nhất")
-    runs = q("""
-        SELECT r.collection_id, r.scheduled_for, r.started_at, r.ended_at,
-               r.status, r.code_version,
-               count(b.batch_id) FILTER (WHERE b.quality_status = 'passed')      AS passed,
-               count(b.batch_id) FILTER (WHERE b.quality_status = 'quarantined') AS quarantined,
-               sum(b.received_count) AS rows_received
-          FROM yti.collection_runs r
-          LEFT JOIN yti.channel_batches b USING (collection_id)
-         GROUP BY r.collection_id, r.scheduled_for, r.started_at, r.ended_at,
-                  r.status, r.code_version
-         ORDER BY r.started_at DESC LIMIT 15;
-    """)
+    runs = Q.runs()
     if not runs.empty:
         # Hiện CẢ scheduled_for LẪN started_at: chênh lệch giữa chúng là ĐỘ TRỄ
         # của scheduler - số liệu vận hành quý mà nhiều dashboard bỏ qua.
@@ -215,7 +154,7 @@ elif page.startswith("2"):
     st.title("Video & khoảng quan sát")
     st.caption("Trả lời: *mỗi video đã được quan sát bao nhiêu lần, và có đủ để tính tăng trưởng chưa?*")
 
-    growth = q("SELECT * FROM yti.v_video_growth;")
+    growth = Q.growth()
     if growth.empty:
         st.info("Chưa có dữ liệu.")
         st.stop()
@@ -282,8 +221,8 @@ elif page.startswith("3"):
         "video mới nhất. **Không** đại diện cho YouTube nói chung."
     )
 
-    growth = q("SELECT * FROM yti.v_video_growth WHERE is_rankable = true;")
-    all_rows = q("SELECT count(*) AS n FROM yti.v_video_growth;").iloc[0]["n"]
+    growth = Q.growth_rankable()
+    all_rows = Q.growth_count()
 
     if growth.empty:
         # Không có dữ liệu thì NÓI RÕ VÌ SAO, không hiện bảng trống.
@@ -328,34 +267,191 @@ elif page.startswith("3"):
 
 
 # =============================================================================
-# MÀN HÌNH 4 - BẢN TIN
+# MÀN HÌNH 4 - BẢN TIN AI
 # =============================================================================
-else:
-    st.title("Bản tin theo nhóm")
-    st.caption("Trả lời: *bản tin gần nhất của mỗi nhóm nói gì, và nó được sinh ra thế nào?*")
+elif page.startswith("4"):
+    st.title("Bản tin AI theo nhóm")
+    st.caption("Trả lời: *bản tin nói gì, ai viết (LLM hay bản mẫu), tốn bao nhiêu, và dựa trên bằng chứng nào?*")
 
-    # Bản tin mới nhất của MỖI nhóm (DISTINCT ON - cùng kỹ thuật với VIEW tăng trưởng).
-    reports = q("""
-        SELECT DISTINCT ON (group_code)
-               group_code, as_of, status, model_name, prompt_version,
-               tokens_used, latency_ms, validated_payload, evidence_bundle
-          FROM yti.reports
-         ORDER BY group_code, as_of DESC;
-    """)
-
+    reports = Q.reports()
     if reports.empty:
         st.info("Chưa có bản tin nào. DAG `yt_report` tự chạy sau mỗi lần thu, "
                 "hoặc chạy tay: `youtube-intel report`.")
         st.stop()
 
-    for _, r in reports.iterrows():
-        # Nói rõ AI HAY BẢN MẪU viết - người đọc có quyền biết văn bản đến từ đâu.
-        writer = (f"LLM `{r['model_name']}` · prompt `{r['prompt_version']}` · "
-                  f"{int(r['tokens_used'] or 0):,} token"
-                  if r["model_name"] else "bản mẫu (không dùng LLM)")
-        st.caption(f"Sinh lúc {r['as_of']:%Y-%m-%d %H:%M} UTC ({age_text(r['as_of'])}) · "
-                   f"trạng thái `{r['status']}` · {writer}")
+    c1, c2 = st.columns(2)
+    group = c1.selectbox("Nhóm", sorted(reports["group_code"].unique()))
+    mine = reports[reports["group_code"] == group]
+    labels = [f"{r.as_of:%Y-%m-%d %H:%M} UTC · {r.status}" for r in mine.itertuples()]
+    pick = c2.selectbox("Ngày", range(len(labels)), format_func=lambda i: labels[i])
+    r = mine.iloc[pick]
+
+    attempts = Q.report_attempts(r["report_id"]) or {}
+    k1, k2, k3, k4, k5 = st.columns(5)
+    k1.metric("Viết bởi", r["model_name"] or "bản mẫu")
+    k2.metric("Prompt", r["prompt_version"] or "—")
+    k3.metric("Token", f"{int(r['tokens_used']):,}" if pd.notna(r["tokens_used"]) else "—")
+    k4.metric("Latency", f"{int(r['latency_ms']):,} ms" if pd.notna(r["latency_ms"]) else "—")
+    k5.metric("Số lần gọi LLM", int(attempts.get("calls") or 0) or "—")
+    if r["status"] == "validated":
+        st.success("✅ Đã qua validator" + (f" · {attempts['validations']}" if attempts.get("validations") else ""))
+    else:
+        st.warning("📝 Bản mẫu (draft): LLM tắt, thiếu key, hoặc hỏng 2 lần rồi rơi về bản mẫu"
+                   + (f" · {attempts['validations']}" if attempts.get("validations") else ""))
+
+    detail = Q.report_detail(r["report_id"])
+    if detail:
         # KHÔNG tính gì ở đây: số liệu render từ evidence đã lưu cùng bản tin,
         # bằng CHÍNH hàm mà lệnh `report --show` dùng.
-        st.markdown(render_markdown(r["validated_payload"], r["evidence_bundle"]))
-        st.divider()
+        st.markdown(render_markdown(detail["validated_payload"], detail["evidence_bundle"]))
+        with st.expander("Bằng chứng đã đưa cho LLM (evidence bundle)"):
+            st.caption(f"input_hash: `{r['input_hash'] or '—'}`")
+            st.json(detail["evidence_bundle"])
+
+
+# =============================================================================
+# MÀN HÌNH 5 - TRỢ LÝ AI
+# =============================================================================
+elif page.startswith("5"):
+    st.title("Trợ lý AI")
+    st.caption("Hỏi về các kênh đang theo dõi. Trợ lý chỉ dùng công cụ truy vấn **chỉ đọc**; "
+               "mọi con số được **kiểm chứng** với kết quả công cụ trước khi hiển thị.")
+    st.info(f"**Phạm vi:** chỉ {len(CFG.enabled_channels())} kênh đang theo dõi. "
+            "Không dự đoán viral, không trả lời về YouTube nói chung.")
+
+    assistant, why_not = Q.assistant()
+    if assistant is None:
+        st.warning("Trợ lý chưa được cấu hình.")
+        st.markdown(
+            "Cần hai biến môi trường trong `.env`, rồi `docker compose up -d`:\n"
+            "- `OPENAI_API_KEY`\n"
+            "- `ASSISTANT_DB_PASSWORD` (login chỉ đọc, đặt khi chạy migration 005)\n\n"
+            f"Chi tiết: `{why_not}`")
+        st.stop()
+
+    state = st.session_state
+    state.setdefault("chat", [])                       # [(question, AssistantAnswer)]
+    state.setdefault("session_id", str(uuid.uuid4()))
+
+    STATUS = {"answered": ("✅", "đã kiểm chứng"), "declined": ("🚫", "từ chối (ngoài phạm vi)"),
+              "fallback": ("⚠️", "không qua kiểm chứng: hiển thị số liệu gốc"),
+              "failed": ("❌", "lỗi")}
+
+    def show(ans):
+        st.markdown(ans.text)
+        icon, label = STATUS.get(ans.status, ("", ans.status))
+        if ans.status == "answered" and ans.repaired:
+            label = "đã kiểm chứng (sau một lần sửa)"
+        cost = f"~${ans.est_cost_usd:.5f}" if ans.est_cost_usd is not None else "chi phí: —"
+        st.caption(f"{icon} {label} · dữ liệu tới {ans.data_as_of or '—'} · "
+                   f"{(ans.input_tokens or 0) + (ans.output_tokens or 0):,} token · {cost} · "
+                   f"{ans.latency_ms:,} ms")
+        if ans.citations:
+            st.markdown("**Nguồn:** " + " · ".join(
+                f"[{c.title or c.video_id}]({c.url})" for c in ans.citations))
+        if ans.data_gaps:
+            st.markdown("**Thiếu dữ liệu:** " + "; ".join(ans.data_gaps))
+        with st.expander("Trace"):
+            if ans.tool_trace:
+                st.dataframe(pd.DataFrame([{
+                    "bước": t.step, "công cụ": t.tool,
+                    "tham số": json.dumps(t.args, ensure_ascii=False),
+                    "số dòng": t.row_count, "ms": t.latency_ms, "lỗi": t.error or ""}
+                    for t in ans.tool_trace]), width="stretch", hide_index=True)
+            else:
+                st.caption("Không gọi công cụ nào.")
+            for e in ans.validation_errors:
+                st.caption(f"Kiểm chứng: {e}")
+
+    for question, ans in state.chat:
+        with st.chat_message("user"):
+            st.markdown(question)
+        with st.chat_message("assistant"):
+            show(ans)
+
+    samples = ["Video nào tăng view nhanh nhất nhóm kids_animation?",
+               "So sánh các kênh nhóm books_learning theo trung vị view mỗi giờ",
+               "Dữ liệu cập nhật lần cuối khi nào?",
+               "Có video nào về thói quen hoặc quản lý thời gian không?",
+               "Bản tin mới nhất của nhóm books_learning nói gì?"]
+    clicked = None
+    if not state.chat:
+        st.caption("Gợi ý:")
+        cols = st.columns(len(samples))
+        for col, s_ in zip(cols, samples):
+            if col.button(s_):
+                clicked = s_
+
+    question = st.chat_input("Hỏi về dữ liệu YouTube đang theo dõi...") or clicked
+    if question:
+        with st.chat_message("user"):
+            st.markdown(question)
+        with st.chat_message("assistant"):
+            with st.spinner("Đang tra cứu..."):
+                history = [(q_, a.text) for q_, a in state.chat]
+                ans = assistant.ask(question, history=history, session_id=state.session_id)
+            show(ans)
+        state.chat.append((question, ans))
+
+
+# =============================================================================
+# MÀN HÌNH 6 - LLM OBSERVABILITY
+# =============================================================================
+else:
+    st.title("LLM Observability")
+    st.caption("Trả lời: *gọi LLM bao nhiêu lần, tốn bao nhiêu, chậm cỡ nào, hỏng ở đâu?* "
+               "Mọi tổng hợp tính bằng SQL trên `yti.llm_calls` / `yti.v_llm_daily`.")
+
+    c1, c2 = st.columns([1, 2])
+    days = c1.slider("Số ngày gần nhất", 1, 90, 14)
+    all_features = ("report", "assistant", "embedding", "eval")
+    features = tuple(c2.multiselect("Tính năng", all_features, default=list(all_features))) or all_features
+
+    s = Q.llm_summary(days, features) or {}
+    def pct(v):
+        return "—" if v is None or pd.isna(v) else f"{float(v):.1%}"
+    m = st.columns(6)
+    m[0].metric("Lần gọi", int(s.get("calls") or 0))
+    m[1].metric("Chi phí ước tính", "—" if s.get("est_cost_usd") is None or pd.isna(s.get("est_cost_usd"))
+                else f"${float(s['est_cost_usd']):.4f}")
+    m[2].metric("p95 latency", "—" if s.get("latency_p95_ms") is None or pd.isna(s.get("latency_p95_ms"))
+                else f"{float(s['latency_p95_ms']):,.0f} ms")
+    m[3].metric("Tỉ lệ lỗi", pct(s.get("error_rate")))
+    m[4].metric("Tỉ lệ fallback", pct(s.get("fallback_rate")))
+    m[5].metric("Validation thất bại", pct(s.get("validation_fail_rate")))
+
+    daily = Q.llm_daily(days, features)
+    if daily.empty:
+        st.info("Chưa có lần gọi LLM nào trong khoảng này. Chạy `youtube-intel report` "
+                "hoặc hỏi trợ lý để có dữ liệu.")
+    else:
+        t1, t2 = st.columns(2)
+        t1.subheader("Token theo ngày")
+        t1.line_chart(daily.pivot_table(index="day", columns="feature", values="tokens",
+                                        aggfunc="sum").fillna(0))
+        t2.subheader("Chi phí theo ngày (USD)")
+        t2.line_chart(daily.pivot_table(index="day", columns="feature", values="est_cost_usd",
+                                        aggfunc="sum").fillna(0))
+
+    st.subheader("Theo model × prompt version")
+    by_model = Q.llm_by_model(days, features)
+    if by_model.empty:
+        st.caption("Không có dữ liệu.")
+    else:
+        st.dataframe(by_model, width="stretch", hide_index=True)
+
+    st.subheader("20 lỗi gần nhất (lỗi API, validation thất bại, fallback)")
+    errors = Q.llm_errors(days, features)
+    if errors.empty:
+        st.caption("Không có lỗi nào trong khoảng này.")
+    else:
+        st.dataframe(errors, width="stretch", hide_index=True)
+
+    st.subheader("Kết quả eval mới nhất mỗi phiên bản")
+    st.caption("Đọc từ `evals/results/*.json` - con số do lệnh eval ghi lại, không tính lại ở đây. "
+               "Eval chạy trên dữ liệu tổng hợp cố định.")
+    evals = Q.eval_results()
+    if evals.empty:
+        st.caption("Chưa có file kết quả eval.")
+    else:
+        st.dataframe(evals, width="stretch", hide_index=True)

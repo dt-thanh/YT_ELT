@@ -24,7 +24,8 @@ def cur():
 def test_all_migrations_applied(cur):
     cur.execute("SELECT version FROM schema_migrations ORDER BY version")
     got = [r["version"] for r in cur.fetchall()]
-    assert got[:3] == ["001_init", "002_staging_full_columns", "003_growth_view"]
+    assert got[:4] == ["001_init", "002_staging_full_columns", "003_growth_view",
+                       "004_llm_calls"]
 
 
 def test_grain_constraint_exists(cur):
@@ -72,5 +73,32 @@ def test_run_status_is_derived_from_batches(cur):
             repo.finish_collection_run(cur, collection_id=cid, status=status, ended_at=now)
         cur.execute("SELECT status FROM yti.collection_runs WHERE collection_id = %s", (cid,))
         assert cur.fetchone()["status"] == "partial"
+    finally:
+        cur.connection.rollback()
+
+
+def test_llm_calls_roll_up_into_daily_view(cur):
+    # One ok call (passed) and one failed call (fell back) -> the daily view must
+    # count both, keep NULL tokens out of the sums, and compute the rates.
+    # Runs inside the fixture's transaction and is rolled back.
+    import uuid
+    try:
+        for status, tokens, cost, val, fb in (("ok", 100, 0.00003, "passed", False),
+                                              ("error", None, None, "not_applicable", True)):
+            cur.execute(
+                """INSERT INTO yti.llm_calls (call_id, called_at, feature, model,
+                       input_tokens, output_tokens, est_cost_usd, latency_ms, status,
+                       validation_status, fallback_used)
+                   VALUES (%s, now() + interval '100 years', 'eval', 'test-model',
+                           %s, %s, %s, 500, %s, %s, %s)""",
+                (str(uuid.uuid4()), tokens, tokens, cost, status, val, fb))
+        cur.execute("""SELECT calls, input_tokens, calls_without_cost, error_rate,
+                              validation_fail_rate, fallback_rate
+                         FROM yti.v_llm_daily
+                        WHERE model = 'test-model' AND day > now()::date + 365""")
+        r = cur.fetchone()
+        assert r["calls"] == 2 and r["input_tokens"] == 100 and r["calls_without_cost"] == 1
+        assert float(r["error_rate"]) == 0.5 and float(r["fallback_rate"]) == 0.5
+        assert float(r["validation_fail_rate"]) == 0.0   # not_applicable is excluded
     finally:
         cur.connection.rollback()

@@ -31,7 +31,6 @@ import hashlib
 import json
 import logging
 import re
-import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -513,9 +512,10 @@ def render_markdown(payload: dict, evidence: dict) -> str:
 # GỌI LLM
 # =============================================================================
 
-def call_llm(messages: list[dict], *, api_key: str, model: str,
-             max_tokens: int, timeout: int = 60) -> tuple[dict, dict]:
-    """Gọi OpenAI, trả (payload_json, metadata).
+def call_llm(messages: list[dict], *, client, max_tokens: int, feature: str = "report",
+             prompt_version: str | None = None, session_id: str | None = None,
+             attempt: int = 1):
+    """Gọi LLM qua LLMClient (có ghi log), trả (payload_json, LLMResponse).
 
     response_format={"type": "json_object"} -> ép model trả JSON hợp lệ.
     Nó KHÔNG đảm bảo ĐÚNG SCHEMA của ta - chỉ đảm bảo parse được.
@@ -524,35 +524,24 @@ def call_llm(messages: list[dict], *, api_key: str, model: str,
     temperature=0.3: thấp để bớt bay bổng, nhưng KHÔNG phải 0 - văn hoàn toàn
     tất định thường khô cứng. Đây là văn xuôi, không phải phép tính.
     """
-    from openai import OpenAI          # import trong hàm: chỉ cần khi thật sự gọi LLM
-
-    client = OpenAI(api_key=api_key, timeout=timeout)
-    t0 = time.perf_counter()
-    resp = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        response_format={"type": "json_object"},
-        max_tokens=max_tokens,
-        temperature=0.3,
-    )
-    latency_ms = int((time.perf_counter() - t0) * 1000)
-
-    text = resp.choices[0].message.content or "{}"
+    resp = client.chat(messages, feature=feature, prompt_version=prompt_version,
+                       response_format={"type": "json_object"}, session_id=session_id,
+                       attempt=attempt, max_tokens=max_tokens, temperature=0.3)
     try:
-        payload = json.loads(text)
+        payload = json.loads(resp.content or "{}")
     except json.JSONDecodeError as e:
-        raise ReportError(f"LLM trả về JSON hỏng: {e}") from e
-
-    return payload, {
-        "model": resp.model,
-        "tokens_used": resp.usage.total_tokens if resp.usage else None,
-        "latency_ms": latency_ms,
-    }
+        err = ReportError(f"LLM trả về JSON hỏng: {e}")
+        err.call_id = resp.call_id          # caller marks this call as failed validation
+        raise err from e
+    return payload, resp
 
 
-def generate_payload(evidence: dict, *, settings, api_key: str | None,
-                     prompt_version: str | None = None):
+def generate_payload(evidence: dict, *, settings, client,
+                     prompt_version: str | None = None, feature: str = "report",
+                     session_id: str | None = None):
     """Sinh nội dung bản tin. Trả (payload, meta, status).
+
+    client: LLMClient, hoặc None (LLM tắt / thiếu key) -> dùng bản mẫu.
 
     ⭐ CHIẾN LƯỢC XUỐNG THANG (graceful degradation):
         LLM lần 1  ->  hỏng  ->  LLM lần 2 KÈM DANH SÁCH LỖI  ->  hỏng  ->  BẢN MẪU
@@ -560,10 +549,14 @@ def generate_payload(evidence: dict, *, settings, api_key: str | None,
     hiểu sai schema thì nó sẽ hiểu sai tiếp.
 
     Báo cáo KHÔNG BAO GIỜ MẤT: xấu nhất cũng còn bản mẫu.
+
+    Each attempt is logged in yti.llm_calls; this function then marks the call:
+    valid on attempt 1 -> passed, valid on attempt 2 -> repaired, invalid -> failed,
+    and fallback_used on the last call when the template is used.
     """
     meta = {"model": None, "tokens_used": None, "latency_ms": None, "attempts": 0}
 
-    if not settings.llm_enabled or not api_key:
+    if not settings.llm_enabled or client is None:
         logger.info("LLM tắt hoặc thiếu key -> dùng bản mẫu.")
         return template_payload(evidence), meta, "template"
 
@@ -573,20 +566,29 @@ def generate_payload(evidence: dict, *, settings, api_key: str | None,
     prompt = get_prompt(version)
     meta["prompt_version"] = version
     messages = build_messages(evidence, version)
+    last_call_id = None
 
     for attempt in (1, 2):
         meta["attempts"] = attempt
         try:
-            payload, call_meta = call_llm(
-                messages, api_key=api_key, model=settings.llm_model,
-                max_tokens=settings.llm_max_output_tokens)
-            meta.update({k: v for k, v in call_meta.items()})
+            payload, resp = call_llm(
+                messages, client=client, max_tokens=settings.llm_max_output_tokens,
+                feature=feature, prompt_version=version, session_id=session_id,
+                attempt=attempt)
+            last_call_id = resp.call_id
+            meta.update({"model": resp.model, "tokens_used": resp.total_tokens,
+                         "latency_ms": resp.latency_ms})
         except Exception as e:
+            # LLMError (call failed) or ReportError (bad JSON) carry the call id.
+            last_call_id = getattr(e, "call_id", last_call_id)
+            if isinstance(e, ReportError) and last_call_id:
+                client.mark(last_call_id, validation_status="failed")
             logger.error("Gọi LLM thất bại (lần %d): %s", attempt, e)
             break
 
         result = validate(payload, evidence, require_scope=prompt["llm_writes_scope"])
         if result.ok:
+            client.mark(resp.call_id, validation_status="passed" if attempt == 1 else "repaired")
             logger.info("LLM hợp lệ ở lần thử %d (%d token, %d ms)",
                         attempt, meta["tokens_used"] or 0, meta["latency_ms"] or 0)
             if not prompt["llm_writes_scope"]:
@@ -595,6 +597,7 @@ def generate_payload(evidence: dict, *, settings, api_key: str | None,
                 payload["scope_statement"] = code_scope_statement(evidence)
             return payload, meta, "validated"
 
+        client.mark(resp.call_id, validation_status="failed")
         logger.warning("Validator từ chối (lần %d): %s", attempt, result.errors[:5])
         if attempt == 1:
             # Đưa LỖI CỤ THỂ cho model sửa. Nói "sai rồi, làm lại" thì nó chỉ
@@ -608,6 +611,8 @@ def generate_payload(evidence: dict, *, settings, api_key: str | None,
                       "Nhắc lại: TUYỆT ĐỐI không có chữ số trong văn xuôi."},
             ]
 
+    if last_call_id:
+        client.mark(last_call_id, fallback_used=True)
     logger.error("LLM không cho ra kết quả hợp lệ -> rơi về bản mẫu.")
     return template_payload(evidence), meta, "template_fallback"
 
@@ -616,10 +621,16 @@ def generate_payload(evidence: dict, *, settings, api_key: str | None,
 # ⑥ LƯU
 # =============================================================================
 
+def report_id_for(group: str, as_of: datetime) -> str:
+    """Deterministic report id. Known before the LLM call, so it doubles as the
+    session_id of that report's rows in yti.llm_calls."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"report/{group}/{as_of.isoformat()}"))
+
+
 def save_report(cur, *, group: str, as_of: datetime, evidence: dict,
                 payload: dict, meta: dict, status: str, prompt_version: str) -> str:
     """Ghi vào yti.reports. Idempotent theo (group_code, as_of)."""
-    report_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"report/{group}/{as_of.isoformat()}"))
+    report_id = report_id_for(group, as_of)
     cur.execute(
         """
         INSERT INTO yti.reports
@@ -678,9 +689,12 @@ def run_reports(cfg, db, *, as_of: datetime | None = None,
     Cùng nguyên tắc bulkhead như pipeline thu thập ở Bước 8.
     """
     from youtube_intel import repository as repo
+    from youtube_intel.llm import PostgresSink, client_from_settings
 
     settings, secrets = cfg.settings, cfg.secrets
     as_of = as_of or datetime.now(timezone.utc)
+    # One client for all groups; every call is logged to yti.llm_calls.
+    client = client_from_settings(settings, secrets.openai_api_key, sink=PostgresSink(db))
     groups = sorted({c.group for c in cfg.enabled_channels()})
     if only_group:
         groups = [g for g in groups if g == only_group]
@@ -715,7 +729,8 @@ def run_reports(cfg, db, *, as_of: datetime | None = None,
             # connection + transaction mở trong lúc chờ mạng bên ngoài là chiếm tài
             # nguyên database vô ích, và ở quy mô lớn sẽ cạn connection.
             payload, meta, status = generate_payload(
-                evidence, settings=settings, api_key=secrets.openai_api_key)
+                evidence, settings=settings, client=client, feature="report",
+                session_id=report_id_for(group, as_of))
 
             out.status = status
             out.tokens_used = meta.get("tokens_used")

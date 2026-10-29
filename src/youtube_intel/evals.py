@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import uuid
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -333,17 +334,20 @@ def score_case(payload: dict, case: EvalCase, *, status: str) -> dict:
 # 3. TRÌNH CHẠY
 # =============================================================================
 
-def run_eval(*, settings, api_key: str, prompt_version: str,
+def run_eval(*, settings, client, prompt_version: str,
              cases: list[EvalCase] | None = None, limit: int | None = None) -> dict:
+    """client: LLMClient. Its calls are logged with feature="eval", all sharing one
+    session_id (= run_id) so a whole eval run can be costed in yti.llm_calls."""
     get_prompt(prompt_version)                          # sai version -> lỗi ngay
     cases = (cases or build_cases())[:limit]
     settings = replace(settings, llm_enabled=True)
+    run_id = str(uuid.uuid4())
 
     results, tokens = [], 0
     for case in cases:
         payload, meta, status = generate_payload(
-            case.evidence, settings=settings, api_key=api_key,
-            prompt_version=prompt_version)
+            case.evidence, settings=settings, client=client,
+            prompt_version=prompt_version, feature="eval", session_id=run_id)
         s = score_case(payload, case, status=status)
         tokens += meta.get("tokens_used") or 0
         results.append({
@@ -356,6 +360,7 @@ def run_eval(*, settings, api_key: str, prompt_version: str,
                     "ĐẠT" if s["passed"] else "TRƯỢT")
 
     return {
+        "run_id": run_id,
         "prompt_version": prompt_version,
         "model": settings.llm_model,
         "run_at": datetime.now(timezone.utc).isoformat(),

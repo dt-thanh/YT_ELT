@@ -210,8 +210,21 @@ def cmd_eval(args) -> int:
     from pathlib import Path
     from youtube_intel import evals
 
+    from youtube_intel.llm import LLMClient, NullSink, PostgresSink
+
     cfg = load_config(require=("llm",))
-    result = evals.run_eval(settings=cfg.settings, api_key=cfg.secrets.openai_api_key,
+    s = cfg.secrets
+    # Log eval calls to yti.llm_calls when database settings are present; eval
+    # itself still runs without a database (logging is optional here).
+    if all((s.db_host, s.db_port, s.db_name, s.db_user, s.db_password)):
+        sink = PostgresSink(repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                                          user=s.db_user, password=s.db_password))
+    else:
+        logging.getLogger(__name__).info("No database settings - eval calls are not logged.")
+        sink = NullSink()
+    client = LLMClient(api_key=s.openai_api_key, model=cfg.settings.llm_model,
+                       pricing=cfg.settings.llm_pricing, sink=sink)
+    result = evals.run_eval(settings=cfg.settings, client=client,
                             prompt_version=args.prompt_version, limit=args.limit)
     path = evals.save_result(result, Path(args.out))
 
@@ -247,6 +260,238 @@ def base_label(path: str) -> str:
     """'evals/results/v1-20260924T071500.json' -> 'v1' (nhãn cột so sánh)."""
     from pathlib import Path
     return Path(path).name.split("-")[0]
+
+
+def cmd_ask(args) -> int:
+    """Ask the assistant one question. Tools read the database as a read-only login."""
+    from youtube_intel.assistant.agent import build_assistant
+
+    cfg = load_config(require=("db", "llm", "assistant"))
+    answer = build_assistant(cfg).ask(args.question, session_id=args.session)
+
+    label = {"answered": "verified", "declined": "declined", "fallback": "FALLBACK",
+             "failed": "FAILED"}[answer.status]
+    if answer.status == "answered" and answer.repaired:
+        label = "verified after one repair"
+    print(answer.text)
+    if answer.citations:
+        print("\nSources:")
+        for c in answer.citations:
+            print(f"  - {c.title or c.video_id}  ({c.channel_title or '-'})  {c.url}")
+    if answer.data_gaps:
+        print("\nData gaps:")
+        for g in answer.data_gaps:
+            print(f"  - {g}")
+    cost = f"~${answer.est_cost_usd:.5f}" if answer.est_cost_usd is not None else "cost unknown"
+    print(f"\n[{label}] data as of {answer.data_as_of or '-'} · {answer.steps} LLM round(s) · "
+          f"{(answer.input_tokens or 0) + (answer.output_tokens or 0):,} tokens · {cost} · "
+          f"{answer.latency_ms} ms")
+
+    if args.trace:
+        print(f"\nsession_id={answer.session_id}  turn_id={answer.turn_id}  "
+              f"prompt={answer.prompt_version}")
+        print("Tool trace:")
+        for t in answer.tool_trace:
+            err = f"  ERROR={t.error}" if t.error else ""
+            print(f"  step {t.step}: {t.tool}({json.dumps(t.args, ensure_ascii=False)}) "
+                  f"-> {t.row_count} rows, {t.latency_ms} ms{err}")
+        if answer.validation_errors:
+            print("Grounding errors:")
+            for e in answer.validation_errors:
+                print(f"  - {e}")
+    return 1 if answer.status == "failed" else 0
+
+
+def _rag_clients(cfg, database: str | None = None):
+    """(data db, LLMClient with the RAG embedding model).
+
+    LLM calls are always logged in the MAIN database; `database` only changes
+    where chunks are read/written (e.g. yti_eval for the assistant evaluation).
+    """
+    from youtube_intel.llm import LLMClient, PostgresSink
+    s, st = cfg.secrets, cfg.settings
+    main = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                         user=s.db_user, password=s.db_password)
+    data = repo.Database(host=s.db_host, port=s.db_port, name=database or s.db_name,
+                         user=s.db_user, password=s.db_password)
+    client = (LLMClient(api_key=s.openai_api_key, model=st.llm_model, pricing=st.llm_pricing,
+                        sink=PostgresSink(main), embedding_model=st.rag.embedding_model)
+              if s.openai_api_key else None)
+    return data, client
+
+
+def cmd_embed(args) -> int:
+    """Chunk + embed video titles/descriptions into yti.video_chunks (only new/changed)."""
+    from youtube_intel.rag.indexer import index_videos
+
+    cfg = load_config(require=("db",) if args.dry_run else ("db", "llm"))
+    db, client = _rag_clients(cfg, args.database)
+    stats = index_videos(db, client, cfg.settings.rag, dry_run=args.dry_run)
+    mode = "DRY RUN - nothing embedded or written" if stats.dry_run else "done"
+    print(f"=== embed into {db.name} ({cfg.settings.rag.embedding_model}): {mode} ===")
+    print(f"  videos      : {stats.videos}")
+    print(f"  chunks      : {stats.chunks}  (unchanged {stats.unchanged}, to embed {stats.to_embed})")
+    print(f"  removed     : {stats.removed} stale chunk(s)")
+    if not stats.dry_run:
+        print(f"  embedded    : {stats.embedded}")
+    return 0
+
+
+def cmd_eval_rag(args) -> int:
+    """recall@5 / MRR@5 of vector, full-text and hybrid search on labeled queries."""
+    from pathlib import Path
+    from youtube_intel.rag import evaluation as ev
+
+    cfg = load_config(require=("db", "llm"))
+    db, client = _rag_clients(cfg)
+    queries = ev.load_queries(Path(args.queries))
+
+    if args.suggest:
+        sugg = ev.suggest(db=db, client=client, rag=cfg.settings.rag, queries=queries)
+        path = ev.save(sugg, Path(args.out), "rag-suggestions")
+        print(f"Candidates for {len(sugg)} unlabeled queries -> {path}")
+        print("Review them and copy the truly relevant video ids into", args.queries)
+        return 0
+
+    result = ev.run_rag_eval(db=db, client=client, rag=cfg.settings.rag, queries=queries)
+    if not result["n_labeled"]:
+        print(f"No labeled queries in {args.queries}. Run with --suggest, label, then retry.")
+        return 1
+    path = ev.save(result, Path(args.out), "rag")
+    print(f"=== RAG eval: {result['n_labeled']}/{result['n_queries']} labeled queries, "
+          f"k=5, {result['embedding_model']} ===")
+    print(f"  {'mode':<10}{'recall@5':>10}{'MRR@5':>8}")
+    for mode, m in result["summary"].items():
+        print(f"  {mode:<10}{m['recall@5']:>10.3f}{m['mrr@5']:>8.3f}")
+    print(f"\n  Saved: {path}")
+    return 0
+
+
+def cmd_eval_assistant(args) -> int:
+    """Run the assistant on the fixed synthetic database and score it (see evaluation.py)."""
+    from pathlib import Path
+    from youtube_intel.assistant import evaluation as ev
+    from youtube_intel.assistant.agent import build_assistant
+
+    cfg = load_config(require=("db", "llm", "assistant"))
+    s = cfg.secrets
+    eval_db = repo.Database(host=s.db_host, port=s.db_port, name=args.database,
+                            user=s.db_user, password=s.db_password)
+    assistant = build_assistant(cfg, data_db_name=args.database)
+    cases = ev.load_cases(Path(args.cases), known_tools=assistant.registry.names)
+
+    if args.rescore:
+        result = ev.rescore(json.loads(Path(args.rescore).read_text(encoding="utf-8")), cases)
+        path = Path(args.rescore).with_name(Path(args.rescore).stem + "-rescored.json")
+        path.write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+        _print_eval_summary(result)
+        print(f"\n  Re-scored without calling the LLM -> {path}")
+        return 0
+
+    if not args.no_reseed:
+        ev.load_seed(eval_db, Path(args.seed))
+    skip = ()
+    with eval_db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            cur.execute("SELECT to_regclass('yti.video_chunks') IS NOT NULL AS has_table")
+            has_table = cur.fetchone()["has_table"]
+            n_chunks = 0
+            if has_table:
+                cur.execute("SELECT count(*) AS n FROM yti.video_chunks")
+                n_chunks = cur.fetchone()["n"]
+    if not n_chunks:
+        skip = ("rag",)
+        print(f"  (no chunks in {args.database}: RAG cases skipped - run "
+              f"`youtube-intel embed --database {args.database}` first)")
+
+    chosen = ev.select(cases, split=args.split, limit=args.limit, skip_categories=skip)
+    version = args.prompt_version or cfg.settings.assistant.prompt_version
+    print(f"Running {len(chosen)} case(s) x {args.repeat} on {args.database}, prompt {version} ...")
+    records = ev.run_cases(assistant, chosen, prompt_version=version, repeat=args.repeat,
+                           progress=lambda r: print(f"  {r['case_id']:<4} run {r['run_index']}  "
+                                                    f"{'PASS' if r['passed'] else 'FAIL'}  {r['status']}"))
+    result = ev.build_result(records, prompt_version=version, model=cfg.settings.llm_model,
+                             split=args.split, repeat=args.repeat)
+    if args.baseline:
+        result["comparison"] = ev.compare(
+            json.loads(Path(args.baseline).read_text(encoding="utf-8")), result)
+    path = ev.save(result, Path(args.out))
+    _print_eval_summary(result)
+    print(f"\n  Saved: {path}")
+    return 0
+
+
+def _print_eval_summary(result: dict) -> None:
+    s = result["summary"]
+    ci = s["pass_rate_ci95"]
+    print(f"\n=== assistant eval: prompt {result['prompt_version']} ({result['model']}), "
+          f"split {result['split']}, repeat {result['repeat']}, synthetic data ===")
+    print(f"  cases passed : {s['passed']}/{s['records']} ({s['pass_rate']:.0%}), "
+          f"95% CI {ci[0]:.0%}-{ci[1]:.0%}" if ci else "  no records")
+    if s["runs"] > 1:
+        print(f"  per run      : {s['pass_rate_per_run']}  flaky: {s['flaky_cases'] or '-'}")
+    print(f"  repaired {s['repair_rate']:.0%} · fallback {s['fallback_rate']:.0%} · "
+          f"p50 {s['latency_ms_p50']} ms · p95 {s['latency_ms_p95']} ms · "
+          f"avg {s['avg_tokens']} tokens · avg ${s['avg_cost_usd'] or 0:.5f}/question")
+    print(f"\n  {'scorer':<20}{'pass':>10}")
+    for name, v in s["per_scorer"].items():
+        print(f"  {name:<20}{(str(v['passed']) + '/' + str(v['applicable'])) if v['applicable'] else '-':>10}")
+    print(f"\n  {'category':<20}{'pass':>10}")
+    for name, v in s["per_category"].items():
+        print(f"  {name:<20}{v['passed']:>5}/{v['total']}")
+    cmp_ = result.get("comparison")
+    if cmp_:
+        print(f"\n  vs baseline: pass rate {cmp_['pass_rate_delta']:+.1%}, "
+              f"regressions {cmp_['regressions'] or '-'}, fixes {cmp_['fixes'] or '-'}")
+
+
+def cmd_llm_stats(args) -> int:
+    """Daily LLM usage from yti.v_llm_daily: calls, tokens, cost, latency, failure rates."""
+    cfg = load_config(require=("db",))
+    s = cfg.secrets
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+    with db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            cur.execute(
+                """
+                SELECT * FROM yti.v_llm_daily
+                 WHERE day > (now() AT TIME ZONE 'UTC')::date - %s
+                 ORDER BY day DESC, feature, model;
+                """,
+                (args.days,),
+            )
+            rows = cur.fetchall()
+
+    print(f"=== LLM usage, last {args.days} day(s), UTC ===")
+    if not rows:
+        print("  No LLM calls in this period.")
+        return 0
+
+    def pct(v):
+        return "-" if v is None else f"{float(v):.0%}"
+
+    def num(v, fmt):
+        return "-" if v is None else format(float(v), fmt)
+
+    print(f"{'day':<11}{'feature':<10}{'model':<24}{'calls':>6}{'in_tok':>9}{'out_tok':>8}"
+          f"{'cost_usd':>10}{'p50_ms':>8}{'p95_ms':>8}{'err':>6}{'val_fail':>9}{'fallbk':>7}")
+    print("-" * 116)
+    for r in rows:
+        cost = num(r["est_cost_usd"], ".4f") + ("*" if r["calls_without_cost"] else "")
+        print(f"{r['day']!s:<11}{r['feature']:<10}{r['model'][:23]:<24}{r['calls']:>6}"
+              f"{num(r['input_tokens'], ',.0f'):>9}{num(r['output_tokens'], ',.0f'):>8}"
+              f"{cost:>10}{num(r['latency_p50_ms'], '.0f'):>8}{num(r['latency_p95_ms'], '.0f'):>8}"
+              f"{pct(r['error_rate']):>6}{pct(r['validation_fail_rate']):>9}{pct(r['fallback_rate']):>7}")
+
+    total_calls = sum(r["calls"] for r in rows)
+    total_cost = sum(float(r["est_cost_usd"] or 0) for r in rows)
+    print("-" * 116)
+    print(f"TOTAL: {total_calls} calls, ~${total_cost:.4f}")
+    if any(r["calls_without_cost"] for r in rows):
+        print("  * some calls have no price in llm_pricing - their cost is unknown, "
+              "so this total is a lower bound.")
+    return 0
 
 
 def cmd_retention(args) -> int:
@@ -369,6 +614,43 @@ def build_parser() -> argparse.ArgumentParser:
     ev.add_argument("--out", default="evals/results", help="thư mục lưu kết quả")
     ev.add_argument("--baseline", help="file kết quả cũ để so sánh")
     ev.set_defaults(func=cmd_eval)
+
+    ak = sub.add_parser("ask", help="Ask the data assistant a question (OpenAI, a few cents at most)")
+    ak.add_argument("question", help='e.g. "Video nào tăng view nhanh nhất nhóm kids_animation?"')
+    ak.add_argument("--trace", action="store_true", help="show tools called and grounding errors")
+    ak.add_argument("--session", help="session id to group several questions in the LLM log")
+    ak.set_defaults(func=cmd_ask)
+
+    em = sub.add_parser("embed", help="Embed video titles/descriptions for search (OpenAI, cheap)")
+    em.add_argument("--dry-run", action="store_true", help="only count what would be embedded")
+    em.add_argument("--database", help="database to index (default: the main one; yti_eval for eval)")
+    em.set_defaults(func=cmd_embed)
+
+    er = sub.add_parser("eval-rag", help="recall@5 / MRR@5: vector vs full-text vs hybrid")
+    er.add_argument("--queries", default="evals/rag_queries.yaml")
+    er.add_argument("--suggest", action="store_true",
+                    help="propose candidates for unlabeled queries (you label them)")
+    er.add_argument("--out", default="evals/results")
+    er.set_defaults(func=cmd_eval_rag)
+
+    ea = sub.add_parser("eval-assistant",
+                        help="Score the assistant on fixed synthetic cases (OpenAI, ~cents)")
+    ea.add_argument("--prompt-version", help="assistant prompt, e.g. a1 (default: config)")
+    ea.add_argument("--split", choices=["dev", "holdout", "all"], default="dev")
+    ea.add_argument("--repeat", type=int, default=1, help="run each case N times (variance)")
+    ea.add_argument("--baseline", help="earlier result file to compare with")
+    ea.add_argument("--rescore", help="re-score a saved result file with current scorers (no LLM)")
+    ea.add_argument("--limit", type=int, help="only the first N cases")
+    ea.add_argument("--database", default="yti_eval", help="fixed eval database")
+    ea.add_argument("--cases", default="evals/assistant_cases.yaml")
+    ea.add_argument("--seed", default="evals/fixtures/assistant_seed.sql")
+    ea.add_argument("--no-reseed", action="store_true", help="keep the current eval data")
+    ea.add_argument("--out", default="evals/results")
+    ea.set_defaults(func=cmd_eval_assistant)
+
+    ls = sub.add_parser("llm-stats", help="LLM usage: calls, tokens, cost, latency (yti.v_llm_daily)")
+    ls.add_argument("--days", type=int, default=7, help="number of days to show (default 7)")
+    ls.set_defaults(func=cmd_llm_stats)
 
     rt = sub.add_parser("retention", help="Dọn dữ liệu quá hạn (MẶC ĐỊNH chỉ xem trước)")
     rt.add_argument("--apply", action="store_true",

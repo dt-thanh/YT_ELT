@@ -12,7 +12,7 @@ import pytest
 airflow = pytest.importorskip("airflow")      # máy dev không có airflow -> BỎ QUA, không fail
 from airflow.models import DagBag            # noqa: E402
 
-EXPECTED = {"yt_collect", "yt_quality", "yt_report"}
+EXPECTED = {"yt_collect", "yt_quality", "yt_report", "yt_embed"}
 
 
 @pytest.fixture(scope="module")
@@ -60,3 +60,11 @@ def test_collect_run_turns_red_when_any_channel_fails(dagbag):
     collect = {t for t in dag.task_ids if t.startswith("collect_")}
     assert collect == check.upstream_task_ids
     assert dag.get_task("done").trigger_rule == "all_done"
+
+
+def test_embed_runs_on_new_data_independently_of_report(dagbag):
+    # Same Dataset as yt_report, but its own DAG: an embedding failure must not
+    # block the daily brief.
+    embed, report = dagbag.get_dag("yt_embed"), dagbag.get_dag("yt_report")
+    assert embed.dataset_triggers and embed.catchup is False
+    assert [d.uri for d in embed.dataset_triggers] == [d.uri for d in report.dataset_triggers]

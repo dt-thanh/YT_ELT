@@ -81,3 +81,19 @@ def test_reference_names_loaded_from_config():
     chans = {c.title: c for c in load_config(require=()).channels}
     wolfoo = next(c for t, c in chans.items() if t.startswith("Wolfoo"))
     assert "Wolfoo" in wolfoo.reference_names
+
+
+def test_llm_pricing_loaded_from_config():
+    prices = {p.model: p for p in load_config(require=()).settings.llm_pricing}
+    assert prices["gpt-4o-mini"].output_per_1m is not None
+    assert prices["text-embedding-3-small"].output_per_1m is None   # embeddings bill input only
+
+
+@pytest.mark.parametrize("bad", [
+    {"m": {"output": 1.0}},                 # missing input price
+    {"m": {"input": "cheap"}},              # not a number
+    {"m": {"input": -1}},                   # negative
+])
+def test_bad_llm_pricing_fails_fast(cfg_path, bad):
+    with pytest.raises(ConfigError):
+        load_config(cfg_path(lambda c: c["project"].__setitem__("llm_pricing", bad)), require=())

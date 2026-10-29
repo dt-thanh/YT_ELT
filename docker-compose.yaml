@@ -107,6 +107,9 @@ x-airflow-common:
     # chuỗi rỗng và lệnh `report` tự rơi về bản mẫu, thay vì compose từ chối khởi động.
     # Tính năng tùy chọn không được phép chặn cả hệ thống.
     OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    # Password of the assistant's read-only DB login (migration 005). Optional:
+    # only `ask` and the dashboard assistant screen need it.
+    ASSISTANT_DB_PASSWORD: ${ASSISTANT_DB_PASSWORD:-}
     # Package youtube_intel ĐÃ được cài sẵn trong image (Dockerfile, layer 2).
     # PYTHONPATH trỏ vào ./src được mount -> code trên máy ĐÈ LÊN code trong image:
     # sửa code là container thấy ngay, không phải build lại (chế độ dev).
@@ -131,6 +134,10 @@ x-airflow-common:
     - ./src:/opt/airflow/src
     - ./sql:/opt/airflow/sql
     - ./dashboard:/opt/airflow/dashboard
+    # Eval cases, fixtures and RESULTS: eval-assistant / eval-rag run in the
+    # container must write their JSON back to the repo (to be committed), and the
+    # dashboard reads them.
+    - ./evals:/opt/airflow/evals
   # Chạy bằng UID từ .env để file log/dags không bị root chiếm quyền
   user: "${AIRFLOW_UID}:0"
   # Mọi container Airflow phải ĐỢI postgres + minio KHỎE mới khởi động
@@ -157,7 +164,11 @@ services:
   # ==========================================================================
   postgres:
     container_name: postgres
-    image: postgres:13
+    # Postgres 13 WITH pgvector (RAG, migrations 006/007). Same major version as
+    # the previous postgres:13 image, so the existing data volume is reused as is.
+    # Pinned tag (not the floating "pg13") - lesson from the MinIO image going away.
+    # Before switching an existing machine: back up first (README, "Upgrading Postgres").
+    image: pgvector/pgvector:0.8.1-pg13
     # Biến lấy từ .env (máy dev) hoặc khối `env:` của workflow (CI) - xem ghi chú ở trên.
     environment:
       # 2 biến đầu là của image postgres: tạo user siêu quyền

@@ -76,6 +76,44 @@ project:
   # Số video đưa vào mỗi nhóm. Brief §9 chốt tối đa 3.
   report_top_n: 3
 
+  # LLM price list, USD per 1M tokens, used to estimate cost in yti.llm_calls.
+  # Source: https://developers.openai.com/api/docs/pricing (standard tier), read 2026-10-16.
+  # A model missing here is logged with est_cost_usd = NULL (unknown), not 0.
+  # The API returns dated snapshots (gpt-4o-mini-2024-07-18); they match the base name.
+  llm_pricing:
+    gpt-4o-mini:            {input: 0.15, output: 0.60}
+    text-embedding-3-small: {input: 0.02, output: null}
+
+  # ---------------------------------------------------------------------------
+  # Q&A ASSISTANT (`youtube-intel ask`). The LLM only picks read-only tools and
+  # phrases the answer; every number is checked against tool results.
+  # ---------------------------------------------------------------------------
+  assistant:
+    prompt_version: a1          # bump when the prompt changes; measured by eval-assistant
+    max_steps: 5                # LLM rounds per question; the last one must submit an answer
+    max_rows: 20                # rows a tool may return
+    history_turns: 6            # previous Q&A pairs kept within one chat session
+    statement_timeout_ms: 5000  # per tool query
+    db_user: yti_assistant      # SELECT-only login created by migration 005
+
+  # ---------------------------------------------------------------------------
+  # RAG over video titles + descriptions (`youtube-intel embed`, tool search_videos).
+  # Public metadata only - no transcripts.
+  # ---------------------------------------------------------------------------
+  rag:
+    embedding_model: text-embedding-3-small
+    embedding_dims: 1536        # must match vector(1536) in migration 007
+    chunk_chars: 1000
+    chunk_overlap: 150
+    max_chunks: 5               # per video
+    batch_size: 100             # texts per embedding request
+    candidates: 20              # taken from EACH of vector search and full-text search
+    rrf_k: 60                   # Reciprocal Rank Fusion constant
+    top_k: 5                    # videos returned to the assistant
+    # Initial guess. Calibrate with `youtube-intel eval-rag`: below this cosine
+    # similarity, and with no full-text match, search returns no_relevant_results.
+    min_similarity: 0.25
+
   # ---------------------------------------------------------------------------
   # RETENTION - vòng đời dữ liệu.
   #

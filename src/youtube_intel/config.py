@@ -28,6 +28,7 @@ TRIẾT LÝ CỦA FILE NÀY - đọc kỹ trước khi đọc code:
 
 from __future__ import annotations
 
+import dataclasses
 import os
 import re
 from dataclasses import dataclass
@@ -66,6 +67,40 @@ class ChannelConfig:
 
 
 @dataclass(frozen=True)
+class ModelPrice:
+    """USD per 1M tokens for one model. output_per_1m is None for embedding models."""
+    model: str
+    input_per_1m: float
+    output_per_1m: float | None
+
+
+@dataclass(frozen=True)
+class AssistantSettings:
+    """The Q&A assistant (assistant: block in channels.yaml)."""
+    prompt_version: str = "a1"
+    max_steps: int = 5                  # LLM rounds per question before giving up
+    max_rows: int = 20                  # rows a tool may return
+    history_turns: int = 6              # previous Q&A pairs sent with a question
+    statement_timeout_ms: int = 5000    # per tool query
+    db_user: str = "yti_assistant"      # read-only login (migration 005)
+
+
+@dataclass(frozen=True)
+class RagSettings:
+    """Retrieval over titles/descriptions (rag: block in channels.yaml)."""
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dims: int = 1536          # must match vector(...) in migration 007
+    chunk_chars: int = 1000
+    chunk_overlap: int = 150
+    max_chunks: int = 5                 # per video
+    batch_size: int = 100               # texts per embedding request
+    candidates: int = 20                # rows taken from EACH of vector / full-text
+    rrf_k: int = 60                     # Reciprocal Rank Fusion constant
+    top_k: int = 5                      # videos returned
+    min_similarity: float = 0.25        # below this, and no text match -> no_relevant_results
+
+
+@dataclass(frozen=True)
 class Settings:
     """Lựa chọn vận hành - đọc từ YAML, đi vào git."""
     name: str
@@ -90,6 +125,11 @@ class Settings:
     staging_retention_days: int
     orphan_retention_hours: int
     raw_retention_days: int | None      # None = KHÔNG BAO GIỜ xóa raw
+    # LLM price list (llm_pricing in channels.yaml). A tuple keeps Settings immutable.
+    # Optional: a model with no entry gets est_cost_usd = NULL, never a guessed price.
+    llm_pricing: tuple[ModelPrice, ...] = ()
+    assistant: AssistantSettings = AssistantSettings()
+    rag: RagSettings = RagSettings()
 
     def slot_hours(self) -> tuple[int, ...]:
         """Các giờ trong ngày có mốc thu thập, theo report_timezone.
@@ -130,6 +170,7 @@ class Secrets:
     db_user: str = None                    # type: ignore[assignment]
     db_password: str = None                # type: ignore[assignment]
     openai_api_key: str = None             # type: ignore[assignment]
+    assistant_db_password: str = None      # type: ignore[assignment]
 
     def __repr__(self) -> str:             # chặn in secret ra log
         return "Secrets(<đã ẩn>)"
@@ -167,6 +208,9 @@ SECRET_GROUPS: dict[str, tuple[str, ...]] = {
     # Nhóm riêng: chỉ lệnh `report` với llm_enabled=true mới đòi key này.
     # Mọi lệnh khác chạy bình thường mà không cần OPENAI_API_KEY.
     "llm": ("openai_api_key",),
+    # Password of the assistant's read-only database login (migration 005).
+    # Only `ask` (and the dashboard assistant screen) need it.
+    "assistant": ("assistant_db_password",),
 }
 
 # Mặc định của load_config() = những nhóm LÕI PIPELINE cần.
@@ -252,6 +296,9 @@ def _parse_settings(block, path: Path) -> Settings:
             None if block.get("raw_retention_days") is None
             else int(block["raw_retention_days"])
         ),
+        llm_pricing=_parse_pricing(block.get("llm_pricing"), path),
+        assistant=_parse_assistant(block.get("assistant"), path),
+        rag=_parse_rag(block.get("rag"), path),
     )
 
     # Kiểm tra MIỀN GIÁ TRỊ, không chỉ kiểu.
@@ -291,6 +338,75 @@ def _parse_settings(block, path: Path) -> Settings:
         raise ConfigError("project.raw_retention_days phải >= 1 hoặc để null (không xóa)")
 
     return settings
+
+
+def _parse_pricing(block, path: Path) -> tuple[ModelPrice, ...]:
+    """project.llm_pricing: {model: {input: <usd/1M>, output: <usd/1M or null>}}."""
+    if block is None:
+        return ()
+    if not isinstance(block, dict):
+        raise ConfigError(f"{path}: project.llm_pricing must be a mapping of model -> prices.")
+    prices = []
+    for model, entry in block.items():
+        if not isinstance(entry, dict) or "input" not in entry:
+            raise ConfigError(f"{path}: project.llm_pricing.{model} needs an 'input' price.")
+        try:
+            inp = float(entry["input"])
+            out = None if entry.get("output") is None else float(entry["output"])
+        except (TypeError, ValueError) as e:
+            raise ConfigError(f"{path}: project.llm_pricing.{model} has a non-numeric price: {e}") from e
+        if inp < 0 or (out is not None and out < 0):
+            raise ConfigError(f"{path}: project.llm_pricing.{model} has a negative price.")
+        prices.append(ModelPrice(model=str(model), input_per_1m=inp, output_per_1m=out))
+    return tuple(prices)
+
+
+def _parse_assistant(block, path: Path) -> AssistantSettings:
+    """project.assistant: every key optional; defaults in AssistantSettings."""
+    if block is None:
+        return AssistantSettings()
+    if not isinstance(block, dict):
+        raise ConfigError(f"{path}: project.assistant must be a mapping.")
+    known = {f.name for f in dataclasses.fields(AssistantSettings)}
+    unknown = set(block) - known
+    if unknown:
+        raise ConfigError(f"{path}: unknown key(s) in project.assistant: {sorted(unknown)}")
+    try:
+        cfg = AssistantSettings(**{
+            k: (str(v) if k in ("prompt_version", "db_user") else int(v)) for k, v in block.items()})
+    except (TypeError, ValueError) as e:
+        raise ConfigError(f"{path}: project.assistant has a wrong type: {e}") from e
+    limits = {"max_steps": (2, 10), "max_rows": (1, 100), "history_turns": (0, 20),
+              "statement_timeout_ms": (100, 60_000)}
+    for name, (lo, hi) in limits.items():
+        if not lo <= getattr(cfg, name) <= hi:
+            raise ConfigError(f"{path}: project.assistant.{name} must be in {lo}..{hi}")
+    return cfg
+
+
+def _parse_rag(block, path: Path) -> RagSettings:
+    """project.rag: every key optional; defaults in RagSettings."""
+    if block is None:
+        return RagSettings()
+    if not isinstance(block, dict):
+        raise ConfigError(f"{path}: project.rag must be a mapping.")
+    fields = {f.name: f.type for f in dataclasses.fields(RagSettings)}
+    unknown = set(block) - set(fields)
+    if unknown:
+        raise ConfigError(f"{path}: unknown key(s) in project.rag: {sorted(unknown)}")
+    cast = {"str": str, "int": int, "float": float}
+    try:
+        cfg = RagSettings(**{k: cast[fields[k]](v) for k, v in block.items()})
+    except (TypeError, ValueError) as e:
+        raise ConfigError(f"{path}: project.rag has a wrong type: {e}") from e
+    if not 0 <= cfg.chunk_overlap < cfg.chunk_chars:
+        raise ConfigError(f"{path}: project.rag.chunk_overlap must be in 0..chunk_chars-1")
+    if not 0 <= cfg.min_similarity <= 1:
+        raise ConfigError(f"{path}: project.rag.min_similarity must be in 0..1")
+    for name in ("max_chunks", "batch_size", "candidates", "rrf_k", "top_k", "embedding_dims"):
+        if getattr(cfg, name) < 1:
+            raise ConfigError(f"{path}: project.rag.{name} must be >= 1")
+    return cfg
 
 
 def _parse_channels(block, groups_block, path: Path) -> tuple[ChannelConfig, ...]:
@@ -364,6 +480,7 @@ def _load_secrets(*, require: tuple[str, ...]) -> Secrets:
         "db_user": "ELT_DATABASE_USERNAME",
         "db_password": "ELT_DATABASE_PASSWORD",
         "openai_api_key": "OPENAI_API_KEY",
+        "assistant_db_password": "ASSISTANT_DB_PASSWORD",
     }
 
     values = {field: os.environ.get(env_name) for field, env_name in mapping.items()}

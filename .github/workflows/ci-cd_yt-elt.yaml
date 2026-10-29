@@ -91,6 +91,7 @@ jobs:
       # Để TRỐNG có chủ ý: CI không được gọi YouTube hay OpenAI thật.
       API_KEY: ""
       OPENAI_API_KEY: ""
+      ASSISTANT_DB_PASSWORD: ci_assistant_pw   # read-only login, migration 005
       AIRFLOW_UID: "50000"
       DOCKERHUB_NAMESPACE: ci
       DOCKERHUB_REPOSITORY: yt_api_elt
@@ -120,12 +121,22 @@ jobs:
 
       # Database CI là database RỖNG vừa tạo -> phải chạy migration.
       # Đây cũng là bài kiểm tra: migration có chạy được từ số 0 không?
+      # Run the whole set TWICE: migrations must be safe to re-run.
       - name: Chạy migration
         run: |
-          for f in sql/migrations/*.sql; do
-            echo "== $f"
-            docker exec -i postgres psql -U "$ELT_DATABASE_USERNAME" \
-              -d "$ELT_DATABASE_NAME" -v ON_ERROR_STOP=1 < "$f"
+          for pass in 1 2; do
+            for f in sql/migrations/*.sql; do
+              echo "== pass $pass: $f"
+              case "$f" in
+                *_role.sql|*_extension.sql)   # roles / extensions -> superuser; password via psql variable
+                  docker exec -i postgres psql -U "$POSTGRES_CONN_USERNAME" \
+                    -d "$ELT_DATABASE_NAME" -v ON_ERROR_STOP=1 \
+                    -v assistant_password="$ASSISTANT_DB_PASSWORD" < "$f" ;;
+                *)
+                  docker exec -i postgres psql -U "$ELT_DATABASE_USERNAME" \
+                    -d "$ELT_DATABASE_NAME" -v ON_ERROR_STOP=1 < "$f" ;;
+              esac
+            done
           done
 
       # Container là airflow-scheduler (không còn airflow-worker từ Bước 1).
