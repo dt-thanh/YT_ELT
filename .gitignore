@@ -11,4 +11,4 @@ __pycache__/
 logs/
 
 # Tài liệu cá nhân (đặc tả, CV) - không đưa lên repo
-*.docx
+#*.docx
