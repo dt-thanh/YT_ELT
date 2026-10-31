@@ -23,8 +23,13 @@ BỐN NGUYÊN TẮC, KHÔNG ĐƯỢC PHÁ:
    thứ duy nhất giúp hiểu vì sao dữ liệu bẩn. Xóa nó đi là tự bịt mắt mình.
 
 4. CON SỐ CHÍNH SÁCH NẰM TRONG CONFIG, KHÔNG HARDCODE.
-   raw_retention_days=None nghĩa là "chưa xác minh chính sách -> không xóa".
-   Đặt số vào code là cam kết một điều mình chưa kiểm chứng.
+   Giới hạn trên (30 ngày, 36 tháng) đã đọc từ nguồn gốc và ghi ở
+   docs/policy_notes.md; config.py từ chối số vượt giới hạn.
+
+R3 (đặc tả mục 3, Developer Policies III.E.4) ĐÈ LÊN nguyên tắc 2 và 3: dữ liệu
+API công khai - kể cả raw và staging của batch bị cách ly - phải xóa hoặc làm mới
+sau tối đa 30 ngày, và xóa trong 7 ngày khi có yêu cầu. Mỗi bảng có fetched_at và
+data_class (migration 008); R3_RULES dưới đây là một quy tắc cho mỗi lớp dữ liệu.
 """
 
 from __future__ import annotations
@@ -208,8 +213,8 @@ def plan_raw_cleanup(store: RawStore, *, days: int | None) -> CleanupPlan:
     """
     plan = CleanupPlan(what="raw (theo chính sách)")
     if days is None:
-        plan.note = ("TẮT - raw_retention_days=null. Đọc [S7] và ghi vào "
-                     "docs/policy_notes.md trước khi bật.")
+        plan.note = ("TẮT - raw_retention_days=null (config.py hiện từ chối giá trị này "
+                     "vì vi phạm R3).")
         return plan
 
     if not store.bucket_exists():
@@ -228,3 +233,187 @@ def plan_raw_cleanup(store: RawStore, *, days: int | None) -> CleanupPlan:
     if not plan.count:
         plan.note = f"không có object nào cũ hơn {days} ngày"
     return plan
+
+
+# =============================================================================
+# 4. R3 - hạn lưu dữ liệu API theo lớp (data_class, fetched_at - migration 008)
+# =============================================================================
+
+@dataclass(frozen=True)
+class R3Limits:
+    api_days: int       # raw, metadata, văn bản, staging, bản tin, embedding
+    stats_days: int     # thống kê công khai
+
+    @classmethod
+    def from_settings(cls, settings) -> "R3Limits":
+        """Cờ tắt: thống kê cũng 30 ngày. Cờ bật (đã được chấp thuận): tới 36 tháng."""
+        stats = (settings.approved_stats_retention_days if settings.derived_metrics_enabled
+                 else settings.api_data_retention_days)
+        return cls(api_days=settings.api_data_retention_days, stats_days=stats)
+
+
+@dataclass(frozen=True)
+class R3Rule:
+    what: str
+    data_class: str
+    limit: str          # "api" | "stats"
+    count_sql: str      # trả về n, oldest
+    delete_sql: str     # xóa, hoặc xóa trường API (bảng registry tracked_channels)
+
+    def days(self, limits: R3Limits) -> int:
+        return limits.stats_days if self.limit == "stats" else limits.api_days
+
+
+_CUTOFF = "now() - make_interval(days => %(days)s)"
+
+# Thứ tự = thứ tự xóa: embedding trước văn bản gốc của nó.
+R3_RULES: tuple[R3Rule, ...] = (
+    R3Rule("thống kê công khai", "stats_non_authorized", "stats",
+           f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.video_observations "
+           f"WHERE fetched_at < {_CUTOFF}",
+           f"DELETE FROM yti.video_observations WHERE fetched_at < {_CUTOFF}"),
+    # Embedding theo hạn của văn bản gốc (đặc tả R3): xóa khi tiêu đề/mô tả nguồn quá hạn.
+    R3Rule("embedding tìm kiếm", "derived", "api",
+           f"SELECT count(*) AS n, min(v.fetched_at) AS oldest FROM yti.video_chunks c "
+           f"JOIN yti.videos_current v USING (video_id) WHERE v.fetched_at < {_CUTOFF}",
+           f"DELETE FROM yti.video_chunks c USING yti.videos_current v "
+           f"WHERE c.video_id = v.video_id AND v.fetched_at < {_CUTOFF}"),
+    R3Rule("metadata video", "metadata_text", "api",
+           f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.videos_current "
+           f"WHERE fetched_at < {_CUTOFF}",
+           f"DELETE FROM yti.videos_current WHERE fetched_at < {_CUTOFF}"),
+    # Dòng kênh là registry của ta (khóa ngoại từ channel_batches): chỉ xóa trường API.
+    R3Rule("metadata kênh", "metadata_text", "api",
+           f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.tracked_channels "
+           f"WHERE fetched_at < {_CUTOFF}",
+           f"UPDATE yti.tracked_channels SET title = NULL, description = NULL, "
+           f"uploads_playlist_id = NULL, fetched_at = NULL WHERE fetched_at < {_CUTOFF}"),
+    # Kể cả batch 'quarantined': R3 thắng nguyên tắc giữ bằng chứng.
+    R3Rule("staging (mọi batch)", "metadata_text", "api",
+           f"SELECT count(*) AS n, min(fetched_at) AS oldest "
+           f"FROM yti_staging.video_observations_stg WHERE fetched_at < {_CUTOFF}",
+           f"DELETE FROM yti_staging.video_observations_stg WHERE fetched_at < {_CUTOFF}"),
+    R3Rule("bản tin (evidence có tiêu đề + số liệu)", "metadata_text", "api",
+           f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.reports "
+           f"WHERE fetched_at < {_CUTOFF}",
+           f"DELETE FROM yti.reports WHERE fetched_at < {_CUTOFF}"),
+)
+
+
+def plan_r3(cur, limits: R3Limits) -> list[CleanupPlan]:
+    """Đếm dữ liệu API quá hạn R3, từng lớp. KHÔNG xóa."""
+    plans = []
+    for rule in R3_RULES:
+        days = rule.days(limits)
+        cur.execute(rule.count_sql, {"days": days})
+        row = cur.fetchone()
+        plan = CleanupPlan(what=f"R3 {rule.what} [{rule.data_class}, {days} ngày]",
+                           count=row["n"] or 0)
+        if plan.count:
+            plan.samples = [f"cũ nhất: {row['oldest']:%Y-%m-%d %H:%M}"]
+        else:
+            plan.note = f"không có gì cũ hơn {days} ngày"
+        plans.append(plan)
+    return plans
+
+
+def delete_r3(cur, limits: R3Limits) -> dict[str, int]:
+    """XÓA THẬT dữ liệu API quá hạn R3. Nơi gọi bọc transaction."""
+    done = {}
+    for rule in R3_RULES:
+        cur.execute(rule.delete_sql, {"days": rule.days(limits)})
+        done[rule.what] = cur.rowcount
+        logger.info("R3 %s: %d dòng (quá %d ngày)", rule.what, cur.rowcount, rule.days(limits))
+    return done
+
+
+# =============================================================================
+# 5. XÓA THEO YÊU CẦU (R3: trong 7 ngày) - toàn bộ dữ liệu API của một kênh
+# =============================================================================
+
+_CHANNEL_VIDEOS = """
+    SELECT video_id FROM yti.videos_current WHERE channel_id = %(ch)s
+    UNION
+    SELECT DISTINCT video_id FROM yti_staging.video_observations_stg
+     WHERE channel_id = %(ch)s AND video_id IS NOT NULL
+    UNION
+    SELECT DISTINCT o.video_id FROM yti.video_observations o
+      JOIN yti.channel_batches b USING (batch_id) WHERE b.channel_id = %(ch)s
+"""
+
+# A brief mentions the channel when it lists one of its videos or its name.
+_REPORT_MATCH = (
+    "EXISTS (SELECT 1 FROM jsonb_array_elements(COALESCE(r.evidence_bundle->'candidates', "
+    "'[]'::jsonb)) c WHERE c->>'video_id' = ANY(%(vids)s)) "
+    "OR (%(title)s IS NOT NULL AND r.evidence_bundle->'group_channels' ? %(title)s)")
+
+# (what, count_sql, delete_sql); params: ch, vids, title. Embedding trước video.
+CHANNEL_DELETION_STEPS: tuple[tuple[str, str, str], ...] = (
+    ("bản tin nhắc tới kênh",
+     "SELECT count(*) AS n FROM yti.reports r WHERE " + _REPORT_MATCH,
+     "DELETE FROM yti.reports r WHERE " + _REPORT_MATCH),
+    ("thống kê",
+     "SELECT count(*) AS n FROM yti.video_observations o JOIN yti.channel_batches b "
+     "USING (batch_id) WHERE b.channel_id = %(ch)s",
+     "DELETE FROM yti.video_observations o USING yti.channel_batches b "
+     "WHERE o.batch_id = b.batch_id AND b.channel_id = %(ch)s"),
+    ("embedding",
+     "SELECT count(*) AS n FROM yti.video_chunks c JOIN yti.videos_current v "
+     "USING (video_id) WHERE v.channel_id = %(ch)s",
+     "DELETE FROM yti.video_chunks c USING yti.videos_current v "
+     "WHERE c.video_id = v.video_id AND v.channel_id = %(ch)s"),
+    ("metadata video",
+     "SELECT count(*) AS n FROM yti.videos_current WHERE channel_id = %(ch)s",
+     "DELETE FROM yti.videos_current WHERE channel_id = %(ch)s"),
+    ("staging",
+     "SELECT count(*) AS n FROM yti_staging.video_observations_stg WHERE channel_id = %(ch)s",
+     "DELETE FROM yti_staging.video_observations_stg WHERE channel_id = %(ch)s"),
+    ("metadata kênh (tắt kênh)",
+     "SELECT count(*) AS n FROM yti.tracked_channels WHERE channel_id = %(ch)s",
+     "UPDATE yti.tracked_channels SET title = NULL, description = NULL, "
+     "uploads_playlist_id = NULL, fetched_at = NULL, enabled = FALSE "
+     "WHERE channel_id = %(ch)s"),
+)
+
+
+def _channel_params(cur, channel_id: str) -> dict:
+    cur.execute(_CHANNEL_VIDEOS, {"ch": channel_id})
+    vids = [r["video_id"] for r in cur.fetchall()]
+    cur.execute("SELECT title FROM yti.tracked_channels WHERE channel_id = %(ch)s",
+                {"ch": channel_id})
+    row = cur.fetchone()
+    return {"ch": channel_id, "vids": vids, "title": row["title"] if row else None}
+
+
+def _channel_raw_keys(store: RawStore, channel_id: str) -> list[dict]:
+    if not store.bucket_exists():
+        return []
+    marker = f"/channel_id={channel_id}/"
+    return [o for o in store.list_objects(store.prefix + "/") if marker in o["key"]]
+
+
+def plan_channel_deletion(cur, store: RawStore, channel_id: str) -> list[CleanupPlan]:
+    """Đếm mọi dữ liệu API của một kênh, trong database và trên MinIO. KHÔNG xóa."""
+    params = _channel_params(cur, channel_id)
+    plans = []
+    for what, count_sql, _ in CHANNEL_DELETION_STEPS:
+        cur.execute(count_sql, params)
+        plans.append(CleanupPlan(what=what, count=cur.fetchone()["n"] or 0))
+    objs = _channel_raw_keys(store, channel_id)
+    plans.append(CleanupPlan(what="raw trên MinIO", count=len(objs),
+                             bytes_freed=sum(o["size"] for o in objs),
+                             keys=[o["key"] for o in objs],
+                             samples=[o["key"][-70:] for o in objs[:MAX_SAMPLES]]))
+    return plans
+
+
+def delete_channel_data(cur, channel_id: str) -> dict[str, int]:
+    """XÓA THẬT dữ liệu API của một kênh trong database. Nơi gọi bọc transaction,
+    rồi xóa raw (plan_channel_deletion(...)[-1].keys) sau khi commit."""
+    params = _channel_params(cur, channel_id)
+    done = {}
+    for what, _, delete_sql in CHANNEL_DELETION_STEPS:
+        cur.execute(delete_sql, params)
+        done[what] = cur.rowcount
+    logger.info("Đã xóa dữ liệu API của kênh %s: %s", channel_id, done)
+    return done

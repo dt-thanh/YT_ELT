@@ -523,22 +523,27 @@ def cmd_retention(args) -> int:
     db = repo.Database(host=sec.db_host, port=sec.db_port, name=sec.db_name,
                        user=sec.db_user, password=sec.db_password)
 
+    limits = retention.R3Limits.from_settings(st)
     mode = "ÁP DỤNG (xóa thật)" if args.apply else "XEM TRƯỚC (không xóa gì)"
     print(f"=== RETENTION - {mode} ===")
     print(f"  staging_retention_days = {st.staging_retention_days}")
     print(f"  orphan_retention_hours = {st.orphan_retention_hours}")
-    print(f"  raw_retention_days     = {st.raw_retention_days}\n")
+    print(f"  raw_retention_days     = {st.raw_retention_days}")
+    print(f"  R3: dữ liệu API {limits.api_days} ngày, thống kê {limits.stats_days} ngày "
+          f"(derived_metrics_enabled={st.derived_metrics_enabled})\n")
 
     with db.connect() as conn:
         with repo.dict_cursor(conn) as cur:
             staging_plan = retention.plan_staging_cleanup(cur, days=st.staging_retention_days)
+            r3_plans = retention.plan_r3(cur, limits)
     orphan_plan = retention.plan_orphan_cleanup(store, hours=st.orphan_retention_hours)
     raw_plan = retention.plan_raw_cleanup(store, days=st.raw_retention_days)
 
-    for plan in (staging_plan, orphan_plan, raw_plan):
+    plans = [staging_plan, *r3_plans, orphan_plan, raw_plan]
+    for plan in plans:
         print(plan.describe())
 
-    total = staging_plan.count + orphan_plan.count + raw_plan.count
+    total = sum(p.count for p in plans)
     freed = orphan_plan.bytes_freed + raw_plan.bytes_freed
     print(f"\n  TỔNG: {total} mục" + (f", giải phóng ~{retention._human(freed)}" if freed else ""))
 
@@ -552,9 +557,50 @@ def cmd_retention(args) -> int:
             with repo.dict_cursor(conn) as cur:
                 n = retention.delete_staging(cur, days=st.staging_retention_days)
                 print(f"  staging : xóa {n} dòng")
+                for what, n in retention.delete_r3(cur, limits).items():
+                    print(f"  R3 {what}: {n} dòng")
     for plan in (orphan_plan, raw_plan):
         if plan.keys:
             print(f"  {plan.what}: xóa {store.delete_keys(plan.keys)} object")
+    return 0
+
+
+def cmd_delete_channel_data(args) -> int:
+    """Xóa MỌI dữ liệu API của một kênh (R3: xóa theo yêu cầu trong 7 ngày).
+    MẶC ĐỊNH CHỈ XEM TRƯỚC; --apply mới xóa."""
+    from youtube_intel import retention
+    from youtube_intel.storage import RawStore
+
+    cfg = load_config(require=("minio", "db"))
+    sec = cfg.secrets
+    store = RawStore(endpoint_url=sec.minio_endpoint, access_key=sec.minio_access_key,
+                     secret_key=sec.minio_secret_key)
+    db = repo.Database(host=sec.db_host, port=sec.db_port, name=sec.db_name,
+                       user=sec.db_user, password=sec.db_password)
+    ch = args.channel_id
+
+    mode = "ÁP DỤNG (xóa thật)" if args.apply else "XEM TRƯỚC (không xóa gì)"
+    print(f"=== XÓA DỮ LIỆU KÊNH {ch} - {mode} ===")
+    with db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            plans = retention.plan_channel_deletion(cur, store, ch)
+    for plan in plans:
+        print(plan.describe())
+    if any(c.channel_id == ch and c.enabled for c in cfg.channels):
+        print(f"\n  ⚠️ Kênh {ch} vẫn enabled trong config/channels.yaml: lần thu kế tiếp sẽ lấy "
+              "lại dữ liệu. Đặt enabled: false (hoặc xóa kênh) trong cùng ngày.")
+    if not args.apply:
+        print("\n  (chưa xóa gì. Thêm --apply để thực hiện)")
+        return 0
+
+    with db.connect() as conn:
+        with conn:
+            with repo.dict_cursor(conn) as cur:
+                for what, n in retention.delete_channel_data(cur, ch).items():
+                    print(f"  {what}: {n} dòng")
+    raw = plans[-1]
+    if raw.keys:
+        print(f"  raw trên MinIO: xóa {store.delete_keys(raw.keys)} object")
     return 0
 
 
@@ -672,6 +718,12 @@ def build_parser() -> argparse.ArgumentParser:
     rt.add_argument("--apply", action="store_true",
                     help="XÓA THẬT. Không có cờ này thì chỉ liệt kê, không xóa gì.")
     rt.set_defaults(func=cmd_retention)
+
+    dc = sub.add_parser("delete-channel-data",
+                        help="Xóa mọi dữ liệu API của một kênh theo yêu cầu (R3, MẶC ĐỊNH xem trước)")
+    dc.add_argument("channel_id")
+    dc.add_argument("--apply", action="store_true", help="XÓA THẬT.")
+    dc.set_defaults(func=cmd_delete_channel_data)
 
     v = sub.add_parser("verify-channels", help="Xác minh channel_id bằng API (~1 unit/kênh)")
     v.set_defaults(func=cmd_verify_channels)

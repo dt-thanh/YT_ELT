@@ -136,13 +136,17 @@ project:
   # hạn này thì coi là rác và dọn. Ân hạn để tránh xóa nhầm batch ĐANG chạy.
   orphan_retention_hours: 24
 
-  # ⚠️ RAW: để `null` = KHÔNG BAO GIỜ XÓA.
-  # Chính sách YouTube CÓ yêu cầu về vòng đời dữ liệu API lưu trữ, nhưng ta
-  # CHƯA đọc và xác minh [S7] (Developer Policies). Brief đã chốt: KHÔNG code
-  # theo con số chưa kiểm chứng.
-  # Khi nào đọc xong thì ghi vào docs/policy_notes.md kèm ngày đọc + trích dẫn,
-  # RỒI mới đặt số ở đây. Raw là thứ DUY NHẤT không tạo lại được - sai là mất hết.
-  raw_retention_days: null
+  # ---- R3: hạn lưu dữ liệu API (docs/policy_notes.md, đọc 2026-10-31) -------
+  # Developer Policies III.E.4: dữ liệu công khai lấy bằng API key (raw, thống kê,
+  # tiêu đề, mô tả, embedding suy ra từ chúng) lưu TỐI ĐA 30 ngày. config.py từ
+  # chối số lớn hơn 30. Chọn 28 để còn 2 ngày dự phòng khi máy tắt và DAG
+  # yt_retention lỡ một hai lần chạy.
+  api_data_retention_days: 28
+  # Raw JSON trên MinIO: cùng giới hạn 30 ngày; null (không xóa) bị từ chối.
+  raw_retention_days: 28
+  # Chỉ áp dụng khi derived_metrics_enabled = true (đã được chấp thuận): thống kê
+  # công khai được lưu tới 36 tháng. Tiêu đề, mô tả, văn bản vẫn 30 ngày.
+  approved_stats_retention_days: 1095
 
 # -----------------------------------------------------------------------------
 # BỐN KÊNH PILOT

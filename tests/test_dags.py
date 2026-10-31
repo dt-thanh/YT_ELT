@@ -12,7 +12,7 @@ import pytest
 airflow = pytest.importorskip("airflow")      # máy dev không có airflow -> BỎ QUA, không fail
 from airflow.models import DagBag            # noqa: E402
 
-EXPECTED = {"yt_collect", "yt_quality", "yt_report", "yt_embed"}
+EXPECTED = {"yt_collect", "yt_quality", "yt_report", "yt_embed", "yt_retention"}
 
 
 @pytest.fixture(scope="module")
@@ -68,3 +68,10 @@ def test_embed_runs_on_new_data_independently_of_report(dagbag):
     embed, report = dagbag.get_dag("yt_embed"), dagbag.get_dag("yt_report")
     assert embed.dataset_triggers and embed.catchup is False
     assert [d.uri for d in embed.dataset_triggers] == [d.uri for d in report.dataset_triggers]
+
+
+def test_retention_runs_daily_on_its_own_schedule(dagbag):
+    # R3: deletion must happen even on days nothing was collected.
+    dag = dagbag.get_dag("yt_retention")
+    assert not dag.dataset_triggers and dag.catchup is False
+    assert "retention --apply" in dag.get_task("apply_retention").bash_command

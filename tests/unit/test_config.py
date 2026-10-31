@@ -97,3 +97,15 @@ def test_llm_pricing_loaded_from_config():
 def test_bad_llm_pricing_fails_fast(cfg_path, bad):
     with pytest.raises(ConfigError):
         load_config(cfg_path(lambda c: c["project"].__setitem__("llm_pricing", bad)), require=())
+
+
+@pytest.mark.parametrize("key, value", [
+    ("raw_retention_days", None),            # never deleting raw breaks R3
+    ("raw_retention_days", 31),
+    ("api_data_retention_days", 31),
+    ("api_data_retention_days", 0),
+    ("approved_stats_retention_days", 1096),
+])
+def test_retention_limits_cannot_exceed_youtube_policy(cfg_path, key, value):
+    with pytest.raises(ConfigError):
+        load_config(cfg_path(lambda c: c["project"].__setitem__(key, value)), require=())

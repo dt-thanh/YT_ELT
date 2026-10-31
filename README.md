@@ -13,7 +13,7 @@ Streamlit · OpenAI (tool calling, embeddings)
 | Channels tracked | 4 (2 groups: `books_learning`, `kids_animation`) |
 | Scope | 50 most recent videos per channel (~200 videos), one snapshot per day |
 | Quota per run | 12 units of YouTube's 10,000/day |
-| Tests | 392 (362 unit, 7 DAG, 23 integration) |
+| Tests | 419 (380 unit, 8 DAG, 31 integration) |
 | Brief prompt eval | v1 13/20 → v2 17/20 → **v3 20/20** on 20 synthetic cases |
 | Assistant eval (2026-10-31, prompt a1, gpt-4o-mini) | derived metrics on: dev 16/32, holdout 17/39 runs · off: dev 11/27, holdout 17/36 runs · injection resisted 0/3 — see `evals/results/` |
 | RAG eval | recall@5 / MRR@5, vector vs full-text vs hybrid — *labels proposed, awaiting human review* |
@@ -44,7 +44,7 @@ flowchart LR
     PUB -. every 6h, independent .-> SODA[Soda monitor]
 ```
 
-Three Airflow DAGs, all thin wrappers around a CLI:
+Five Airflow DAGs, all thin wrappers around a CLI:
 
 - **`yt_collect`** — daily at 21:00 (Asia/Ho_Chi_Minh), one task per channel in parallel. A final
   check task turns the run red if any channel fails; the Dataset event still fires for the rest.
@@ -53,6 +53,8 @@ Three Airflow DAGs, all thin wrappers around a CLI:
 - **`yt_quality`** — every 6 hours, **on its own schedule** so it still fires if collection stops.
 - **`yt_embed`** — on the same Dataset as `yt_report`, but separate: embeds only new or changed
   titles/descriptions for search, and an embedding failure cannot block the brief.
+- **`yt_retention`** — daily at 20:30, on its own clock: deletes YouTube API data older than the
+  R3 limits (below), so the 30-day rule holds even on days nothing is collected.
 
 ---
 
@@ -186,7 +188,7 @@ so the data volume is reused). Back up first:
 set -a; . ./.env; set +a
 docker exec postgres pg_dumpall -U "$POSTGRES_CONN_USERNAME" > backup_$(date +%F).sql   # 1. backup
 docker compose up -d --wait                                                           # 2. new image
-# 3. apply the new migrations (004-007) with the loop above
+# 3. apply the new migrations (004 onward) with the loop above
 # restore, only if something went wrong:
 #   docker exec -i postgres psql -U "$POSTGRES_CONN_USERNAME" -d postgres < backup_<date>.sql
 ```
@@ -224,7 +226,8 @@ youtube-intel eval-assistant --prompt-version a1 --split dev [--repeat 3] [--bas
 youtube-intel eval-assistant --rescore FILE        # re-score stored transcripts, no LLM call
 youtube-intel eval-rag [--suggest]                 # recall@5 / MRR@5: vector, full-text, hybrid
 youtube-intel llm-stats [--days 7]                 # calls, tokens, cost, p50/p95 latency
-youtube-intel retention [--apply]                  # dry-run by default
+youtube-intel retention [--apply]                  # dry-run by default; staging, R3, orphan, raw
+youtube-intel delete-channel-data UC... [--apply]  # R3: all API data of one channel, on request
 youtube-intel verify-channels                      # check channel IDs
 ```
 
@@ -258,9 +261,9 @@ erDiagram
 
 ```bash
 pip install -e ".[dev,llm,dashboard]"
-pytest -m "not integration"          # 362 unit tests, no Docker, no network, ~10 s
+pytest -m "not integration"          # 380 unit tests, no Docker, no network, ~10 s
 
-docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 392
+docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 419
 ```
 
 CI runs unit tests, then brings up the full stack with migrations from an empty database (run
@@ -330,8 +333,11 @@ captions or videos (R4); public-domain sources only (R5); synthetic media declar
 - **Runs on a personal machine.** When it's off, nothing is collected, and those days cannot be
   recovered. `catchup=False` is intentional: backfilling would fetch today's numbers and label
   them with past dates.
-- **Retention of raw data is disabled** until YouTube's developer policy has been read and
-  recorded — see [`docs/policy_notes.md`](docs/policy_notes.md).
+- **API data lives at most 28 days (R3).** Every table holding YouTube API data has `fetched_at`
+  and `data_class` (migration 008); raw JSON, statistics, titles, descriptions, embeddings and
+  briefs older than `api_data_retention_days` are deleted, quarantined staging included. Time
+  comparisons therefore only reach back ~4 weeks. Statistics may be kept 36 months only once the
+  derived-metrics use case is approved — see [`docs/policy_notes.md`](docs/policy_notes.md).
 - **Metadata only.** Topic inference comes from titles; videos are never watched or transcribed.
 - **LLM evaluation has limits.** 20/20 is on synthetic cases, one run per prompt version, with
   keyword-based scorers — a paraphrase that avoids the banned words is not caught. Suggested
@@ -348,7 +354,8 @@ captions or videos (R4); public-domain sources only (R5); synthetic media declar
   a pass means the checked facts are right, not that the wording is good. Report pass rates with
   the number of cases and the Wilson interval, never as a bare percentage.
 - **No active alerting.** A failed Soda check or channel shows up red in the Airflow UI, but
-  nothing pushes a notification. Retention runs only when invoked from the CLI.
+  nothing pushes a notification. If the machine is off for days, `yt_retention` catches up on
+  the next run; the 2-day margin below the 30-day limit covers short gaps only.
 - **Retries overwrite raw.** A retried task reuses `attempt=1`, so the earlier raw attempt of that
   channel is replaced (the retry's data is real, only the first attempt's evidence is lost).
 - **Verification status:** collection, replay, quality gate, dashboard, and LLM reports

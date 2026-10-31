@@ -97,8 +97,8 @@ def upsert_channel(cur, *, channel_id: str, group_code: str, title: str | None,
         """
         INSERT INTO yti.tracked_channels
             (channel_id, group_code, title, description,
-             uploads_playlist_id, source_url, verified_at, metadata_refreshed_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, now())
+             uploads_playlist_id, source_url, verified_at, metadata_refreshed_at, fetched_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, now(), now())
         ON CONFLICT (channel_id) DO UPDATE SET
             group_code            = EXCLUDED.group_code,
             title                 = COALESCE(EXCLUDED.title, yti.tracked_channels.title),
@@ -106,7 +106,8 @@ def upsert_channel(cur, *, channel_id: str, group_code: str, title: str | None,
             uploads_playlist_id   = COALESCE(EXCLUDED.uploads_playlist_id, yti.tracked_channels.uploads_playlist_id),
             source_url            = COALESCE(EXCLUDED.source_url, yti.tracked_channels.source_url),
             verified_at           = COALESCE(EXCLUDED.verified_at, yti.tracked_channels.verified_at),
-            metadata_refreshed_at = now();
+            metadata_refreshed_at = now(),
+            fetched_at            = now();      -- R3: metadata refreshed (migration 008)
         """,
         (channel_id, group_code, title, description, uploads_playlist_id, source_url, verified_at),
     )
@@ -300,6 +301,7 @@ def load_staging_rows(cur, *, batch_id: str, collection_id: str, channel_id: str
             # đọc MinIO -> hai nguồn sự thật cho cùng một bước.
             v.description, v.thumbnail_url, v.category_id, v.default_language,
             None if v.made_for_kids is None else str(v.made_for_kids),
+            observed_at,                     # fetched_at (R3, migration 008)
         )
         for v in videos
     ]
@@ -316,7 +318,7 @@ def load_staging_rows(cur, *, batch_id: str, collection_id: str, channel_id: str
              raw_duration, raw_published_at, title, live_broadcast,
              observed_at, source_object_key,
              raw_description, raw_thumbnail_url, raw_category_id,
-             raw_default_language, raw_made_for_kids)
+             raw_default_language, raw_made_for_kids, fetched_at)
         VALUES %s
         """,
         rows,
@@ -399,10 +401,12 @@ def publish_batch(cur, *, batch_id: str, collection_id: str, videos) -> tuple[in
         return 0, 0
 
     # ---- 1. DIMENSION: videos_current (SCD type 1 - ghi đè) ----------------
+    # fetched_at (R3, migration 008) = when the API returned this metadata, not when
+    # it was written: a replay of old raw must not make old data look fresh.
     dim_rows = [
         (v.video_id, v.channel_id, v.title, v.description, v.published_at,
          v.duration_seconds, v.thumbnail_url, v.category_id, v.default_language,
-         v.live_state, v.made_for_kids, v.format_label, v.format_evidence)
+         v.live_state, v.made_for_kids, v.format_label, v.format_evidence, v.observed_at)
         for v in videos
     ]
 
@@ -412,7 +416,7 @@ def publish_batch(cur, *, batch_id: str, collection_id: str, videos) -> tuple[in
         INSERT INTO yti.videos_current
             (video_id, channel_id, title, description, published_at,
              duration_seconds, thumbnail_url, category_id, default_language,
-             live_state, made_for_kids, format_label, format_evidence)
+             live_state, made_for_kids, format_label, format_evidence, fetched_at)
         VALUES %s
         ON CONFLICT (video_id) DO UPDATE SET
             channel_id       = EXCLUDED.channel_id,
@@ -427,6 +431,7 @@ def publish_batch(cur, *, batch_id: str, collection_id: str, videos) -> tuple[in
             made_for_kids    = COALESCE(EXCLUDED.made_for_kids, yti.videos_current.made_for_kids),
             format_label     = EXCLUDED.format_label,
             format_evidence  = EXCLUDED.format_evidence,
+            fetched_at       = EXCLUDED.fetched_at,
             refreshed_at     = now()
             -- KHÔNG cập nhật first_seen_at: nó phải giữ nguyên lần đầu ta thấy
             -- video này. Đó là thông tin chỉ có được MỘT LẦN.
@@ -439,7 +444,7 @@ def publish_batch(cur, *, batch_id: str, collection_id: str, videos) -> tuple[in
     # ---- 2. FACT: video_observations (append-only, idempotent) -------------
     fact_rows = [
         (v.video_id, collection_id, batch_id, v.observed_at,
-         v.view_count, v.like_count, v.comment_count, v.source_object_key)
+         v.view_count, v.like_count, v.comment_count, v.source_object_key, v.observed_at)
         for v in videos
     ]
 
@@ -448,7 +453,7 @@ def publish_batch(cur, *, batch_id: str, collection_id: str, videos) -> tuple[in
         """
         INSERT INTO yti.video_observations
             (video_id, collection_id, batch_id, observed_at,
-             view_count, like_count, comment_count, source_object_key)
+             view_count, like_count, comment_count, source_object_key, fetched_at)
         VALUES %s
         -- ⭐ ĐÂY LÀ CƠ CHẾ IDEMPOTENCY.
         -- Khóa (video_id, collection_id) chính là GRAIN. Chạy lại cùng một
@@ -460,6 +465,7 @@ def publish_batch(cur, *, batch_id: str, collection_id: str, videos) -> tuple[in
             comment_count     = EXCLUDED.comment_count,
             batch_id          = EXCLUDED.batch_id,
             observed_at       = EXCLUDED.observed_at,
+            fetched_at        = EXCLUDED.fetched_at,
             source_object_key = EXCLUDED.source_object_key
         """,
         fact_rows,

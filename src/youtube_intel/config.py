@@ -46,6 +46,11 @@ CHANNEL_ID_PATTERN = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
 # cwd thay đổi tùy chỗ bạn gõ lệnh, còn __file__ thì không bao giờ đổi.
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config" / "channels.yaml"
 
+# Upper limits from YouTube's Developer Policies III.E.4 and the Derived Metrics
+# Policy (docs/policy_notes.md). Config may choose less, never more.
+API_DATA_MAX_DAYS = 30
+APPROVED_STATS_MAX_DAYS = 1095          # 36 calendar months, rounded down
+
 
 class ConfigError(Exception):
     """Cấu hình sai. Lỗi RIÊNG để nơi gọi phân biệt được 'sai cấu hình'
@@ -124,10 +129,14 @@ class Settings:
     # Retention - xem giải thích trong config/channels.yaml
     staging_retention_days: int
     orphan_retention_hours: int
-    raw_retention_days: int | None      # None = KHÔNG BAO GIỜ xóa raw
+    raw_retention_days: int | None      # R3: bắt buộc có số, tối đa 30 (None bị từ chối)
     # LLM price list (llm_pricing in channels.yaml). A tuple keeps Settings immutable.
     # Optional: a model with no entry gets est_cost_usd = NULL, never a guessed price.
     llm_pricing: tuple[ModelPrice, ...] = ()
+    # R3 (docs/policy_notes.md): public API data kept at most this many days...
+    api_data_retention_days: int = API_DATA_MAX_DAYS
+    # ...except statistics, once the derived-metrics use case is approved (36 months).
+    approved_stats_retention_days: int = APPROVED_STATS_MAX_DAYS
     assistant: AssistantSettings = AssistantSettings()
     rag: RagSettings = RagSettings()
 
@@ -297,6 +306,8 @@ def _parse_settings(block, path: Path) -> Settings:
             else int(block["raw_retention_days"])
         ),
         llm_pricing=_parse_pricing(block.get("llm_pricing"), path),
+        api_data_retention_days=need("api_data_retention_days", int),
+        approved_stats_retention_days=need("approved_stats_retention_days", int),
         assistant=_parse_assistant(block.get("assistant"), path),
         rag=_parse_rag(block.get("rag"), path),
     )
@@ -334,8 +345,16 @@ def _parse_settings(block, path: Path) -> Settings:
         raise ConfigError("project.staging_retention_days phải >= 1")
     if settings.orphan_retention_hours < 1:
         raise ConfigError("project.orphan_retention_hours phải >= 1")
-    if settings.raw_retention_days is not None and settings.raw_retention_days < 1:
-        raise ConfigError("project.raw_retention_days phải >= 1 hoặc để null (không xóa)")
+    if not 1 <= settings.api_data_retention_days <= API_DATA_MAX_DAYS:
+        raise ConfigError(f"project.api_data_retention_days phải trong 1..{API_DATA_MAX_DAYS} "
+                          "(R3: dữ liệu API công khai lưu tối đa 30 ngày)")
+    if not 1 <= settings.approved_stats_retention_days <= APPROVED_STATS_MAX_DAYS:
+        raise ConfigError(f"project.approved_stats_retention_days phải trong "
+                          f"1..{APPROVED_STATS_MAX_DAYS} (36 tháng)")
+    if (settings.raw_retention_days is None
+            or not 1 <= settings.raw_retention_days <= API_DATA_MAX_DAYS):
+        raise ConfigError(f"project.raw_retention_days phải trong 1..{API_DATA_MAX_DAYS}; null "
+                          "(không bao giờ xóa raw) vi phạm R3 - xem docs/policy_notes.md")
 
     return settings
 
