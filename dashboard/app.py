@@ -89,10 +89,14 @@ st.sidebar.metric("Số lần thu", int(health["n_runs"]))
 if health["n_quarantined"]:
     st.sidebar.warning(f"🔒 {int(health['n_quarantined'])} batch bị cách ly")
 
+# derived_metrics_enabled = false (mặc định, R2): không xếp hạng, không tỉ lệ tự tính.
+DERIVED = CFG.settings.derived_metrics_enabled
+INDEP = "(tính độc lập)"
+
 page = st.sidebar.radio("Màn hình", [
     "1 · Nguồn & độ tươi",
     "2 · Video & khoảng quan sát",
-    "3 · Bảng xếp hạng tăng trưởng",
+    "3 · Bảng xếp hạng tăng trưởng" if DERIVED else "3 · Tăng view từng video",
     "4 · Bản tin AI",
     "5 · Trợ lý AI",
     "6 · LLM Observability",
@@ -198,8 +202,8 @@ elif page.startswith("2"):
             "video_title": "Video", "channel_title": "Kênh", "format_label": "Loại",
             "start_observed_at": "Quan sát đầu", "end_observed_at": "Quan sát cuối",
             "elapsed_hours": "Giờ", "start_view_count": "View đầu",
-            "end_view_count": "View cuối", "delta_views": "Tăng",
-            "views_per_hour": "View/giờ", "validity_reason": "Trạng thái"}),
+            "end_view_count": "View cuối", "delta_views": f"Tăng {INDEP}",
+            "views_per_hour": f"View/giờ {INDEP}", "validity_reason": "Trạng thái"}),
         width="stretch", hide_index=True,
     )
 
@@ -208,8 +212,14 @@ elif page.startswith("2"):
 # MÀN HÌNH 3 - BẢNG XẾP HẠNG
 # =============================================================================
 elif page.startswith("3"):
-    st.title("Bảng xếp hạng tăng trưởng")
-    st.caption("Trả lời: *video nào đang tăng view nhanh nhất TRONG TẬP ĐANG THEO DÕI?*")
+    if DERIVED:
+        st.title("Bảng xếp hạng tăng trưởng")
+        st.caption("Trả lời: *video nào đang tăng view nhanh nhất TRONG TẬP ĐANG THEO DÕI?*")
+    else:
+        st.title("Tăng view từng video")
+        st.caption("Số thô của API và mức tăng view của từng video giữa hai lần quan sát, "
+                   "sắp xếp theo view/giờ. **Không** xếp hạng hay so sánh kênh: "
+                   "`derived_metrics_enabled = false` (đặc tả R2).")
 
     # ⚠️ TUYÊN BỐ PHẠM VI - bắt buộc, không phải trang trí.
     # 200 video của 4 kênh KHÔNG đại diện cho YouTube. Bảng xếp hạng không nói
@@ -235,7 +245,7 @@ elif page.startswith("3"):
         st.stop()
 
     c1, c2 = st.columns(2)
-    c1.metric("Video trong bảng xếp hạng", len(growth))
+    c1.metric("Video trong bảng xếp hạng" if DERIVED else "Video tính được mức tăng", len(growth))
     c2.metric("Độ bao phủ", f"{len(growth)/all_rows:.0%}",
               help="Tỉ lệ video đủ điều kiện trên tổng số video theo dõi")
 
@@ -247,16 +257,17 @@ elif page.startswith("3"):
                .head(top_n))
         st.subheader(f"Nhóm: {group}")
         st.dataframe(
-            sub[["video_title", "channel_title", "views_per_hour", "delta_views",
-                 "elapsed_hours", "end_view_count", "end_like_count", "format_label"]]
+            sub[["video_title", "channel_title", "end_view_count", "end_like_count",
+                 "delta_views", "views_per_hour", "elapsed_hours", "format_label"]]
             .rename(columns={
                 "video_title": "Video", "channel_title": "Kênh",
-                "views_per_hour": "View/giờ", "delta_views": "Tăng",
+                "views_per_hour": f"View/giờ {INDEP}", "delta_views": f"Tăng {INDEP}",
                 "elapsed_hours": "Trong (giờ)", "end_view_count": "Tổng view",
                 "end_like_count": "Like", "format_label": "Loại"}),
             width="stretch", hide_index=True,
         )
-        st.bar_chart(sub.set_index("video_title")["views_per_hour"])
+        if DERIVED:
+            st.bar_chart(sub.set_index("video_title")["views_per_hour"])
 
     st.caption(
         "**Cách tính:** `views_per_hour = (view cuối − view đầu) / số giờ giữa hai "
@@ -293,13 +304,17 @@ elif page.startswith("4"):
     k3.metric("Token", f"{int(r['tokens_used']):,}" if pd.notna(r["tokens_used"]) else "—")
     k4.metric("Latency", f"{int(r['latency_ms']):,} ms" if pd.notna(r["latency_ms"]) else "—")
     k5.metric("Số lần gọi LLM", int(attempts.get("calls") or 0) or "—")
+    detail = Q.report_detail(r["report_id"])
+    basic = bool(detail) and (detail["validated_payload"] or {}).get("generated_by") == "basic"
     if r["status"] == "validated":
         st.success("✅ Đã qua validator" + (f" · {attempts['validations']}" if attempts.get("validations") else ""))
+    elif basic:
+        st.info("Chế độ cơ bản (`derived_metrics_enabled = false`): chỉ số thô và mức tăng "
+                "view từng video, không có diễn giải của LLM.")
     else:
         st.warning("📝 Bản mẫu (draft): LLM tắt, thiếu key, hoặc hỏng 2 lần rồi rơi về bản mẫu"
                    + (f" · {attempts['validations']}" if attempts.get("validations") else ""))
 
-    detail = Q.report_detail(r["report_id"])
     if detail:
         # KHÔNG tính gì ở đây: số liệu render từ evidence đã lưu cùng bản tin,
         # bằng CHÍNH hàm mà lệnh `report --show` dùng.
@@ -370,7 +385,8 @@ elif page.startswith("5"):
             show(ans)
 
     samples = ["Video nào tăng view nhanh nhất nhóm kids_animation?",
-               "So sánh các kênh nhóm books_learning theo trung vị view mỗi giờ",
+               *(["So sánh các kênh nhóm books_learning theo trung vị view mỗi giờ"]
+                 if DERIVED else []),
                "Dữ liệu cập nhật lần cuối khi nào?",
                "Có video nào về thói quen hoặc quản lý thời gian không?",
                "Bản tin mới nhất của nhóm books_learning nói gì?"]

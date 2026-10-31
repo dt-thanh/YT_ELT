@@ -2,6 +2,7 @@
 Dashboard smoke tests: every screen renders, with data and empty, using a fake
 `queries` module and a fake assistant - no database, no LLM.
 """
+import dataclasses
 import sys
 import types
 from datetime import datetime, timedelta, timezone
@@ -19,8 +20,9 @@ from youtube_intel.config import load_config                          # noqa: E4
 
 APP = str(Path(__file__).resolve().parents[2] / "dashboard" / "app.py")
 NOW = datetime.now(timezone.utc)
-PAGES = ["1 · Nguồn & độ tươi", "2 · Video & khoảng quan sát", "3 · Bảng xếp hạng tăng trưởng",
+PAGES = ["1 · Nguồn & độ tươi", "2 · Video & khoảng quan sát", "3 · Tăng view từng video",
          "4 · Bản tin AI", "5 · Trợ lý AI", "6 · LLM Observability"]
+PAGE3_DERIVED = "3 · Bảng xếp hạng tăng trưởng"
 EVIDENCE = {"group": "kids_animation", "group_channels": ["Kênh A"],
             "coverage": {"total_videos": 2, "rankable": 1, "insufficient_history": 1,
                          "latest_observed_at": NOW.isoformat()},
@@ -51,9 +53,11 @@ class FakeAssistant:
             latency_ms=850, data_as_of=NOW.isoformat(), session_id=session_id or "s")
 
 
-def fake_queries(*, empty=False, assistant=True):
+def fake_queries(*, empty=False, assistant=True, derived=False, payload=None):
     m = types.ModuleType("queries")
     cfg = load_config(require=())
+    cfg = dataclasses.replace(cfg, settings=dataclasses.replace(
+        cfg.settings, derived_metrics_enabled=derived))
     m.config = lambda: cfg
     m.health = lambda: pd.Series({"last_obs": NOW - timedelta(hours=2), "n_obs": 0 if empty else 10,
                                   "n_videos": 0 if empty else 2, "n_runs": 0 if empty else 2,
@@ -88,7 +92,8 @@ def fake_queries(*, empty=False, assistant=True):
         {"report_id": "00000000-0000-0000-0000-000000000002", "group_code": "kids_animation",
          "as_of": NOW - timedelta(days=1), "status": "draft", "model_name": None,
          "prompt_version": "v3", "tokens_used": None, "latency_ms": None, "input_hash": None}])
-    m.report_detail = lambda rid: {"validated_payload": PAYLOAD, "evidence_bundle": EVIDENCE}
+    m.report_detail = lambda rid: {"validated_payload": payload or PAYLOAD,
+                                   "evidence_bundle": EVIDENCE}
     m.report_attempts = lambda rid: {"calls": 2, "attempts": 2, "fallback_used": False,
                                      "est_cost_usd": 0.0004, "validations": "failed → repaired"}
     summary = {} if empty else {"calls": 12, "est_cost_usd": Decimal("0.0123"),
@@ -128,6 +133,37 @@ def test_every_screen_renders(app, page, empty):
     at = app(empty=empty).run()
     at.sidebar.radio[0].set_value(page).run()
     assert not at.exception, [e.value for e in at.exception]
+
+
+@pytest.mark.parametrize("empty", [False, True])
+@pytest.mark.parametrize("page", [p for p in PAGES if p[0] != "3"] + [PAGE3_DERIVED])
+def test_every_screen_renders_with_derived_metrics(app, page, empty):
+    at = app(empty=empty, derived=True).run()
+    at.sidebar.radio[0].set_value(page).run()
+    assert not at.exception, [e.value for e in at.exception]
+
+
+def test_flag_off_growth_screen_has_no_ranking(app):
+    at = app().run()
+    assert PAGE3_DERIVED not in at.sidebar.radio[0].options
+    at.sidebar.radio[0].set_value("3 · Tăng view từng video").run()
+    assert not at.exception
+    assert not at.get("vega_lite_chart")                          # no leaderboard chart
+    assert not any("Bảng xếp hạng" in t.value for t in at.title)
+    assert any("(tính độc lập)" in c for df in at.dataframe for c in df.value.columns)
+    on = app(derived=True).run()
+    on.sidebar.radio[0].set_value(PAGE3_DERIVED).run()
+    assert on.get("vega_lite_chart")
+
+
+def test_flag_off_basic_brief_is_labelled(app):
+    from youtube_intel.reporting import basic_payload
+    at = app(payload=basic_payload(EVIDENCE)).run()
+    at.sidebar.radio[0].set_value("4 · Bản tin AI").run()
+    at.selectbox[1].set_value(1).run()                             # the 'draft' report
+    assert not at.exception
+    assert any("Chế độ cơ bản" in i.value for i in at.info)
+    assert "Chủ đề suy ra" not in " ".join(m.value for m in at.markdown)
 
 
 def test_brief_screen_shows_numbers_from_evidence(app):

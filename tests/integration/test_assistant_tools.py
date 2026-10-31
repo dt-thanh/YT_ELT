@@ -69,8 +69,15 @@ def seed(cur):
                            VALUES (%s, %s, %s, %s, %s, NULL)""", (vid, cid, bid, t, views[idx]))
 
 
-def test_top_growing_videos_ranks_and_computes_share(cur):
+def test_top_growing_videos_without_derived_metrics_has_no_rank_or_share(cur):
     r = T.top_growing_videos(cur, max_rows=20, channel_id=CH)
+    assert [row["video_id"] for row in r.rows] == [V_FAST, V_SLOW]          # still sorted
+    assert not {"rank", "pct_of_leader"} & set(r.rows[0])
+    assert float(r.rows[0]["views_per_hour"]) == 100.0
+
+
+def test_top_growing_videos_ranks_and_computes_share(cur):
+    r = T.top_growing_videos(cur, max_rows=20, channel_id=CH, derived_metrics=True)
     assert [row["video_id"] for row in r.rows] == [V_FAST, V_SLOW]          # V_NEW not rankable
     assert [row["rank"] for row in r.rows] == [1, 2]
     assert float(r.rows[0]["views_per_hour"]) == 100.0                       # 2400 views / 24 h
@@ -126,6 +133,9 @@ def test_latest_brief(cur):
                  '"metrics": {"views_per_hour": 100.0}}]}'))
     r = T.get_latest_brief(cur, max_rows=20, group="kids_animation")
     assert r.extra["written_by"] == "gpt-test" and r.rows[0]["views_per_hour"] == 100.0
+    assert "why_selected" not in r.rows[0]                       # LLM notes need the flag
+    r = T.get_latest_brief(cur, max_rows=20, group="kids_animation", derived_metrics=True)
+    assert r.rows[0]["why_selected"] == "w"
 
 
 def test_registry_and_executor_end_to_end(db_settings):

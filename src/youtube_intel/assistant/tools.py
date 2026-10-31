@@ -10,11 +10,14 @@ Rules every tool follows:
     timeout, as the SELECT-only login yti_assistant (migration 005).
   * At most `max_rows` rows; `truncated` says when more existed.
   * Derived metrics users ask about (share of the leader, gap to the leader)
-    are computed here, in SQL - the LLM never does arithmetic.
+    are computed here, in SQL - the LLM never does arithmetic - and only when
+    derived_metrics_enabled is true (spec §8). Otherwise: raw numbers, sorting,
+    filtering and per-video growth only.
 """
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import re
@@ -318,27 +321,34 @@ def list_channels(cur, *, max_rows: int, group: str | None = None) -> ToolResult
                   source="yti.tracked_channels, yti.videos_current, yti.video_observations")
 
 
+# Ranks and shares of the leader are derived metrics (spec §8): computed only when
+# derived_metrics_enabled. Without the flag the tool is a plain sort on raw numbers
+# and per-video growth.
+_TOP_GROWING_DERIVED = """
+               row_number() OVER (ORDER BY views_per_hour DESC, published_at DESC, video_id)
+                                                                    AS rank,
+               -- share of the group's leader, in percent (computed here, not by the LLM)
+               round((100 * views_per_hour / NULLIF(max(views_per_hour) OVER (), 0))::numeric, 1)
+                                                                    AS pct_of_leader,"""
+
+
 def top_growing_videos(cur, *, max_rows: int, group: str | None = None,
                        channel_id: str | None = None, format: str | None = None,
-                       limit: int = 5) -> ToolResult:
+                       limit: int = 5, derived_metrics: bool = False) -> ToolResult:
     n = min(limit, max_rows)
     cur.execute(
         """
-        SELECT row_number() OVER w                                  AS rank,
+        SELECT""" + (_TOP_GROWING_DERIVED if derived_metrics else "") + """
                video_id, video_title, channel_title, channel_id, group_code,
                format_label, published_at,
                views_per_hour, delta_views, elapsed_hours,
                end_view_count AS total_views, end_like_count AS likes,
-               end_comment_count AS comments, end_observed_at,
-               -- share of the group's leader, in percent (computed here, not by the LLM)
-               round((100 * views_per_hour / NULLIF(max(views_per_hour) OVER (), 0))::numeric, 1)
-                                                                    AS pct_of_leader
+               end_comment_count AS comments, end_observed_at
           FROM yti.v_video_growth
          WHERE is_rankable
            AND (%(group)s   IS NULL OR group_code   = %(group)s)
            AND (%(channel)s IS NULL OR channel_id   = %(channel)s)
            AND (%(format)s  IS NULL OR format_label = %(format)s)
-        WINDOW w AS (ORDER BY views_per_hour DESC, published_at DESC, video_id)
          ORDER BY views_per_hour DESC, published_at DESC, video_id
          LIMIT %(lim)s;
         """,
@@ -420,7 +430,8 @@ def compare_channels(cur, *, max_rows: int, metric: str,
     return finish("compare_channels", cur.fetchall(), max_rows=max_rows, source="yti.v_video_growth")
 
 
-def get_latest_brief(cur, *, max_rows: int, group: str) -> ToolResult:
+def get_latest_brief(cur, *, max_rows: int, group: str,
+                     derived_metrics: bool = False) -> ToolResult:
     cur.execute(
         """
         SELECT report_id, group_code, as_of, status, model_name, prompt_version,
@@ -441,14 +452,17 @@ def get_latest_brief(cur, *, max_rows: int, group: str) -> ToolResult:
     for it in payload.get("items", [])[:max_rows]:
         cand = by_id.get(it.get("video_id"), {})
         m = cand.get("metrics", {})
-        items.append({
+        item = {
             "video_id": it.get("video_id"), "video_title": cand.get("title"),
             "channel_title": cand.get("channel_title"),
             "views_per_hour": m.get("views_per_hour"), "delta_views": m.get("delta_views"),
             "elapsed_hours": m.get("elapsed_hours"),
-            "topic_inference": it.get("topic_inference"), "why_selected": it.get("why_selected"),
-            "original_angle": it.get("original_angle"),
-        })
+        }
+        if derived_metrics:      # LLM topic labels and relative-position notes (spec §8)
+            item.update({"topic_inference": it.get("topic_inference"),
+                         "why_selected": it.get("why_selected"),
+                         "original_angle": it.get("original_angle")})
+        items.append(item)
     extra = {"as_of": row["as_of"], "status": row["status"],
              "written_by": row["model_name"] or "template",
              "prompt_version": row["prompt_version"],
@@ -465,15 +479,30 @@ def _group_prop(groups) -> dict:
             "description": "Content group. Omit for all groups."}
 
 
-def build_tools(groups) -> list[Tool]:
-    """All data tools plus submit_answer. `groups` = valid group codes from config."""
+def build_tools(groups, *, derived_metrics: bool = False) -> list[Tool]:
+    """All data tools plus submit_answer. `groups` = valid group codes from config.
+
+    derived_metrics=False (derived_metrics_enabled, the default): no channel
+    comparison tool, no ranks or shares of the leader, no LLM topic labels.
+    """
     G = _group_prop(groups)
     vid = {"type": "string", "pattern": VIDEO_ID_PATTERN,
            "description": "YouTube video id, exactly as returned by another tool."}
     obj = lambda props, required=(): {  # noqa: E731
         "type": "object", "properties": props, "required": list(required),
         "additionalProperties": False}
-    return [
+    # With the flag on, the descriptions are the ones the assistant eval was run with.
+    if derived_metrics:
+        top_desc = ("Videos ranked by views per hour between two observations about 24 hours "
+                    "apart. Only rankable videos. Includes each video's share of the leader "
+                    "(pct_of_leader, percent).")
+        brief_desc = ("The latest daily brief of a group: which videos it picked, its notes, and "
+                      "whether it was validated (LLM) or a template.")
+    else:
+        top_desc = ("Videos sorted by views per hour between two observations about 24 hours "
+                    "apart (raw numbers, no ranks). Only videos whose growth can be computed.")
+        brief_desc = "The latest daily brief of a group: which videos it listed and their raw numbers."
+    tools = [
         Tool("get_data_coverage",
              "How much data exists per group: total videos, how many can be ranked, how "
              "many lack history, why the rest cannot be ranked, the latest observation, "
@@ -483,16 +512,14 @@ def build_tools(groups) -> list[Tool]:
         Tool("list_channels",
              "The tracked channels: id, title, group, number of videos, last observation.",
              obj({"group": G}), list_channels, "yti.tracked_channels"),
-        Tool("top_growing_videos",
-             "Videos ranked by views per hour between two observations about 24 hours "
-             "apart. Only rankable videos. Includes each video's share of the leader "
-             "(pct_of_leader, percent).",
+        Tool("top_growing_videos", top_desc,
              obj({"group": G,
                   "channel_id": {"type": "string", "pattern": CHANNEL_ID_PATTERN},
                   "format": {"type": "string", "enum": FORMATS,
                              "description": "normal = longer than 180 s; unknown may be Shorts"},
                   "limit": {"type": "integer", "minimum": 1, "maximum": 10}}),
-             top_growing_videos, "yti.v_video_growth"),
+             functools.partial(top_growing_videos, derived_metrics=derived_metrics),
+             "yti.v_video_growth"),
         Tool("get_video_stats",
              "Latest numbers and growth of one video, with validity_reason explaining "
              "why growth can or cannot be computed.",
@@ -502,20 +529,24 @@ def build_tools(groups) -> list[Tool]:
              obj({"video_id": vid, "limit": {"type": "integer", "minimum": 1, "maximum": 30}},
                  ["video_id"]),
              get_video_history, "yti.video_observations"),
-        Tool("compare_channels",
-             "Compare channels on one metric: median views per hour of rankable videos, "
-             "total views gained, or number of rankable videos. Includes each channel's "
-             "share of the leader (percent) and its gap to the leader.",
-             obj({"group": G, "metric": {"type": "string", "enum": COMPARE_METRICS}},
-                 ["metric"]),
-             compare_channels, "yti.v_video_growth"),
-        Tool("get_latest_brief",
-             "The latest daily brief of a group: which videos it picked, its notes, and "
-             "whether it was validated (LLM) or a template.",
+    ]
+    if derived_metrics:      # comparing channels is a derived metric (spec §8)
+        tools.append(Tool(
+            "compare_channels",
+            "Compare channels on one metric: median views per hour of rankable videos, "
+            "total views gained, or number of rankable videos. Includes each channel's "
+            "share of the leader (percent) and its gap to the leader.",
+            obj({"group": G, "metric": {"type": "string", "enum": COMPARE_METRICS}},
+                ["metric"]),
+            compare_channels, "yti.v_video_growth"))
+    tools += [
+        Tool("get_latest_brief", brief_desc,
              obj({"group": {**G, "description": "Content group."}}, ["group"]),
-             get_latest_brief, "yti.reports"),
+             functools.partial(get_latest_brief, derived_metrics=derived_metrics),
+             "yti.reports"),
         submit_answer_tool(),
     ]
+    return tools
 
 
 def submit_answer_tool() -> Tool:
@@ -539,8 +570,9 @@ def submit_answer_tool() -> Tool:
     )
 
 
-def build_registry(groups, extra_tools: list[Tool] | None = None) -> ToolRegistry:
-    tools = build_tools(groups)
+def build_registry(groups, extra_tools: list[Tool] | None = None, *,
+                   derived_metrics: bool = False) -> ToolRegistry:
+    tools = build_tools(groups, derived_metrics=derived_metrics)
     if extra_tools:                          # e.g. search_videos (RAG)
         tools = tools[:-1] + list(extra_tools) + tools[-1:]
     return ToolRegistry(tools)

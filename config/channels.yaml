@@ -51,11 +51,15 @@ project:
   request_timeout_seconds: 30
   max_attempts: 4
 
-  # Feature flag DỰ PHÒNG cho chỉ số dẫn xuất (views_per_hour...), chờ đọc và xác
-  # minh chính sách YouTube (docs/policy_notes.md).
-  # ⚠️ HIỆN CHƯA ĐƯỢC NỐI VÀO CODE: config.py đọc và kiểm kiểu, nhưng VIEW tăng
-  # trưởng, dashboard và bản tin chạy BẤT KỂ giá trị này. Đừng tưởng đặt false là
-  # chỉ số đang bị tắt. Nối cờ vào code là việc làm SAU khi đọc xong chính sách.
+  # Chỉ số tự tính (đặc tả R2, mục 8; Developer Policies III.E.4.h). CHỈ đặt true
+  # khi dự án đã được YouTube chấp thuận use case Analytics & Reporting.
+  #   false (mặc định) = chế độ cơ bản: số thô của API, sắp xếp, lọc, mức tăng view
+  #                      và views_per_hour của từng video (ghi "tính độc lập").
+  #                      KHÔNG có: tool compare_channels, rank / pct_of_leader,
+  #                      bảng xếp hạng + biểu đồ ở dashboard, diễn giải LLM trong
+  #                      bản tin (suy ra chủ đề = phân loại nội dung).
+  #   true             = bật lại các thứ trên (và S1-S6, phân tích bình luận từ P1).
+  # Xem docs/policy_notes.md.
   derived_metrics_enabled: false
   # ---------------------------------------------------------------------------
   # LLM - sinh bản tin (Bước 12)

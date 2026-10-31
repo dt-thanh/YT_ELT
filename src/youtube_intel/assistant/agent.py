@@ -359,7 +359,8 @@ def build_assistant(cfg, *, extra_tools=None, data_db_name: str | None = None) -
     if extra_tools is None:
         extra_tools = _default_extra_tools(cfg, client)
     # search_videos must read the same database as the other tools.
-    return Assistant(client=client, registry=build_registry(groups, extra_tools),
+    registry = build_registry(groups, extra_tools, derived_metrics=st.derived_metrics_enabled)
+    return Assistant(client=client, registry=registry,
                      executor=DbToolExecutor(ro_db, max_rows=st.assistant.max_rows,
                                              statement_timeout_ms=st.assistant.statement_timeout_ms),
                      groups=groups, settings=st.assistant)

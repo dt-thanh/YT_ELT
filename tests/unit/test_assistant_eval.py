@@ -105,7 +105,8 @@ def test_rescore_uses_current_scorers_without_llm():
 
 
 def test_shipped_cases_are_valid_and_balanced():
-    tools = build_registry(["books_learning", "kids_animation"]).names + ("search_videos",)
+    tools = build_registry(["books_learning", "kids_animation"],
+                           derived_metrics=True).names + ("search_videos",)
     cases = ev.load_cases(ROOT / "evals" / "assistant_cases.yaml", known_tools=tools)
     by_cat = {c: sum(1 for x in cases if x["category"] == c) for c in ev.CATEGORIES}
     assert by_cat == {"tool_selection": 8, "arguments": 6, "numbers": 8, "missing_data": 5,

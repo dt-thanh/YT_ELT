@@ -66,7 +66,8 @@ class ValidationResult:
 # =============================================================================
 
 def build_evidence(cur, *, group: str, top_n: int, as_of: datetime,
-                   forbidden_names: tuple[str, ...] = ()) -> dict:
+                   forbidden_names: tuple[str, ...] = (),
+                   derived_metrics: bool = False) -> dict:
     """Lấy ứng viên từ VIEW và đóng gói thành 'bằng chứng' cho LLM.
 
     ⭐ CHỈ ĐƯA THỨ CẦN THIẾT. Không đưa secret, không đưa raw JSON, không đưa
@@ -134,12 +135,15 @@ def build_evidence(cur, *, group: str, top_n: int, as_of: datetime,
     # video chỉ 22 view/giờ (bằng 0,3% video dẫn đầu) mà LLM vẫn tả là "thu hút
     # sự chú ý". Nó không sai vì ngu - nó sai vì KHÔNG ĐƯỢC CHO BIẾT video đó yếu
     # đến mức nào so với phần còn lại. Code tính, LLM chỉ đọc (vẫn cấm viết số).
-    leader = candidates[0]["metrics"]["views_per_hour"] if candidates else None
-    for rank, c in enumerate(candidates, start=1):
-        vph = c["metrics"]["views_per_hour"]
-        c["rank_in_group"] = rank
-        c["pct_of_leader"] = (round(vph / leader, 4)
-                              if leader and vph is not None else None)
+    # Hạng và tỉ lệ so với video dẫn đầu là chỉ số tự tính (đặc tả mục 8): chỉ tính
+    # khi derived_metrics_enabled = true.
+    if derived_metrics:
+        leader = candidates[0]["metrics"]["views_per_hour"] if candidates else None
+        for rank, c in enumerate(candidates, start=1):
+            vph = c["metrics"]["views_per_hour"]
+            c["rank_in_group"] = rank
+            c["pct_of_leader"] = (round(vph / leader, 4)
+                                  if leader and vph is not None else None)
 
     # ⭐ [v2] DANH SÁCH KÊNH CỦA NHÓM - để CODE viết câu phạm vi.
     # Chữa lỗi LLM viết "chỉ tập trung vào kênh Sprouts" chỉ vì 3 video top
@@ -154,6 +158,7 @@ def build_evidence(cur, *, group: str, top_n: int, as_of: datetime,
     return {
         "schema_version": SCHEMA_VERSION,
         "group": group,
+        "derived_metrics": derived_metrics,
         "group_channels": group_channels,
         # [v3] tên thương hiệu/nhân vật không được dùng lại trong gợi ý nội dung.
         # Đi KÈM bằng chứng để validator kiểm tra được mà không cần đọc config.
@@ -327,9 +332,11 @@ def code_scope_statement(evidence: dict) -> str:
     chans = evidence.get("group_channels") or []
     cov = evidence.get("coverage", {})
     names = ", ".join(chans) if chans else "các kênh đang theo dõi"
+    basis = ("Xếp hạng trên" if evidence.get("derived_metrics", True)
+             else "Sắp xếp theo view/giờ, trong")
     return (f"Chỉ trong {len(chans) or 'các'} kênh đang theo dõi của nhóm "
             f"{evidence['group']}: {names}. Không đại diện cho YouTube nói chung. "
-            f"Xếp hạng trên {cov.get('rankable', '?')}/{cov.get('total_videos', '?')} "
+            f"{basis} {cov.get('rankable', '?')}/{cov.get('total_videos', '?')} "
             f"video đủ điều kiện.")
 
 
@@ -457,6 +464,24 @@ def template_payload(evidence: dict) -> dict:
     }
 
 
+BASIC = "basic"
+INDEPENDENT = "tính độc lập"
+
+
+def basic_payload(evidence: dict) -> dict:
+    """Bản tin chế độ cơ bản (derived_metrics_enabled = false): chỉ số thô và mức
+    tăng view của từng video. Không gọi LLM - suy ra chủ đề là phân loại nội dung,
+    và "vì sao đáng chú ý" là so sánh giữa các video (đặc tả mục 8, R2)."""
+    return {
+        "scope_statement": code_scope_statement(evidence),
+        "items": [{"video_id": c["video_id"], "evidence_ids": c["evidence_ids"],
+                   "limitations": ["Chỉ dựa trên số liệu công khai, chưa xem nội dung video.",
+                                   "Phạm vi giới hạn trong các kênh đang theo dõi."]}
+                  for c in evidence["candidates"]],
+        "generated_by": BASIC,
+    }
+
+
 def render_markdown(payload: dict, evidence: dict) -> str:
     """Ghép văn LLM với SỐ LIỆU DO CODE RENDER.
 
@@ -465,14 +490,16 @@ def render_markdown(payload: dict, evidence: dict) -> str:
     """
     by_id = {c["video_id"]: c for c in evidence["candidates"]}
     cov = evidence["coverage"]
+    basic = payload.get("generated_by") == BASIC
 
     lines = [
         f"# Bản tin: {evidence['group']}",
         "",
         f"_{payload.get('scope_statement', '')}_",
         "",
-        f"**Độ bao phủ:** {cov['rankable']}/{cov['total_videos']} video đủ điều kiện xếp hạng"
-        f" · {cov['insufficient_history']} video chưa đủ lịch sử"
+        f"**Độ bao phủ:** {cov['rankable']}/{cov['total_videos']} video "
+        + ("tính được mức tăng view" if basic else "đủ điều kiện xếp hạng")
+        + f" · {cov['insufficient_history']} video chưa đủ lịch sử"
         f" · quan sát cuối: {cov['latest_observed_at']}",
         "",
     ]
@@ -482,6 +509,27 @@ def render_markdown(payload: dict, evidence: dict) -> str:
         if not c:
             continue
         m = c["metrics"]
+        if basic:
+            lines += [
+                f"## {c['title']}",
+                f"*{c['channel_title']}* · [{c['video_id']}]({c['url']})",
+                "",
+                "| Chỉ số | Giá trị |",
+                "|---|---|",
+                f"| Tổng view | {m['total_views']:,} |",
+                f"| Like | {m['likes']:,} |" if m["likes"] is not None else "| Like | *không có* |",
+                f"| Bình luận | {m['comments']:,} |" if m.get("comments") is not None
+                else "| Bình luận | *không có* |",
+                f"| Tăng thêm ({INDEPENDENT}) | {m['delta_views']:,} view trong "
+                f"{m['elapsed_hours']:.1f} giờ |",
+                f"| View/giờ ({INDEPENDENT}) | {m['views_per_hour']:,.0f} |",
+                "",
+                "**Giới hạn:** " + "; ".join(item.get("limitations", [])),
+                "",
+                f"<sub>Bằng chứng: observation {item.get('evidence_ids')}</sub>",
+                "",
+            ]
+            continue
         lines += [
             f"## {i}. {c['title']}",
             f"*{c['channel_title']}* · [{c['video_id']}]({c['url']})",
@@ -694,7 +742,9 @@ def run_reports(cfg, db, *, as_of: datetime | None = None,
     settings, secrets = cfg.settings, cfg.secrets
     as_of = as_of or datetime.now(timezone.utc)
     # One client for all groups; every call is logged to yti.llm_calls.
-    client = client_from_settings(settings, secrets.openai_api_key, sink=PostgresSink(db))
+    # Basic mode (derived_metrics_enabled = false) never calls the LLM.
+    client = (client_from_settings(settings, secrets.openai_api_key, sink=PostgresSink(db))
+              if settings.derived_metrics_enabled else None)
     groups = sorted({c.group for c in cfg.enabled_channels()})
     if only_group:
         groups = [g for g in groups if g == only_group]
@@ -713,7 +763,8 @@ def run_reports(cfg, db, *, as_of: datetime | None = None,
                     with repo.dict_cursor(conn) as cur:
                         evidence = build_evidence(
                             cur, group=group, top_n=settings.report_top_n, as_of=as_of,
-                            forbidden_names=names)
+                            forbidden_names=names,
+                            derived_metrics=settings.derived_metrics_enabled)
             out.candidates = len(evidence["candidates"])
             out.coverage = evidence["coverage"]
 
@@ -728,9 +779,12 @@ def run_reports(cfg, db, *, as_of: datetime | None = None,
             # Một lần gọi có thể mất vài giây tới 60 giây (x2 nếu phải sửa). Giữ
             # connection + transaction mở trong lúc chờ mạng bên ngoài là chiếm tài
             # nguyên database vô ích, và ở quy mô lớn sẽ cạn connection.
-            payload, meta, status = generate_payload(
-                evidence, settings=settings, client=client, feature="report",
-                session_id=report_id_for(group, as_of))
+            if settings.derived_metrics_enabled:
+                payload, meta, status = generate_payload(
+                    evidence, settings=settings, client=client, feature="report",
+                    session_id=report_id_for(group, as_of))
+            else:
+                payload, meta, status = basic_payload(evidence), {"attempts": 0}, BASIC
 
             out.status = status
             out.tokens_used = meta.get("tokens_used")

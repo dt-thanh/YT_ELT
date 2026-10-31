@@ -161,3 +161,82 @@ def test_api_error_falls_back_and_is_logged(evidence, settings):
 def test_no_client_means_template_and_no_calls(evidence, settings):
     _, meta, status = generate_payload(evidence, settings=settings, client=None)
     assert status == "template" and meta["attempts"] == 0
+
+
+# ---- derived_metrics_enabled (spec §8, R2): basic brief ----------------------
+from contextlib import contextmanager                                # noqa: E402
+from datetime import datetime, timezone                              # noqa: E402
+
+from youtube_intel import reporting                                  # noqa: E402
+
+AS_OF = datetime(2026, 10, 31, tzinfo=timezone.utc)
+GROWTH_ROWS = [
+    {"video_id": vid, "video_title": t, "channel_title": "Kênh A", "published_at": AS_OF,
+     "format_label": "normal", "duration_seconds": 600, "start_observation_id": 1,
+     "end_observation_id": 2, "start_observed_at": AS_OF, "end_observed_at": AS_OF,
+     "elapsed_hours": 24.0, "start_view_count": 1000, "end_view_count": 1000 + d,
+     "delta_views": d, "views_per_hour": d / 24, "end_like_count": 5, "end_comment_count": 2}
+    for vid, t, d in (("REAL_VIDEO_1", "A", 2400), ("REAL_VIDEO_2", "B", 1200))]
+
+
+class EvidenceCursor:
+    """Answers the three queries of build_evidence, in order."""
+    def __init__(self):
+        self.calls = 0
+
+    def execute(self, sql, params=None):
+        self.calls += 1
+
+    def fetchone(self):
+        return {"total_videos": 2, "rankable": 2, "no_history": 0, "latest_observed_at": AS_OF}
+
+    def fetchall(self):
+        return GROWTH_ROWS if self.calls == 2 else [{"channel_title": "Kênh A"}]
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def test_flag_off_evidence_has_no_rank_or_share_of_leader():
+    off = reporting.build_evidence(EvidenceCursor(), group="g", top_n=3, as_of=AS_OF)
+    on = reporting.build_evidence(EvidenceCursor(), group="g", top_n=3, as_of=AS_OF,
+                                  derived_metrics=True)
+    assert all("rank_in_group" not in c and "pct_of_leader" not in c for c in off["candidates"])
+    assert [c["rank_in_group"] for c in on["candidates"]] == [1, 2]
+    assert on["candidates"][1]["pct_of_leader"] == 0.5
+
+
+def test_flag_off_basic_brief_shows_raw_numbers_labelled_independent(evidence):
+    md = render_markdown(reporting.basic_payload(evidence), evidence)
+    assert "10,000" in md and "2,400" in md and "(tính độc lập)" in md
+    assert "Chủ đề suy ra" not in md and "Vì sao đáng chú ý" not in md
+
+
+class FakeDb:
+    @contextmanager
+    def connect(self):
+        class Conn:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+        yield Conn()
+
+
+def test_flag_off_run_reports_never_calls_the_llm(monkeypatch):
+    from youtube_intel import llm, repository
+    saved = []
+    monkeypatch.setattr(repository, "dict_cursor", lambda conn: EvidenceCursor())
+    monkeypatch.setattr(llm, "client_from_settings",
+                        lambda *a, **k: pytest.fail("LLM client created with the flag off"))
+    monkeypatch.setattr(reporting, "save_report", lambda cur, **kw: saved.append(kw) or "rid")
+    cfg = load_config(require=())
+    assert cfg.settings.derived_metrics_enabled is False          # the shipped default
+    [out, *_] = reporting.run_reports(cfg, FakeDb(), as_of=AS_OF)
+    assert out.status == reporting.BASIC and out.error is None
+    assert saved[0]["payload"]["generated_by"] == reporting.BASIC
+    assert not any("rank_in_group" in c for c in saved[0]["evidence"]["candidates"])

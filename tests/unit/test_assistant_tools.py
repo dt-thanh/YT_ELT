@@ -23,7 +23,58 @@ class RecordingExecutor:
 
 @pytest.fixture
 def registry():
-    return build_registry(GROUPS)
+    return build_registry(GROUPS, derived_metrics=True)
+
+
+# ---- derived_metrics_enabled (spec §8, R2) -------------------------------------
+class SqlCursor:
+    """Records SQL; returns the given rows."""
+    def __init__(self, rows=(), one=None):
+        self.sql, self._rows, self._one = [], list(rows), one
+
+    def execute(self, sql, params=None):
+        self.sql.append(sql)
+
+    def fetchall(self):
+        return self._rows
+
+    def fetchone(self):
+        return self._one
+
+
+def test_flag_off_has_no_channel_comparison_tool():
+    assert "compare_channels" not in build_registry(GROUPS).names
+    assert "compare_channels" in build_registry(GROUPS, derived_metrics=True).names
+
+
+def test_flag_off_top_growing_videos_does_not_compute_rank_or_share():
+    from youtube_intel.assistant.tools import top_growing_videos
+    off, on = SqlCursor(), SqlCursor()
+    top_growing_videos(off, max_rows=5)
+    top_growing_videos(on, max_rows=5, derived_metrics=True)
+    assert "pct_of_leader" not in off.sql[0] and "row_number" not in off.sql[0]
+    assert "ORDER BY views_per_hour DESC" in off.sql[0]                  # sorting stays
+    assert "pct_of_leader" in on.sql[0] and "row_number" in on.sql[0]
+
+
+def test_flag_off_registry_binds_the_flag_into_the_handler():
+    off = SqlCursor()
+    tool = build_registry(GROUPS).get("top_growing_videos")
+    tool.handler(off, max_rows=5)
+    assert "pct_of_leader" not in off.sql[0]
+    assert "share of the leader" not in tool.description
+
+
+def test_flag_off_latest_brief_hides_llm_topic_notes():
+    from youtube_intel.assistant.tools import get_latest_brief
+    row = {"as_of": None, "status": "validated", "model_name": "m", "prompt_version": "v3",
+           "validated_payload": {"items": [{"video_id": "aB3xYz12345", "topic_inference": "t",
+                                            "why_selected": "w", "original_angle": "o"}]},
+           "evidence_bundle": {"candidates": [{"video_id": "aB3xYz12345", "metrics": {}}]}}
+    off = get_latest_brief(SqlCursor(one=row), max_rows=5, group="g").rows[0]
+    on = get_latest_brief(SqlCursor(one=row), max_rows=5, group="g", derived_metrics=True).rows[0]
+    assert not {"topic_inference", "why_selected", "original_angle"} & set(off)
+    assert on["topic_inference"] == "t"
 
 
 def test_every_tool_has_a_strict_schema(registry):
