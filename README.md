@@ -13,10 +13,10 @@ Streamlit · OpenAI (tool calling, embeddings)
 | Channels tracked | 4 (2 groups: `books_learning`, `kids_animation`) |
 | Scope | 50 most recent videos per channel (~200 videos), one snapshot per day |
 | Quota per run | 12 units of YouTube's 10,000/day |
-| Tests | 419 (380 unit, 8 DAG, 31 integration) |
+| Tests | 421 (382 unit, 8 DAG, 31 integration) |
 | Brief prompt eval | v1 13/20 → v2 17/20 → **v3 20/20** on 20 synthetic cases |
 | Assistant eval (2026-10-31, prompt a1, gpt-4o-mini) | derived metrics on: dev 16/32, holdout 17/39 runs · off: dev 11/27, holdout 17/36 runs · injection resisted 0/3 — see `evals/results/` |
-| RAG eval | recall@5 / MRR@5, vector vs full-text vs hybrid — *labels proposed, awaiting human review* |
+| RAG eval (2026-10-31, 21 labeled + 3 empty queries) | hybrid recall@5 0.501, MRR@5 0.651 · vector-only 0.636 / 0.758 · empty queries recognised 0/3 — see `evals/results/` |
 | Derived metrics | **off by default** (`derived_metrics_enabled: false`): raw numbers, sorting, filtering and per-video growth only — see [`docs/policy_notes.md`](docs/policy_notes.md) |
 
 ---
@@ -261,9 +261,9 @@ erDiagram
 
 ```bash
 pip install -e ".[dev,llm,dashboard]"
-pytest -m "not integration"          # 380 unit tests, no Docker, no network, ~10 s
+pytest -m "not integration"          # 382 unit tests, no Docker, no network, ~10 s
 
-docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 419
+docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 421
 ```
 
 CI runs unit tests, then brings up the full stack with migrations from an empty database (run
@@ -312,7 +312,7 @@ its backlog (section 14), one commit per item ID:
 
 | Phase | What | Status |
 |---|---|---|
-| P0 | Close the current system: grounding fixes G-01/G-02, `derived_metrics_enabled` wired, live assistant eval, R3 retention, this section | in progress |
+| P0 | Close the current system: grounding fixes G-01/G-02, `derived_metrics_enabled` wired, live assistant eval, RAG labels + calibration, R3 retention, this section | done 2026-10-31 |
 | P1 | Research: 60–90 channels in EN/ZH/VI, signals S1–S6 (only with the flag on), Research and Report agents | — |
 | P2 | Canon: public-domain originals (Marcus Aurelius, Seneca, Epictetus, Lão Tử, Trang Tử, Luận Ngữ, Tôn Tử, Aesop, La Fontaine) with exact citations | — |
 | P3 | Writer and Checker agents; citations checked by code, translations judged by back-translation | — |
@@ -346,7 +346,9 @@ captions or videos (R4); public-domain sources only (R5); synthetic media declar
   provides are declined as "not supported yet". It keeps history only within one chat session.
 - **RAG covers public metadata only** — titles and descriptions, no transcripts — and is not
   "RAG over internal documents". Embeddings follow the 30-day limit of the text they come from
-  (`docs/policy_notes.md`). The similarity cut-off is an initial guess until calibrated with `eval-rag`.
+  (`docs/policy_notes.md`). `min_similarity` is calibrated (0.10, reasons in `config/channels.yaml`) but cannot
+  recognise queries with no answer: keyword hits bypass it, and vector-only search currently
+  beats hybrid.
 - **The assistant eval is far from done.** First live runs pass 41–50% of cases; the prompt does
   not resist injection (0/3), and numbered lists ("1.") are read as unsupported numbers by the
   grounding check. These are open findings, not tuned away.

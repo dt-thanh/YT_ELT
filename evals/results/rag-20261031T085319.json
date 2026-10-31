@@ -1,0 +1,1441 @@
+{
+  "run_at": "2026-10-31T08:53:19.793161+00:00",
+  "embedding_model": "text-embedding-3-small",
+  "min_similarity": 0.1,
+  "k": 5,
+  "recall_denominator": "min(|relevant|, k)",
+  "n_queries": 24,
+  "n_labeled": 24,
+  "summary": {
+    "vector": {
+      "recall@5": 0.636,
+      "mrr@5": 0.758,
+      "positives_lost": 0,
+      "no_results_correct": "0/3",
+      "queries": 21
+    },
+    "fulltext": {
+      "recall@5": 0.297,
+      "mrr@5": 0.367,
+      "positives_lost": 6,
+      "no_results_correct": "1/3",
+      "queries": 21
+    },
+    "hybrid": {
+      "recall@5": 0.501,
+      "mrr@5": 0.651,
+      "positives_lost": 0,
+      "no_results_correct": "0/3",
+      "queries": 21
+    }
+  },
+  "sweep_hybrid": [
+    {
+      "min_similarity": 0.0,
+      "recall@5": 0.501,
+      "mrr@5": 0.651,
+      "positives_lost": 0,
+      "no_results_correct": "0/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.05,
+      "recall@5": 0.501,
+      "mrr@5": 0.651,
+      "positives_lost": 0,
+      "no_results_correct": "0/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.1,
+      "recall@5": 0.501,
+      "mrr@5": 0.651,
+      "positives_lost": 0,
+      "no_results_correct": "0/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.15,
+      "recall@5": 0.501,
+      "mrr@5": 0.651,
+      "positives_lost": 2,
+      "no_results_correct": "0/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.2,
+      "recall@5": 0.46,
+      "mrr@5": 0.587,
+      "positives_lost": 4,
+      "no_results_correct": "0/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.25,
+      "recall@5": 0.451,
+      "mrr@5": 0.54,
+      "positives_lost": 5,
+      "no_results_correct": "0/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.3,
+      "recall@5": 0.432,
+      "mrr@5": 0.492,
+      "positives_lost": 6,
+      "no_results_correct": "0/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.35,
+      "recall@5": 0.432,
+      "mrr@5": 0.492,
+      "positives_lost": 6,
+      "no_results_correct": "1/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.4,
+      "recall@5": 0.432,
+      "mrr@5": 0.492,
+      "positives_lost": 6,
+      "no_results_correct": "1/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.45,
+      "recall@5": 0.432,
+      "mrr@5": 0.492,
+      "positives_lost": 6,
+      "no_results_correct": "1/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.5,
+      "recall@5": 0.432,
+      "mrr@5": 0.492,
+      "positives_lost": 6,
+      "no_results_correct": "1/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.55,
+      "recall@5": 0.432,
+      "mrr@5": 0.492,
+      "positives_lost": 6,
+      "no_results_correct": "1/3",
+      "queries": 21
+    },
+    {
+      "min_similarity": 0.6,
+      "recall@5": 0.432,
+      "mrr@5": 0.492,
+      "positives_lost": 6,
+      "no_results_correct": "1/3",
+      "queries": 21
+    }
+  ],
+  "queries": [
+    {
+      "id": "q01",
+      "query": "thói quen tốt mỗi ngày",
+      "lang": "vi",
+      "relevant": [
+        "qHUFgFYdJck",
+        "vTQ0q0FsUFY",
+        "68d4d3pay48",
+        "LFdELxwNZN0",
+        "HM7dgEF8H60",
+        "XT5O_7u3-VU",
+        "t0c_MKMZ_wE",
+        "1m0uGcCWPwA",
+        "uxH7SX6etUA",
+        "GeFjP5sMXr0"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "GeFjP5sMXr0",
+            "P7dLgjY1U4M",
+            "k5FntN-hTTY",
+            "0oVsLkPqXWo",
+            "u_0IJRf2aTI"
+          ],
+          "best_similarity": 0.2250116735757106,
+          "text_hits": 0,
+          "recall": 0.2,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [],
+          "best_similarity": null,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": true
+        },
+        "hybrid": {
+          "ranked": [
+            "GeFjP5sMXr0",
+            "P7dLgjY1U4M",
+            "k5FntN-hTTY",
+            "0oVsLkPqXWo",
+            "u_0IJRf2aTI"
+          ],
+          "best_similarity": 0.2250116735757106,
+          "text_hits": 0,
+          "recall": 0.2,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q02",
+      "query": "thoi quen tot moi ngay",
+      "lang": "vi_plain",
+      "relevant": [
+        "qHUFgFYdJck",
+        "vTQ0q0FsUFY",
+        "68d4d3pay48",
+        "LFdELxwNZN0",
+        "HM7dgEF8H60",
+        "XT5O_7u3-VU",
+        "t0c_MKMZ_wE",
+        "1m0uGcCWPwA",
+        "uxH7SX6etUA",
+        "GeFjP5sMXr0"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "qWjZAnmSGn4",
+            "d6N-YrqfZ-g",
+            "jjuu_0aywg0",
+            "1nAnKGcKSxs",
+            "k5FntN-hTTY"
+          ],
+          "best_similarity": 0.12649750624953904,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [],
+          "best_similarity": null,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": true
+        },
+        "hybrid": {
+          "ranked": [
+            "qWjZAnmSGn4",
+            "d6N-YrqfZ-g",
+            "jjuu_0aywg0",
+            "1nAnKGcKSxs",
+            "k5FntN-hTTY"
+          ],
+          "best_similarity": 0.12649750624953904,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q03",
+      "query": "building good habits",
+      "lang": "en",
+      "relevant": [
+        "qHUFgFYdJck",
+        "vTQ0q0FsUFY",
+        "68d4d3pay48",
+        "LFdELxwNZN0",
+        "HM7dgEF8H60",
+        "XT5O_7u3-VU",
+        "t0c_MKMZ_wE",
+        "1m0uGcCWPwA",
+        "uxH7SX6etUA",
+        "GeFjP5sMXr0"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "1m0uGcCWPwA",
+            "t0c_MKMZ_wE",
+            "uxH7SX6etUA",
+            "qHUFgFYdJck",
+            "vTQ0q0FsUFY"
+          ],
+          "best_similarity": 0.4403005887625522,
+          "text_hits": 0,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "68d4d3pay48",
+            "BeK134Ftkq8",
+            "jKVI2fxg_-U",
+            "qHUFgFYdJck",
+            "XT5O_7u3-VU"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.6,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "1m0uGcCWPwA",
+            "68d4d3pay48",
+            "qHUFgFYdJck",
+            "XT5O_7u3-VU",
+            "1sweyWZ_Thw"
+          ],
+          "best_similarity": 0.4403005887625522,
+          "text_hits": 20,
+          "recall": 0.8,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q04",
+      "query": "quản lý thời gian hiệu quả",
+      "lang": "vi",
+      "relevant": [
+        "1sweyWZ_Thw",
+        "aTqnQ22EZTk",
+        "LFdELxwNZN0",
+        "HM7dgEF8H60",
+        "XT5O_7u3-VU"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "uxH7SX6etUA",
+            "5kF2XGFX0dc",
+            "HM7dgEF8H60",
+            "LFdELxwNZN0",
+            "aTqnQ22EZTk"
+          ],
+          "best_similarity": 0.167204425646721,
+          "text_hits": 0,
+          "recall": 0.6,
+          "mrr": 0.3333333333333333,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [],
+          "best_similarity": null,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": true
+        },
+        "hybrid": {
+          "ranked": [
+            "uxH7SX6etUA",
+            "5kF2XGFX0dc",
+            "HM7dgEF8H60",
+            "LFdELxwNZN0",
+            "aTqnQ22EZTk"
+          ],
+          "best_similarity": 0.167204425646721,
+          "text_hits": 0,
+          "recall": 0.6,
+          "mrr": 0.3333333333333333,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q05",
+      "query": "time management and productivity",
+      "lang": "en",
+      "relevant": [
+        "1sweyWZ_Thw",
+        "aTqnQ22EZTk",
+        "LFdELxwNZN0",
+        "HM7dgEF8H60",
+        "XT5O_7u3-VU"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "P7dLgjY1U4M",
+            "aTqnQ22EZTk",
+            "uxH7SX6etUA",
+            "vTQ0q0FsUFY",
+            "LFdELxwNZN0"
+          ],
+          "best_similarity": 0.2932287355990998,
+          "text_hits": 0,
+          "recall": 0.4,
+          "mrr": 0.5,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "9EJ2TKi0Kcw",
+            "LPw0BZOm0bU",
+            "0AaBCI5oND0",
+            "3xsfuDXEfd0",
+            "d6N-YrqfZ-g"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "9EJ2TKi0Kcw",
+            "P7dLgjY1U4M",
+            "LPw0BZOm0bU",
+            "aTqnQ22EZTk",
+            "0AaBCI5oND0"
+          ],
+          "best_similarity": 0.2932287355990998,
+          "text_hits": 20,
+          "recall": 0.2,
+          "mrr": 0.25,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q06",
+      "query": "tiền được tạo ra như thế nào, lạm phát",
+      "lang": "vi",
+      "relevant": [
+        "LPw0BZOm0bU"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "LPw0BZOm0bU",
+            "TohYugHlB8I",
+            "jjuu_0aywg0",
+            "Ng5gFSaGKsU",
+            "5kF2XGFX0dc"
+          ],
+          "best_similarity": 0.20974689217608633,
+          "text_hits": 0,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "qWjZAnmSGn4",
+            "irHzhgk63Lg",
+            "0oVsLkPqXWo",
+            "0xYZtYnxEvc",
+            "1GnBamLaqqE"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "5kF2XGFX0dc",
+            "LPw0BZOm0bU",
+            "qWjZAnmSGn4",
+            "TohYugHlB8I",
+            "irHzhgk63Lg"
+          ],
+          "best_similarity": 0.20974689217608633,
+          "text_hits": 20,
+          "recall": 1.0,
+          "mrr": 0.5,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q07",
+      "query": "how money works and inflation",
+      "lang": "en",
+      "relevant": [
+        "LPw0BZOm0bU"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "LPw0BZOm0bU",
+            "_RgaUUFnYdg",
+            "_18Igt6YH50",
+            "TohYugHlB8I",
+            "DzohmOYvL68"
+          ],
+          "best_similarity": 0.5616594736052665,
+          "text_hits": 0,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "LPw0BZOm0bU",
+            "4ii0lNQ-jMg",
+            "TohYugHlB8I",
+            "Eh4dynMV-7s",
+            "DzohmOYvL68"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "LPw0BZOm0bU",
+            "TohYugHlB8I",
+            "DzohmOYvL68",
+            "Eh4dynMV-7s",
+            "ofweqU0Lz4I"
+          ],
+          "best_similarity": 0.5616594736052665,
+          "text_hits": 20,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q08",
+      "query": "tâm lý học và cảm xúc",
+      "lang": "vi",
+      "relevant": [
+        "jjuu_0aywg0",
+        "qAN6iQyhlLk",
+        "MOkip7IamH0",
+        "7nPvR8BnwXY",
+        "7TofRX-zbbQ",
+        "0xYZtYnxEvc"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "0xYZtYnxEvc",
+            "qAN6iQyhlLk",
+            "pTutTigTBDc",
+            "4ii0lNQ-jMg",
+            "dUW9kYAb18w"
+          ],
+          "best_similarity": 0.2547084464189575,
+          "text_hits": 0,
+          "recall": 0.4,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [],
+          "best_similarity": null,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": true
+        },
+        "hybrid": {
+          "ranked": [
+            "0xYZtYnxEvc",
+            "qAN6iQyhlLk",
+            "pTutTigTBDc",
+            "4ii0lNQ-jMg",
+            "dUW9kYAb18w"
+          ],
+          "best_similarity": 0.2547084464189575,
+          "text_hits": 0,
+          "recall": 0.4,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q09",
+      "query": "tam ly hoc cam xuc",
+      "lang": "vi_plain",
+      "relevant": [
+        "jjuu_0aywg0",
+        "qAN6iQyhlLk",
+        "MOkip7IamH0",
+        "7nPvR8BnwXY",
+        "7TofRX-zbbQ",
+        "0xYZtYnxEvc"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "P7dLgjY1U4M",
+            "qHUFgFYdJck",
+            "u_0IJRf2aTI",
+            "0oVsLkPqXWo",
+            "9EJ2TKi0Kcw"
+          ],
+          "best_similarity": 0.14469704033374797,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [],
+          "best_similarity": null,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": true
+        },
+        "hybrid": {
+          "ranked": [
+            "P7dLgjY1U4M",
+            "qHUFgFYdJck",
+            "u_0IJRf2aTI",
+            "0oVsLkPqXWo",
+            "9EJ2TKi0Kcw"
+          ],
+          "best_similarity": 0.14469704033374797,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q10",
+      "query": "leadership and teamwork roles",
+      "lang": "en",
+      "relevant": [
+        "3xsfuDXEfd0"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "3xsfuDXEfd0",
+            "_82oEAUquJc",
+            "Eh4dynMV-7s",
+            "aTqnQ22EZTk",
+            "vZfj2CjHJZE"
+          ],
+          "best_similarity": 0.36759543088702074,
+          "text_hits": 0,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "3xsfuDXEfd0",
+            "Ng5gFSaGKsU",
+            "9EJ2TKi0Kcw",
+            "nnwkX6u9tFo",
+            "1YK3ylD3HvQ"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "3xsfuDXEfd0",
+            "9EJ2TKi0Kcw",
+            "Eh4dynMV-7s",
+            "TohYugHlB8I",
+            "Ng5gFSaGKsU"
+          ],
+          "best_similarity": 0.36759543088702074,
+          "text_hits": 20,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q11",
+      "query": "cách đọc sách và học nhanh",
+      "lang": "vi",
+      "relevant": [],
+      "expect_no_results": true,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "1m0uGcCWPwA",
+            "t0c_MKMZ_wE",
+            "HM7dgEF8H60",
+            "LFdELxwNZN0",
+            "uxH7SX6etUA"
+          ],
+          "best_similarity": 0.3101590025935803,
+          "text_hits": 0,
+          "recall": null,
+          "mrr": null,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [],
+          "best_similarity": null,
+          "text_hits": 0,
+          "recall": null,
+          "mrr": null,
+          "no_relevant_results": true
+        },
+        "hybrid": {
+          "ranked": [
+            "1m0uGcCWPwA",
+            "t0c_MKMZ_wE",
+            "HM7dgEF8H60",
+            "LFdELxwNZN0",
+            "uxH7SX6etUA"
+          ],
+          "best_similarity": 0.3101590025935803,
+          "text_hits": 0,
+          "recall": null,
+          "mrr": null,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q12",
+      "query": "stress, anxiety and mental health",
+      "lang": "en",
+      "relevant": [
+        "0xYZtYnxEvc",
+        "A73tBeXS9pY",
+        "cmxPqTTX50o",
+        "_FxgO8NKG_g",
+        "X_90QQ2QWUc",
+        "nnwkX6u9tFo",
+        "fAm22VE6C-s",
+        "6LgGqNuzvAs",
+        "qAN6iQyhlLk",
+        "4ii0lNQ-jMg",
+        "dUW9kYAb18w"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "X_90QQ2QWUc",
+            "6LgGqNuzvAs",
+            "0xYZtYnxEvc",
+            "4ii0lNQ-jMg",
+            "dUW9kYAb18w"
+          ],
+          "best_similarity": 0.4460554220430293,
+          "text_hits": 0,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "jjuu_0aywg0",
+            "X_90QQ2QWUc",
+            "dUW9kYAb18w",
+            "nnwkX6u9tFo",
+            "4ii0lNQ-jMg"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.8,
+          "mrr": 0.5,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "X_90QQ2QWUc",
+            "jjuu_0aywg0",
+            "dUW9kYAb18w",
+            "6LgGqNuzvAs",
+            "4ii0lNQ-jMg"
+          ],
+          "best_similarity": 0.4460554220430293,
+          "text_hits": 20,
+          "recall": 0.8,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q13",
+      "query": "tư duy phản biện, ra quyết định",
+      "lang": "vi",
+      "relevant": [
+        "ofweqU0Lz4I",
+        "JLeyIdWv2Q8",
+        "34fg8wBFsHI",
+        "5kF2XGFX0dc"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "5kF2XGFX0dc",
+            "aTqnQ22EZTk",
+            "3xsfuDXEfd0",
+            "Eh4dynMV-7s",
+            "pFkx7JUPEog"
+          ],
+          "best_similarity": 0.15759157699272752,
+          "text_hits": 0,
+          "recall": 0.25,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [],
+          "best_similarity": null,
+          "text_hits": 0,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": true
+        },
+        "hybrid": {
+          "ranked": [
+            "5kF2XGFX0dc",
+            "aTqnQ22EZTk",
+            "3xsfuDXEfd0",
+            "Eh4dynMV-7s",
+            "pFkx7JUPEog"
+          ],
+          "best_similarity": 0.15759157699272752,
+          "text_hits": 0,
+          "recall": 0.25,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q14",
+      "query": "ngày đầu tiên đi học",
+      "lang": "vi",
+      "relevant": [
+        "S81a2aU8_OM",
+        "zVBbGF0y3ds"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "S81a2aU8_OM",
+            "3JPvmdgljb8",
+            "5QhjC3P1LDs",
+            "zVBbGF0y3ds",
+            "aL2IKWj-Lqk"
+          ],
+          "best_similarity": 0.4050181991241809,
+          "text_hits": 0,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "5QhjC3P1LDs",
+            "S81a2aU8_OM",
+            "3JPvmdgljb8",
+            "iqF9VugNeGU",
+            "KtJ7nIvqdXQ"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.5,
+          "mrr": 0.5,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "S81a2aU8_OM",
+            "5QhjC3P1LDs",
+            "3JPvmdgljb8",
+            "aL2IKWj-Lqk",
+            "0WTzBiN45B8"
+          ],
+          "best_similarity": 0.4050181991241809,
+          "text_hits": 20,
+          "recall": 0.5,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q15",
+      "query": "ngay dau tien di hoc",
+      "lang": "vi_plain",
+      "relevant": [
+        "S81a2aU8_OM",
+        "zVBbGF0y3ds"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "aL2IKWj-Lqk",
+            "S81a2aU8_OM",
+            "Xj9fOIkquek",
+            "K7l5vP9Jlos",
+            "oEJYChCkm_c"
+          ],
+          "best_similarity": 0.27606475832235733,
+          "text_hits": 0,
+          "recall": 0.5,
+          "mrr": 0.5,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "5QhjC3P1LDs",
+            "S81a2aU8_OM",
+            "3JPvmdgljb8",
+            "iqF9VugNeGU",
+            "KtJ7nIvqdXQ"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.5,
+          "mrr": 0.5,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "S81a2aU8_OM",
+            "aL2IKWj-Lqk",
+            "3JPvmdgljb8",
+            "2eM2KYNsuks",
+            "5QhjC3P1LDs"
+          ],
+          "best_similarity": 0.27606475832235733,
+          "text_hits": 20,
+          "recall": 0.5,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q16",
+      "query": "tiệc sinh nhật",
+      "lang": "vi",
+      "relevant": [],
+      "expect_no_results": true,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "5kS1EVggoTo",
+            "MhhiRvtVpWE",
+            "cQ4-1PFQR3k",
+            "FgxtzClb5xQ",
+            "nRjydAwQtjE"
+          ],
+          "best_similarity": 0.38285416733507704,
+          "text_hits": 0,
+          "recall": null,
+          "mrr": null,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "S81a2aU8_OM",
+            "aL2IKWj-Lqk",
+            "1GgE1pl53K0",
+            "3KJahzqiL5k",
+            "a0NjVEJwQ5A"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": null,
+          "mrr": null,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "5kS1EVggoTo",
+            "S81a2aU8_OM",
+            "MhhiRvtVpWE",
+            "aL2IKWj-Lqk",
+            "1GgE1pl53K0"
+          ],
+          "best_similarity": 0.38285416733507704,
+          "text_hits": 20,
+          "recall": null,
+          "mrr": null,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q17",
+      "query": "đi chơi biển cùng gia đình",
+      "lang": "vi",
+      "relevant": [
+        "DzRkmKsB_Ms",
+        "Zw_2lc3VkFg",
+        "sCD-YwsCty8"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "DzRkmKsB_Ms",
+            "NkYP-FcGS_Q",
+            "sCD-YwsCty8",
+            "Zw_2lc3VkFg",
+            "cQ4-1PFQR3k"
+          ],
+          "best_similarity": 0.5286373266990907,
+          "text_hits": 0,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "DzRkmKsB_Ms",
+            "NkYP-FcGS_Q",
+            "hAw1tS9Oeuk",
+            "5QhjC3P1LDs",
+            "wqX8ui0qjVc"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.3333333333333333,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "DzRkmKsB_Ms",
+            "NkYP-FcGS_Q",
+            "hAw1tS9Oeuk",
+            "wqX8ui0qjVc",
+            "0ORGBz5rokw"
+          ],
+          "best_similarity": 0.5286373266990907,
+          "text_hits": 20,
+          "recall": 0.3333333333333333,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q18",
+      "query": "family trip to the beach",
+      "lang": "en",
+      "relevant": [
+        "DzRkmKsB_Ms",
+        "Zw_2lc3VkFg",
+        "sCD-YwsCty8"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "DzRkmKsB_Ms",
+            "sCD-YwsCty8",
+            "Zw_2lc3VkFg",
+            "NkYP-FcGS_Q",
+            "KtJ7nIvqdXQ"
+          ],
+          "best_similarity": 0.2632186930582847,
+          "text_hits": 0,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "STFnlWU770o",
+            "aL2IKWj-Lqk",
+            "08s2w9zZ0DU",
+            "0BxmzwIUIrc",
+            "0E-V7BlDYcQ"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "0ORGBz5rokw",
+            "2eM2KYNsuks",
+            "3JPvmdgljb8",
+            "DzRkmKsB_Ms",
+            "STFnlWU770o"
+          ],
+          "best_similarity": 0.2632186930582847,
+          "text_hits": 20,
+          "recall": 0.3333333333333333,
+          "mrr": 0.25,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q19",
+      "query": "bé đi khám bác sĩ",
+      "lang": "vi",
+      "relevant": [
+        "5QhjC3P1LDs",
+        "hx8VeTepzAA",
+        "4VE5HVLggyk",
+        "-MV1sOvOWrQ",
+        "QRUXdnpjAOc",
+        "6caIuAZWcEQ",
+        "oEJYChCkm_c"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "oEJYChCkm_c",
+            "-MV1sOvOWrQ",
+            "4VE5HVLggyk",
+            "3Jv5c7c-Wo4",
+            "8y3b6QclYmw"
+          ],
+          "best_similarity": 0.411552134734684,
+          "text_hits": 0,
+          "recall": 0.6,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "5QhjC3P1LDs",
+            "1jxFTLvlP60",
+            "2iyYiIjSOD8",
+            "3JPvmdgljb8",
+            "8y3b6QclYmw"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.2,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "1jxFTLvlP60",
+            "8y3b6QclYmw",
+            "lk_z6_dWcpE",
+            "5kS1EVggoTo",
+            "a0NjVEJwQ5A"
+          ],
+          "best_similarity": 0.411552134734684,
+          "text_hits": 20,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q20",
+      "query": "trời mưa, nhảy vũng bùn",
+      "lang": "vi",
+      "relevant": [
+        "vo231gdGMng",
+        "_HDb3zlwtxc",
+        "thYxV9rm8qI",
+        "ITt4JAPT-9k",
+        "utKc_iVtKlc"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "vo231gdGMng",
+            "_HDb3zlwtxc",
+            "svpNiJ_tBQ4",
+            "3Jv5c7c-Wo4",
+            "cAOtsdqFME8"
+          ],
+          "best_similarity": 0.4093293303077663,
+          "text_hits": 0,
+          "recall": 0.4,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "utKc_iVtKlc",
+            "Bvbty5pZkjs",
+            "_HDb3zlwtxc",
+            "ITt4JAPT-9k",
+            "thYxV9rm8qI"
+          ],
+          "best_similarity": null,
+          "text_hits": 6,
+          "recall": 0.8,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "_HDb3zlwtxc",
+            "vo231gdGMng",
+            "utKc_iVtKlc",
+            "Bvbty5pZkjs",
+            "svpNiJ_tBQ4"
+          ],
+          "best_similarity": 0.4093293303077663,
+          "text_hits": 6,
+          "recall": 0.6,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q21",
+      "query": "lam banh trong bep",
+      "lang": "vi_plain",
+      "relevant": [
+        "gdv9-LEfGOo",
+        "Xj9fOIkquek"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "X1oE2Os7phg",
+            "a0NjVEJwQ5A",
+            "gdv9-LEfGOo",
+            "2IbfX-BCbmQ",
+            "6K-9aZPXCoQ"
+          ],
+          "best_similarity": 0.42425417133384213,
+          "text_hits": 0,
+          "recall": 0.5,
+          "mrr": 0.3333333333333333,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "t4TUU3KoAJY",
+            "YjvjVYfux8k",
+            "X1oE2Os7phg",
+            "0w9p8EajJyM",
+            "4VE5HVLggyk"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "X1oE2Os7phg",
+            "gdv9-LEfGOo",
+            "DcjeEIW9dYs",
+            "t4TUU3KoAJY",
+            "YjvjVYfux8k"
+          ],
+          "best_similarity": 0.42425417133384213,
+          "text_hits": 20,
+          "recall": 0.5,
+          "mrr": 0.5,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q22",
+      "query": "đồ chơi mới và chia sẻ với bạn",
+      "lang": "vi",
+      "relevant": [
+        "wqX8ui0qjVc",
+        "I_pPET0Z59g"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "O2LXVuLJJGM",
+            "0w9p8EajJyM",
+            "hairYgKGbSE",
+            "wqX8ui0qjVc",
+            "NkYP-FcGS_Q"
+          ],
+          "best_similarity": 0.4529400301962263,
+          "text_hits": 0,
+          "recall": 0.5,
+          "mrr": 0.25,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "BsoshzZVpb8",
+            "LkUZ5glOA1E",
+            "rxPfyHNYIA0",
+            "ussr35gRC7k",
+            "wqX8ui0qjVc"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.5,
+          "mrr": 0.2,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "O2LXVuLJJGM",
+            "wqX8ui0qjVc",
+            "BsoshzZVpb8",
+            "rxPfyHNYIA0",
+            "0w9p8EajJyM"
+          ],
+          "best_similarity": 0.4529400301962263,
+          "text_hits": 20,
+          "recall": 0.5,
+          "mrr": 0.5,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q23",
+      "query": "bedtime and going to sleep",
+      "lang": "en",
+      "relevant": [
+        "MDt4sNbRpdA",
+        "iqF9VugNeGU"
+      ],
+      "expect_no_results": false,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "iqF9VugNeGU",
+            "MDt4sNbRpdA",
+            "7dLDwpomUxg",
+            "fefU_e-5V_Y",
+            "0WTzBiN45B8"
+          ],
+          "best_similarity": 0.27230253493791146,
+          "text_hits": 0,
+          "recall": 1.0,
+          "mrr": 1.0,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "STFnlWU770o",
+            "0WTzBiN45B8",
+            "19s7MSkNUVU",
+            "2IbfX-BCbmQ",
+            "31vg4tbkkD4"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": 0.0,
+          "mrr": 0.0,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "0WTzBiN45B8",
+            "STFnlWU770o",
+            "iqF9VugNeGU",
+            "MDt4sNbRpdA",
+            "19s7MSkNUVU"
+          ],
+          "best_similarity": 0.27230253493791146,
+          "text_hits": 20,
+          "recall": 1.0,
+          "mrr": 0.3333333333333333,
+          "no_relevant_results": false
+        }
+      }
+    },
+    {
+      "id": "q25",
+      "query": "learning numbers and counting for children",
+      "lang": "en",
+      "relevant": [],
+      "expect_no_results": true,
+      "modes": {
+        "vector": {
+          "ranked": [
+            "DzohmOYvL68",
+            "RKtG70DFXU4",
+            "qvbBml-RnJ8",
+            "d4VfLf7No1c",
+            "S81a2aU8_OM"
+          ],
+          "best_similarity": 0.30288345451151666,
+          "text_hits": 0,
+          "recall": null,
+          "mrr": null,
+          "no_relevant_results": false
+        },
+        "fulltext": {
+          "ranked": [
+            "DzohmOYvL68",
+            "1YK3ylD3HvQ",
+            "d6N-YrqfZ-g",
+            "N7Vh99lFG7s",
+            "jKVI2fxg_-U"
+          ],
+          "best_similarity": null,
+          "text_hits": 20,
+          "recall": null,
+          "mrr": null,
+          "no_relevant_results": false
+        },
+        "hybrid": {
+          "ranked": [
+            "DzohmOYvL68",
+            "RKtG70DFXU4",
+            "Ng5gFSaGKsU",
+            "1YK3ylD3HvQ",
+            "d6N-YrqfZ-g"
+          ],
+          "best_similarity": 0.30288345451151666,
+          "text_hits": 20,
+          "recall": null,
+          "mrr": null,
+          "no_relevant_results": false
+        }
+      }
+    }
+  ]
+}

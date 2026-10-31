@@ -359,10 +359,15 @@ def cmd_eval_rag(args) -> int:
         return 1
     path = ev.save(result, Path(args.out), "rag")
     print(f"=== RAG eval: {result['n_labeled']}/{result['n_queries']} labeled queries, "
-          f"k=5, {result['embedding_model']} ===")
-    print(f"  {'mode':<10}{'recall@5':>10}{'MRR@5':>8}")
+          f"k=5, {result['embedding_model']}, min_similarity={result['min_similarity']} ===")
+    print(f"  {'mode':<10}{'recall@5':>10}{'MRR@5':>8}{'lost':>6}{'no-result ok':>14}")
     for mode, m in result["summary"].items():
-        print(f"  {mode:<10}{m['recall@5']:>10.3f}{m['mrr@5']:>8.3f}")
+        print(f"  {mode:<10}{m['recall@5']:>10.3f}{m['mrr@5']:>8.3f}"
+              f"{m['positives_lost']:>6}{m['no_results_correct']:>14}")
+    print("\n  hybrid, by min_similarity (lost = queries with relevant videos that get no results)")
+    for row in result["sweep_hybrid"]:
+        print(f"  {row['min_similarity']:>6.2f}{row['recall@5']:>10.3f}{row['mrr@5']:>8.3f}"
+              f"{row['positives_lost']:>6}{row['no_results_correct']:>14}")
     print(f"\n  Saved: {path}")
     return 0
 

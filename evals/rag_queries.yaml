@@ -4,37 +4,45 @@
 # decisions: fill `relevant` yourself. To speed this up,
 #   youtube-intel eval-rag --suggest
 # writes candidate videos for every query whose `relevant` is empty; review them
-# and copy the ids that truly match here. Queries with an empty list are skipped.
+# and copy the ids that truly match here. Queries with an empty list are skipped,
+# unless `expect_no_results: true`: then search should return no_relevant_results
+# (that is what min_similarity controls).
+#
+# Labels of 2026-10-31: proposed by Claude after reading all 288 titles in elt_db,
+# accepted by the owner. q24 ("video tổng hợp nhiều tập") was dropped: the
+# boilerplate description of every Heo Peppa video says "nhiều tập và phần tổng hợp".
+# ⚠️ R3: videos older than api_data_retention_days are deleted from the database,
+# so labels slowly point at videos that no longer exist and recall drifts down.
+# Re-label (or re-run --suggest) when that happens; compare runs only on the same date.
 #
 # Mix on purpose: Vietnamese with accents, without accents, and English, because
 # the two search modes fail differently on each (full-text needs the words,
 # vector search needs the meaning).
 queries:
   # ---- books_learning ------------------------------------------------------
-  - {id: q01, lang: vi,       group: books_learning, query: "thói quen tốt mỗi ngày", relevant: []}
-  - {id: q02, lang: vi_plain, group: books_learning, query: "thoi quen tot moi ngay", relevant: []}
-  - {id: q03, lang: en,       group: books_learning, query: "building good habits", relevant: []}
-  - {id: q04, lang: vi,       group: books_learning, query: "quản lý thời gian hiệu quả", relevant: []}
-  - {id: q05, lang: en,       group: books_learning, query: "time management and productivity", relevant: []}
-  - {id: q06, lang: vi,       group: books_learning, query: "tiền được tạo ra như thế nào, lạm phát", relevant: []}
-  - {id: q07, lang: en,       group: books_learning, query: "how money works and inflation", relevant: []}
-  - {id: q08, lang: vi,       group: books_learning, query: "tâm lý học và cảm xúc", relevant: []}
-  - {id: q09, lang: vi_plain, group: books_learning, query: "tam ly hoc cam xuc", relevant: []}
-  - {id: q10, lang: en,       group: books_learning, query: "leadership and teamwork roles", relevant: []}
-  - {id: q11, lang: vi,       group: books_learning, query: "cách đọc sách và học nhanh", relevant: []}
-  - {id: q12, lang: en,       group: books_learning, query: "stress, anxiety and mental health", relevant: []}
-  - {id: q13, lang: vi,       group: books_learning, query: "tư duy phản biện, ra quyết định", relevant: []}
+  - {id: q01, lang: vi,       group: books_learning, query: "thói quen tốt mỗi ngày", relevant: [qHUFgFYdJck, vTQ0q0FsUFY, 68d4d3pay48, LFdELxwNZN0, HM7dgEF8H60, XT5O_7u3-VU, t0c_MKMZ_wE, 1m0uGcCWPwA, uxH7SX6etUA, GeFjP5sMXr0]}
+  - {id: q02, lang: vi_plain, group: books_learning, query: "thoi quen tot moi ngay", relevant: [qHUFgFYdJck, vTQ0q0FsUFY, 68d4d3pay48, LFdELxwNZN0, HM7dgEF8H60, XT5O_7u3-VU, t0c_MKMZ_wE, 1m0uGcCWPwA, uxH7SX6etUA, GeFjP5sMXr0]}
+  - {id: q03, lang: en,       group: books_learning, query: "building good habits", relevant: [qHUFgFYdJck, vTQ0q0FsUFY, 68d4d3pay48, LFdELxwNZN0, HM7dgEF8H60, XT5O_7u3-VU, t0c_MKMZ_wE, 1m0uGcCWPwA, uxH7SX6etUA, GeFjP5sMXr0]}
+  - {id: q04, lang: vi,       group: books_learning, query: "quản lý thời gian hiệu quả", relevant: [1sweyWZ_Thw, aTqnQ22EZTk, LFdELxwNZN0, HM7dgEF8H60, XT5O_7u3-VU]}
+  - {id: q05, lang: en,       group: books_learning, query: "time management and productivity", relevant: [1sweyWZ_Thw, aTqnQ22EZTk, LFdELxwNZN0, HM7dgEF8H60, XT5O_7u3-VU]}
+  - {id: q06, lang: vi,       group: books_learning, query: "tiền được tạo ra như thế nào, lạm phát", relevant: [LPw0BZOm0bU]}
+  - {id: q07, lang: en,       group: books_learning, query: "how money works and inflation", relevant: [LPw0BZOm0bU]}
+  - {id: q08, lang: vi,       group: books_learning, query: "tâm lý học và cảm xúc", relevant: [jjuu_0aywg0, qAN6iQyhlLk, MOkip7IamH0, 7nPvR8BnwXY, 7TofRX-zbbQ, 0xYZtYnxEvc]}
+  - {id: q09, lang: vi_plain, group: books_learning, query: "tam ly hoc cam xuc", relevant: [jjuu_0aywg0, qAN6iQyhlLk, MOkip7IamH0, 7nPvR8BnwXY, 7TofRX-zbbQ, 0xYZtYnxEvc]}
+  - {id: q10, lang: en,       group: books_learning, query: "leadership and teamwork roles", relevant: [3xsfuDXEfd0]}
+  - {id: q11, lang: vi,       group: books_learning, query: "cách đọc sách và học nhanh", relevant: [], expect_no_results: true}
+  - {id: q12, lang: en,       group: books_learning, query: "stress, anxiety and mental health", relevant: [0xYZtYnxEvc, A73tBeXS9pY, cmxPqTTX50o, _FxgO8NKG_g, X_90QQ2QWUc, nnwkX6u9tFo, fAm22VE6C-s, 6LgGqNuzvAs, qAN6iQyhlLk, 4ii0lNQ-jMg, dUW9kYAb18w]}
+  - {id: q13, lang: vi,       group: books_learning, query: "tư duy phản biện, ra quyết định", relevant: [ofweqU0Lz4I, JLeyIdWv2Q8, 34fg8wBFsHI, 5kF2XGFX0dc]}
   # ---- kids_animation --------------------------------------------------------
-  - {id: q14, lang: vi,       group: kids_animation, query: "ngày đầu tiên đi học", relevant: []}
-  - {id: q15, lang: vi_plain, group: kids_animation, query: "ngay dau tien di hoc", relevant: []}
-  - {id: q16, lang: vi,       group: kids_animation, query: "tiệc sinh nhật", relevant: []}
-  - {id: q17, lang: vi,       group: kids_animation, query: "đi chơi biển cùng gia đình", relevant: []}
-  - {id: q18, lang: en,       group: kids_animation, query: "family trip to the beach", relevant: []}
-  - {id: q19, lang: vi,       group: kids_animation, query: "bé đi khám bác sĩ", relevant: []}
-  - {id: q20, lang: vi,       group: kids_animation, query: "trời mưa, nhảy vũng bùn", relevant: []}
-  - {id: q21, lang: vi_plain, group: kids_animation, query: "lam banh trong bep", relevant: []}
-  - {id: q22, lang: vi,       group: kids_animation, query: "đồ chơi mới và chia sẻ với bạn", relevant: []}
-  - {id: q23, lang: en,       group: kids_animation, query: "bedtime and going to sleep", relevant: []}
+  - {id: q14, lang: vi,       group: kids_animation, query: "ngày đầu tiên đi học", relevant: [S81a2aU8_OM, zVBbGF0y3ds]}
+  - {id: q15, lang: vi_plain, group: kids_animation, query: "ngay dau tien di hoc", relevant: [S81a2aU8_OM, zVBbGF0y3ds]}
+  - {id: q16, lang: vi,       group: kids_animation, query: "tiệc sinh nhật", relevant: [], expect_no_results: true}
+  - {id: q17, lang: vi,       group: kids_animation, query: "đi chơi biển cùng gia đình", relevant: [DzRkmKsB_Ms, Zw_2lc3VkFg, sCD-YwsCty8]}
+  - {id: q18, lang: en,       group: kids_animation, query: "family trip to the beach", relevant: [DzRkmKsB_Ms, Zw_2lc3VkFg, sCD-YwsCty8]}
+  - {id: q19, lang: vi,       group: kids_animation, query: "bé đi khám bác sĩ", relevant: [5QhjC3P1LDs, hx8VeTepzAA, 4VE5HVLggyk, -MV1sOvOWrQ, QRUXdnpjAOc, 6caIuAZWcEQ, oEJYChCkm_c]}
+  - {id: q20, lang: vi,       group: kids_animation, query: "trời mưa, nhảy vũng bùn", relevant: [vo231gdGMng, _HDb3zlwtxc, thYxV9rm8qI, ITt4JAPT-9k, utKc_iVtKlc]}
+  - {id: q21, lang: vi_plain, group: kids_animation, query: "lam banh trong bep", relevant: [gdv9-LEfGOo, Xj9fOIkquek]}
+  - {id: q22, lang: vi,       group: kids_animation, query: "đồ chơi mới và chia sẻ với bạn", relevant: [wqX8ui0qjVc, I_pPET0Z59g]}
+  - {id: q23, lang: en,       group: kids_animation, query: "bedtime and going to sleep", relevant: [MDt4sNbRpdA, iqF9VugNeGU]}
   # ---- across groups -------------------------------------------------------
-  - {id: q24, lang: vi,       query: "video tổng hợp nhiều tập", relevant: []}
-  - {id: q25, lang: en,       query: "learning numbers and counting for children", relevant: []}
+  - {id: q25, lang: en,       query: "learning numbers and counting for children", relevant: [], expect_no_results: true}

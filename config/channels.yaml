@@ -114,9 +114,19 @@ project:
     candidates: 20              # taken from EACH of vector search and full-text search
     rrf_k: 60                   # Reciprocal Rank Fusion constant
     top_k: 5                    # videos returned to the assistant
-    # Initial guess. Calibrate with `youtube-intel eval-rag`: below this cosine
-    # similarity, and with no full-text match, search returns no_relevant_results.
-    min_similarity: 0.25
+    # Below this cosine similarity, and with no full-text match, search returns
+    # no_relevant_results. Calibrated 2026-10-31 (evals/results/rag-20261031T085239.json,
+    # 21 labeled queries + 3 that should find nothing, elt_db):
+    #   rule chosen BEFORE looking for a value: the highest threshold at which no
+    #   query that has relevant videos gets "no results".
+    #   0.25 (old guess) lost 5 such queries and caught 0/3 empty ones; 0.10 loses
+    #   none (lowest positive best similarity 0.126). Hybrid recall@5 0.451 -> 0.501.
+    #   No threshold can catch the empty queries: their similarity (0.30-0.38) is above
+    #   many real matches (Vietnamese queries on English titles score 0.13-0.29), and
+    #   2 of 3 have full-text hits that bypass the gate. Fixing that needs better
+    #   retrieval (multilingual embeddings, stop-words, accent-aware full-text), not
+    #   a threshold. Re-run eval-rag after any change; R3 deletes labeled videos over time.
+    min_similarity: 0.10
 
   # ---------------------------------------------------------------------------
   # RETENTION - vòng đời dữ liệu.

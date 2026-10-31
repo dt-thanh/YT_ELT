@@ -168,12 +168,43 @@ def test_recall_and_mrr():
     assert recall_at_k(["x", "y"], ["a", "b"]) == 0.0
     assert mrr_at_k(["x", "a"], ["a"]) == 0.5 and mrr_at_k(["x"], ["a"]) == 0.0
     assert recall_at_k(["a", "b", "c", "d", "e", "f"], ["f"]) == 0.0   # outside top 5
+    # denominator min(|relevant|, 5): 5 relevant out of 10 in the top 5 is a full score
+    assert recall_at_k(list("abcde"), list("abcdefghij")) == 1.0
+
+
+def _q(qid, ranked, best, text_hits, relevant=(), negative=False):
+    return {"id": qid, "relevant": list(relevant), "expect_no_results": negative,
+            "modes": {m: {"ranked": ranked, "best_similarity": best, "text_hits": text_hits}
+                      for m in ("vector", "fulltext", "hybrid")}}
+
+
+def test_threshold_only_gates_and_never_reorders():
+    from youtube_intel.rag.evaluation import score_at, sweep
+    runs = [_q("p1", ["a", "b"], 0.40, 0, relevant=["a"]),        # found by meaning only
+            _q("p2", ["c"], 0.20, 3, relevant=["c"]),             # keyword hit: never gated
+            _q("n1", ["x"], 0.30, 0, negative=True)]              # should find nothing
+    assert score_at(runs, "hybrid", 0.25) == {"recall@5": 1.0, "mrr@5": 1.0, "positives_lost": 0,
+                                              "no_results_correct": "0/1", "queries": 2}
+    at = {r["min_similarity"]: r for r in sweep(runs)}
+    assert at[0.35]["no_results_correct"] == "1/1" and at[0.35]["positives_lost"] == 0
+    assert at[0.45]["positives_lost"] == 1 and at[0.45]["recall@5"] == 0.5
+
+
+def test_expect_no_results_cannot_have_labels(tmp_path):
+    p = tmp_path / "q.yaml"
+    p.write_text("queries:\n  - {id: a, query: x, relevant: [v1], expect_no_results: true}\n",
+                 encoding="utf-8")
+    with pytest.raises(RagEvalError, match="expect_no_results"):
+        load_queries(p)
 
 
 def test_shipped_query_file_is_valid():
     from pathlib import Path
     qs = load_queries(Path(__file__).resolve().parents[2] / "evals" / "rag_queries.yaml")
-    assert len(qs) >= 25 and {q["lang"] for q in qs} >= {"vi", "vi_plain", "en"}
+    assert len(qs) >= 24 and {q["lang"] for q in qs} >= {"vi", "vi_plain", "en"}
+    assert sum(bool(q["relevant"]) for q in qs) == 21                  # labeled 2026-10-31
+    assert sum(bool(q.get("expect_no_results")) for q in qs) == 3
+    assert "-MV1sOvOWrQ" in next(q for q in qs if q["id"] == "q19")["relevant"]
 
 
 def test_bad_query_file_is_rejected(tmp_path):
