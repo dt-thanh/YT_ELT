@@ -15,6 +15,8 @@ Pure functions, no I/O. Checks:
     over channels. Relations between two entities (pct_of_leader, gap_to_leader)
     may come from any entity named in the sentence. A rank claim ("đứng thứ 2",
     "dẫn đầu", "ranked 1") must equal that entity's rank.
+  * Direction (G-02): "giảm 1.200" / "-1.200" claims -1200 and "tăng 1.200"
+    claims +1200; a number with no direction word only matches positive values.
   * Dates and clock times appear in tool results (UTC or Asia/Ho_Chi_Minh).
   * Every video id - cited or written in the text - was returned by a tool.
   * No URLs (links are built by code).
@@ -29,6 +31,7 @@ reading matches.
 from __future__ import annotations
 
 import bisect
+import dataclasses
 import re
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -77,6 +80,15 @@ _RANK_CLAIMS = (
 _LEADER_CLAIM = re.compile(
     r"(?<!video\s)(?<!kênh\s)(?<!\w)(?:dẫn\s+đầu|đứng\s+đầu)(?!\w)"
     r"|(?<!\w)(?:leads|is\s+leading|is\s+the\s+leader)(?!\w)", re.I)
+# G-02: "giảm 1.200" claims -1200 and "tăng 1.200" claims +1200. After "lên",
+# "xuống", "còn", "từ"... the number is a level, not a change, so it keeps no sign.
+_DIRECTION = re.compile(
+    r"(?<!\w)(?:(?P<up>tăng|thêm|gain(?:ed|s)?|increase[ds]?|rose|grew|up|added)"
+    r"|(?P<down>giảm|sụt|mất|hụt|bớt|decrease[ds]?|drop(?:ped|s)?|fell|falls|lost|lose[s]?"
+    r"|decline[ds]?|down))"
+    r"(?P<level>\s+(?:xuống\s+còn|lên|xuống|còn|từ|tới|đến|to|from))?"
+    r"(?:\s+(?:thêm|khoảng|chừng|gần|hơn|được|by|about|around|nearly|roughly"
+    r"|approximately|over|almost))*\s*$", re.I)
 # Fields that describe a relation between two entities, so they may be quoted
 # next to either one ("A cao hơn B 290 view/giờ").
 _RELATIONAL_FIELDS = {"pct_of_leader", "gap_to_leader"}
@@ -372,6 +384,26 @@ class _Sentences:
         return None
 
 
+def _signed(m: NumberMention, text: str) -> NumberMention:
+    """Apply the sign the wording gives: a minus sign or a decrease word -> negative."""
+    before = text[max(0, m.start - 60):m.start]
+    # "-1.200" is negative; "5.000 - 3.800" is a range.
+    minus = (before.endswith(("-", "−"))
+             and not re.search(r"[\d%]\s*[-−]$", before))
+    d = _DIRECTION.search(before)
+    # "mất 24 giờ" is time spent, not a loss.
+    duration = re.match(r"\s*(?:giờ|ngày|phút|tuần|tháng|hours?|days?|minutes?|weeks?)(?!\w)",
+                        text[m.start + len(m.raw):], re.I)
+    negative = minus or bool(d and d.group("down") and not d.group("level") and not duration)
+    if not negative:
+        return m
+    return dataclasses.replace(m, readings=frozenset(-n for n in m.readings))
+
+
+def _flipped(m: NumberMention) -> NumberMention:
+    return dataclasses.replace(m, readings=frozenset(-n for n in m.readings))
+
+
 def _blank(match_text: str) -> str:
     """Same-length blank, so offsets stay valid and the digits are not re-read."""
     return " " * len(match_text)
@@ -470,20 +502,23 @@ def ground(answer: str, cited_video_ids, data_gaps, results, *,
     sentences = _Sentences(text, entity_mentions)
 
     mentions = extract_numbers(text)
-    for m in mentions:
+    for raw_m in mentions:
+        m = _signed(raw_m, text)
         key = sentences.bound(m.start)
         if key is None:
-            if not _grounded_in(m, facts.numbers, facts.exact_ints):
-                errors.append(f"number {m.raw!r} does not match any tool result")
+            owned = [(facts.numbers, facts.exact_ints)]
+        else:
+            ef = facts.entities[key]
+            relational = [v for x in sentences.in_sentence(m.start)
+                          for v in facts.entities[x.key].relational]
+            owned = [(ef.numbers, ef.exact_ints),
+                     (facts.unowned_numbers, facts.unowned_ints), (relational, set())]
+        if any(_grounded_in(m, nums, ints) for nums, ints in owned):
             continue
-        ef = facts.entities[key]
-        relational = [v for x in sentences.in_sentence(m.start)
-                      for v in facts.entities[x.key].relational]
-        if (_grounded_in(m, ef.numbers, ef.exact_ints)
-                or _grounded_in(m, facts.unowned_numbers, facts.unowned_ints)
-                or _grounded_in(m, relational, set())):
-            continue
-        if _grounded_in(m, facts.numbers, facts.exact_ints):
+        if any(_grounded_in(_flipped(m), nums, ints) for nums, ints in owned):
+            errors.append(f"number {m.raw!r}: the direction (tăng/giảm, sign) is the "
+                          "opposite of the tool value")
+        elif key is not None and _grounded_in(m, facts.numbers, facts.exact_ints):
             errors.append(f"number {m.raw!r} is written about {ef.label} but comes "
                           "from another video or channel")
         else:

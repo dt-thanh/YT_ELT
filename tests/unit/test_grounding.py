@@ -179,6 +179,62 @@ def test_g01_rank_claim_without_any_rank_from_tools_is_rejected():
     assert not report.ok and any("rank 1" in e for e in report.errors)
 
 
+# ---- G-02: direction (tăng/giảm) and sign ----------------------------------
+def falling():
+    return ToolResult(tool="get_video_stats", row_count=1, video_ids=(V1,),
+                      rows=({"video_id": V1, "video_title": "A", "start_view_count": 5000,
+                             "total_views": 3800, "delta_views": -1200, "views_per_hour": -50.0,
+                             "elapsed_hours": 24.0, "validity_reason": "view_count_decreased"},))
+
+
+GAP = ["YouTube điều chỉnh giảm lượt xem nên không xếp hạng được"]
+
+
+@pytest.mark.parametrize("answer", [
+    "Video A giảm 1.200 lượt xem.",                        # the acceptance criterion
+    "Lượt xem của video A sụt khoảng 1,2 nghìn.",
+    "Video A mất 50 view mỗi giờ.",
+    "Video A lost 1,200 views.",
+    "Video A dropped by 1,200 views.",
+    "Delta lượt xem của video A là -1.200.",               # explicit minus sign
+    "Video A giảm xuống còn 3.800 lượt xem.",              # a level, not a change
+    "Lượt xem video A giảm từ 5.000 xuống 3.800.",
+])
+def test_g02_decrease_matches_a_negative_delta(answer):
+    report = ground(answer, [V1], GAP, [falling()])
+    assert report.ok, report.errors
+
+
+@pytest.mark.parametrize("answer", [
+    "Video A tăng 1.200 lượt xem.",                        # the acceptance criterion
+    "Video A gained 1,200 views.",
+    "Video A tăng thêm 50 view mỗi giờ.",
+    "Video A thay đổi 1.200 lượt xem.",                    # no direction: sign unknown
+])
+def test_g02_wrong_or_missing_direction_is_rejected(answer):
+    report = ground(answer, [V1], GAP, [falling()])
+    assert not report.ok, answer
+
+
+def test_g02_decrease_is_rejected_for_a_positive_value():
+    report = ok("Video A giảm 1.234.567 lượt xem.")        # delta_views is +1,234,567
+    assert not report.ok and any("direction" in e for e in report.errors), report.errors
+
+
+@pytest.mark.parametrize("answer", [
+    "Video A mất 24 giờ để đạt mức này.",                  # time spent, not a loss
+    "Lượt xem video A: 5.000 - 3.800.",                    # a range dash, not a minus
+])
+def test_g02_words_that_look_like_a_decrease_but_are_not(answer):
+    report = ground(answer, [V1], GAP, [falling()])
+    assert report.ok, report.errors
+
+
+def test_g02_increase_still_matches_positive_values():
+    assert ok("Video A tăng thêm 1,2 triệu view trong 24 giờ.").ok
+    assert ok("Video A tăng lên 3.456.789 lượt xem.").ok
+
+
 # ---- data gaps ---------------------------------------------------------------
 def test_empty_result_requires_data_gaps():
     empty = ToolResult(tool="top_growing_videos", row_count=0)
