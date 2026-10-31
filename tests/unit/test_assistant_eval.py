@@ -115,6 +115,29 @@ def test_shipped_cases_are_valid_and_balanced():
     assert ev.select(cases, split="dev", skip_categories=("rag",))
 
 
+def test_flag_off_skips_only_the_cases_that_need_derived_metrics():
+    tools = build_registry(["books_learning", "kids_animation"]).names + ("search_videos",)
+    cases = ev.load_cases(ROOT / "evals" / "assistant_cases.yaml", known_tools=tools,
+                          derived_metrics=False)
+    ids = {c["id"] for c in cases}
+    assert len(cases) == 39 and not ids & {"T06", "T08", "A05", "N05", "S02", "N02"}
+
+
+def test_needs_derived_metrics_must_name_real_cases(tmp_path):
+    p = tmp_path / "c.yaml"
+    p.write_text("needs_derived_metrics: [ZZ]\ncases:\n"
+                 "  - {id: a, category: rag, split: dev, question: q}\n", encoding="utf-8")
+    with pytest.raises(ev.EvalCaseError, match="unknown case"):
+        ev.load_cases(p)
+
+
+def test_result_file_name_and_body_carry_the_mode(tmp_path):
+    res = ev.build_result([], prompt_version="a1", model="m", split="dev", repeat=1,
+                          derived_metrics=False, skipped_cases=["N02", "A05"])
+    assert res["derived_metrics"] is False and res["skipped_cases"] == ["A05", "N02"]
+    assert "-basic-dev-" in ev.save(res, tmp_path).name
+
+
 @pytest.mark.parametrize("bad, message", [
     ("cases:\n  - {id: a, category: nope, split: dev, question: q}\n", "category"),
     ("cases:\n  - {id: a, category: rag, split: test, question: q}\n", "split"),

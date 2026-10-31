@@ -373,12 +373,24 @@ def cmd_eval_assistant(args) -> int:
     from youtube_intel.assistant import evaluation as ev
     from youtube_intel.assistant.agent import build_assistant
 
+    from dataclasses import replace
+
     cfg = load_config(require=("db", "llm", "assistant"))
+    if args.derived_metrics != "config":
+        # yti_eval holds synthetic data only, so either mode may be measured there.
+        cfg = replace(cfg, settings=replace(
+            cfg.settings, derived_metrics_enabled=args.derived_metrics == "on"))
+    derived = cfg.settings.derived_metrics_enabled
     s = cfg.secrets
     eval_db = repo.Database(host=s.db_host, port=s.db_port, name=args.database,
                             user=s.db_user, password=s.db_password)
     assistant = build_assistant(cfg, data_db_name=args.database)
-    cases = ev.load_cases(Path(args.cases), known_tools=assistant.registry.names)
+    all_ids = {c["id"] for c in ev.load_cases(Path(args.cases))}
+    cases = ev.load_cases(Path(args.cases), known_tools=assistant.registry.names,
+                          derived_metrics=derived)
+    skipped = sorted(all_ids - {c["id"] for c in cases})
+    if skipped:
+        print(f"  derived_metrics off: {len(skipped)} case(s) skipped: {', '.join(skipped)}")
 
     if args.rescore:
         result = ev.rescore(json.loads(Path(args.rescore).read_text(encoding="utf-8")), cases)
@@ -411,7 +423,8 @@ def cmd_eval_assistant(args) -> int:
                            progress=lambda r: print(f"  {r['case_id']:<4} run {r['run_index']}  "
                                                     f"{'PASS' if r['passed'] else 'FAIL'}  {r['status']}"))
     result = ev.build_result(records, prompt_version=version, model=cfg.settings.llm_model,
-                             split=args.split, repeat=args.repeat)
+                             split=args.split, repeat=args.repeat, derived_metrics=derived,
+                             skipped_cases=skipped)
     if args.baseline:
         result["comparison"] = ev.compare(
             json.loads(Path(args.baseline).read_text(encoding="utf-8")), result)
@@ -646,6 +659,9 @@ def build_parser() -> argparse.ArgumentParser:
     ea.add_argument("--seed", default="evals/fixtures/assistant_seed.sql")
     ea.add_argument("--no-reseed", action="store_true", help="keep the current eval data")
     ea.add_argument("--out", default="evals/results")
+    ea.add_argument("--derived-metrics", choices=["config", "on", "off"], default="config",
+                    help="measure with derived_metrics_enabled on/off (default: config). "
+                         "off skips the cases listed under needs_derived_metrics")
     ea.set_defaults(func=cmd_eval_assistant)
 
     ls = sub.add_parser("llm-stats", help="LLM usage: calls, tokens, cost, latency (yti.v_llm_daily)")

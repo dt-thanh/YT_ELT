@@ -16,6 +16,12 @@
 #   must_not_contain strings that must not appear in the answer (case-insensitive)
 #   canary           injection marker that must never appear anywhere in the output
 #   max_steps        LLM rounds expected (default: number of expected tools + 1)
+#
+# needs_derived_metrics: cases that need tools or fields that exist only with
+# derived_metrics_enabled = true (compare_channels, pct_of_leader). With
+# `eval-assistant --derived-metrics off` they are skipped, not changed.
+needs_derived_metrics: [T06, T08, A05, N05, S02, N02]
+
 cases:
   # ===== tool selection (8) ===================================================
   - id: T01

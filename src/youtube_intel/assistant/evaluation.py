@@ -42,12 +42,17 @@ class EvalCaseError(ValueError):
 # Cases
 # =============================================================================
 
-def load_cases(path: Path, *, known_tools=None) -> list[dict]:
-    """Load and validate the case file. Fails loudly on any schema problem."""
+def load_cases(path: Path, *, known_tools=None, derived_metrics: bool = True) -> list[dict]:
+    """Load and validate the case file. Fails loudly on any schema problem.
+
+    derived_metrics=False drops the cases listed under `needs_derived_metrics`
+    (they need tools or fields that only exist with derived_metrics_enabled).
+    """
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     cases = (data or {}).get("cases")
     if not isinstance(cases, list) or not cases:
         raise EvalCaseError(f"{path}: needs a non-empty 'cases' list")
+    derived_ids = set(derived_case_ids(data))
     seen = set()
     for i, c in enumerate(cases):
         where = f"{path}: cases[{i}] ({c.get('id') if isinstance(c, dict) else '?'})"
@@ -71,7 +76,7 @@ def load_cases(path: Path, *, known_tools=None) -> list[dict]:
         tools = c.get("expected_tools", [])
         if not isinstance(tools, list):
             raise EvalCaseError(f"{where}: expected_tools must be a list")
-        if known_tools is not None:
+        if known_tools is not None and (derived_metrics or c["id"] not in derived_ids):
             bad = (set(tools) | set(c.get("expected_args", {}))) - set(known_tools)
             if bad:
                 raise EvalCaseError(f"{where}: unknown tool(s) {sorted(bad)}")
@@ -85,7 +90,17 @@ def load_cases(path: Path, *, known_tools=None) -> list[dict]:
                 raise EvalCaseError(f"{where}: each expected number needs a value")
         if not isinstance(c.get("must_not_contain", []), list):
             raise EvalCaseError(f"{where}: must_not_contain must be a list")
-    return cases
+    if derived_ids - seen:
+        raise EvalCaseError(f"{path}: needs_derived_metrics lists unknown case(s) "
+                            f"{sorted(derived_ids - seen)}")
+    return cases if derived_metrics else [c for c in cases if c["id"] not in derived_ids]
+
+
+def derived_case_ids(data: dict) -> list[str]:
+    ids = (data or {}).get("needs_derived_metrics") or []
+    if not isinstance(ids, list):
+        raise EvalCaseError("needs_derived_metrics must be a list of case ids")
+    return ids
 
 
 def select(cases: list[dict], *, split: str = "dev", limit: int | None = None,
@@ -333,11 +348,14 @@ def run_cases(assistant, cases: list[dict], *, prompt_version: str, repeat: int 
 
 
 def build_result(records: list[dict], *, prompt_version: str, model: str, split: str,
-                 repeat: int) -> dict:
-    return {"kind": "assistant", "prompt_version": prompt_version, "model": model,
-            "split": split, "repeat": repeat, "synthetic_data": True,
-            "run_at": datetime.now(timezone.utc).isoformat(),
-            "summary": summarize(records), "records": records}
+                 repeat: int, derived_metrics: bool | None = None,
+                 skipped_cases=()) -> dict:
+    out = {"kind": "assistant", "prompt_version": prompt_version, "model": model,
+           "split": split, "repeat": repeat, "synthetic_data": True,
+           "run_at": datetime.now(timezone.utc).isoformat()}
+    if derived_metrics is not None:
+        out.update({"derived_metrics": derived_metrics, "skipped_cases": sorted(skipped_cases)})
+    return {**out, "summary": summarize(records), "records": records}
 
 
 def rescore(result: dict, cases: list[dict]) -> dict:
@@ -354,7 +372,8 @@ def rescore(result: dict, cases: list[dict]) -> dict:
 def save(result: dict, out_dir: Path) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = result["run_at"][:19].replace(":", "").replace("-", "")
-    path = out_dir / f"assistant-{result['prompt_version']}-{result['split']}-{stamp}.json"
+    mode = {True: "-derived", False: "-basic"}.get(result.get("derived_metrics"), "")
+    path = out_dir / f"assistant-{result['prompt_version']}{mode}-{result['split']}-{stamp}.json"
     path.write_text(json.dumps(result, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     return path
 
