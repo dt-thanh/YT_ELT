@@ -118,6 +118,67 @@ def test_numbers_from_a_previous_tool_in_the_same_turn_count():
     assert ground("Nhóm có 105 video, 2 video xếp hạng được.", [], [], [top(), cov]).ok
 
 
+# ---- G-01: a number or rank must belong to the entity it is written about -----
+C1, C2 = "UC" + "a" * 22, "UC" + "b" * 22
+
+
+def channels():
+    return ToolResult(
+        tool="compare_channels", row_count=2,
+        rows=({"rank": 1, "channel_id": C1, "channel_title": "Sprouts",
+               "median_views_per_hour": 550.0, "pct_of_leader": 100.0, "gap_to_leader": 0},
+              {"rank": 2, "channel_id": C2, "channel_title": "FightMediocrity",
+               "median_views_per_hour": 260.0, "pct_of_leader": 47.3, "gap_to_leader": 290}))
+
+
+@pytest.mark.parametrize("answer, fragment", [
+    ("Video A tăng 556,1 view/giờ, video B tăng 1.234,56 view/giờ.", "'556,1'"),   # A <-> B swapped
+    ("Video B có tổng 3.456.789 lượt xem.", "3.456.789"),                        # A's total put on B
+    (f"Video {V2} tăng 1.234,56 view mỗi giờ.", "1.234,56"),                    # swap, entity by id
+    ("Video B có 7 lượt thích.", "'7'"),                                          # A's likes on B
+    ("Video A đứng thứ 2.", "rank 2"),                                            # wrong rank
+    ("Video B dẫn đầu nhóm.", "rank 1"),                                          # B is not the leader
+    ("Video B đứng thứ nhất với 556 view/giờ.", "rank 1"),
+    ("Video A is ranked 2 in the group.", "rank 2"),
+    ("Sprouts có trung vị 260 view/giờ.", "'260'"),                               # channels swapped
+    ("FightMediocrity đứng thứ 1 về tốc độ.", "rank 1"),
+])
+def test_g01_number_or_rank_on_the_wrong_entity_is_rejected(answer, fragment):
+    report = ground(answer, [V1], [], [top(), channels()])
+    assert not report.ok and any(fragment in e for e in report.errors), report.errors
+
+
+@pytest.mark.parametrize("answer", [
+    "Video A tăng 1.234,56 view/giờ, video B tăng 556,1 view/giờ.",
+    "Video B đứng thứ 2 với 556 view/giờ.",
+    "Video A dẫn đầu, video B đứng thứ hai.",
+    "Video đứng thứ 2 là B, đạt 45% tốc độ của video dẫn đầu.",
+    "Có 2 video xếp hạng được; video A dẫn đầu.",
+    f"Video {V2} tăng 556 view/giờ.",
+    "Sprouts có trung vị 550 view/giờ, cao hơn FightMediocrity 290 view/giờ.",
+    "Sprouts cao hơn 290 view/giờ so với FightMediocrity.",       # gap is a relation of both
+    "Kênh dẫn đầu là Sprouts với 550 view/giờ.",
+])
+def test_g01_numbers_on_the_right_entity_pass(answer):
+    report = ground(answer, [V1], [], [top(), channels()])
+    assert report.ok, report.errors
+
+
+def test_g01_digits_inside_a_title_are_not_numbers():
+    r = ToolResult(tool="get_video_stats", row_count=1, video_ids=(V1,),
+                   rows=({"video_id": V1, "video_title": "10 bài học từ Seneca",
+                          "views_per_hour": 321.0, "validity_reason": "ok"},))
+    assert ground("Video 10 bài học từ Seneca tăng 321 view/giờ.", [V1], [], [r]).ok
+
+
+def test_g01_rank_claim_without_any_rank_from_tools_is_rejected():
+    stats = ToolResult(tool="get_video_stats", row_count=1, video_ids=(V1,),
+                       rows=({"video_id": V1, "video_title": "A", "views_per_hour": 1.5,
+                              "validity_reason": "ok"},))
+    report = ground("Video A dẫn đầu nhóm.", [V1], [], [stats])
+    assert not report.ok and any("rank 1" in e for e in report.errors)
+
+
 # ---- data gaps ---------------------------------------------------------------
 def test_empty_result_requires_data_gaps():
     empty = ToolResult(tool="top_growing_videos", row_count=0)
