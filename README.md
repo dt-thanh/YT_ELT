@@ -13,10 +13,11 @@ Streamlit · OpenAI (tool calling, embeddings)
 | Channels tracked | 4 (2 groups: `books_learning`, `kids_animation`) |
 | Scope | 50 most recent videos per channel (~200 videos), one snapshot per day |
 | Quota per run | 12 units of YouTube's 10,000/day |
-| Tests | 330 (301 unit, 7 DAG, 22 integration) |
+| Tests | 392 (362 unit, 7 DAG, 23 integration) |
 | Brief prompt eval | v1 13/20 → v2 17/20 → **v3 20/20** on 20 synthetic cases |
-| Assistant eval | 45 synthetic cases, 9 code-based scorers — *results pending, see `evals/results/`* |
-| RAG eval | recall@5 / MRR@5, vector vs full-text vs hybrid — *pending human-labeled queries* |
+| Assistant eval (2026-10-31, prompt a1, gpt-4o-mini) | derived metrics on: dev 16/32, holdout 17/39 runs · off: dev 11/27, holdout 17/36 runs · injection resisted 0/3 — see `evals/results/` |
+| RAG eval | recall@5 / MRR@5, vector vs full-text vs hybrid — *labels proposed, awaiting human review* |
+| Derived metrics | **off by default** (`derived_metrics_enabled: false`): raw numbers, sorting, filtering and per-video growth only — see [`docs/policy_notes.md`](docs/policy_notes.md) |
 
 ---
 
@@ -257,9 +258,9 @@ erDiagram
 
 ```bash
 pip install -e ".[dev,llm,dashboard]"
-pytest -m "not integration"          # 301 unit tests, no Docker, no network, ~5 s
+pytest -m "not integration"          # 362 unit tests, no Docker, no network, ~10 s
 
-docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 330
+docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 392
 ```
 
 CI runs unit tests, then brings up the full stack with migrations from an empty database (run
@@ -295,6 +296,33 @@ dashboard/           Streamlit, 6 screens; app.py draws, queries.py holds every 
 docs/                data contract, policy notes
 ```
 
+## Hướng phát triển
+
+YT_ELT is becoming **YT_ELT Studio**: a faceless Vietnamese YouTube channel run by seven agents
+with a human approving three times (topic, script, final video) and pressing *publish*. The rule
+in one line: *learn trends from others, take content from public-domain originals, write in our
+own voice.* This repository becomes the studio's **research** department; almost all of it stays.
+
+The specification is [`YT_ELT Studio — Đặc tả product AI Faceless Studio.docx`](<YT_ELT Studio — Đặc tả product AI Faceless Studio.docx>) (2026-10-30).
+It replaces the earlier *"YT_ELT — Đặc tả nâng cấp AI Engineering"* (2026-10-15). Work follows
+its backlog (section 14), one commit per item ID:
+
+| Phase | What | Status |
+|---|---|---|
+| P0 | Close the current system: grounding fixes G-01/G-02, `derived_metrics_enabled` wired, live assistant eval, R3 retention, this section | in progress |
+| P1 | Research: 60–90 channels in EN/ZH/VI, signals S1–S6 (only with the flag on), Research and Report agents | — |
+| P2 | Canon: public-domain originals (Marcus Aurelius, Seneca, Epictetus, Lão Tử, Trang Tử, Luận Ngữ, Tôn Tử, Aesop, La Fontaine) with exact citations | — |
+| P3 | Writer and Checker agents; citations checked by code, translations judged by back-translation | — |
+| P4 | Production with FFmpeg: TTS, still images with slow motion, a short AI intro clip, subtitles | — |
+| P5 | LangGraph orchestration with Postgres checkpoints and three human approval points | — |
+| P6 | Feedback loop from the channel's own YouTube Analytics | — |
+| P7 | Upload through the API, always `privacyStatus = private` | — |
+
+Hard rules carried into every phase (spec section 3): no derived metrics, rankings or comment
+analysis without YouTube's approval of the Analytics & Reporting use case (R2); public API data
+kept at most 30 days and deleted within 7 days on request (R3); no downloading other channels'
+captions or videos (R4); public-domain sources only (R5); synthetic media declared (R6).
+
 ## Limitations
 
 - **Four channels, 50 most recent videos each.** Rankings describe this set only, not YouTube.
@@ -311,8 +339,11 @@ docs/                data contract, policy notes
 - **The assistant answers only what its tools return.** Questions needing a calculation no tool
   provides are declined as "not supported yet". It keeps history only within one chat session.
 - **RAG covers public metadata only** — titles and descriptions, no transcripts — and is not
-  "RAG over internal documents". YouTube's data-retention policy is still unverified
+  "RAG over internal documents". Embeddings follow the 30-day limit of the text they come from
   (`docs/policy_notes.md`). The similarity cut-off is an initial guess until calibrated with `eval-rag`.
+- **The assistant eval is far from done.** First live runs pass 41–50% of cases; the prompt does
+  not resist injection (0/3), and numbered lists ("1.") are read as unsupported numbers by the
+  grounding check. These are open findings, not tuned away.
 - **Assistant evaluation runs on a fixed synthetic database**, with keyword/number-based scorers:
   a pass means the checked facts are right, not that the wording is good. Report pass rates with
   the number of cases and the Wilson interval, never as a bare percentage.
