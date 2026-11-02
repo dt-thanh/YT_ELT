@@ -49,6 +49,8 @@ topics = ["scikit-learn>=1.3"]
 embeddings = ["sentence-transformers>=2.7"]
 # Comment analysis (R-04): language detection by a library, not an LLM.
 comments = ["langdetect>=1.0.9"]
+# Canon MCP server (C-04): python -m studio.mcp.canon_server
+mcp = ["mcp>=2.3"]
 dev = ["pytest>=8.0", "pytest-cov>=4.1"]
 
 [project.scripts]

@@ -70,3 +70,44 @@ class BriefDraft(BaseModel):
 
 class BriefDrafts(BaseModel):
     briefs: list[BriefDraft] = Field(max_length=10)
+
+
+# ---- canon (spec §9, P2): what search_canon / get_passage return ------------------------
+class CanonHit(BaseModel):
+    passage_id: str
+    work_vi: str
+    author: str
+    translator: str | None
+    language: Literal["en", "zh", "la", "fr", "vi"]
+    license: Literal["public_domain", "own"]
+    ref_label: str
+    snippet: str
+    rank: int
+    score: float
+    similarity: float | None
+    matched_by: str
+
+
+class AlignedPassage(BaseModel):
+    passage_id: str
+    language: str
+    translator: str | None
+    ref_label: str
+    text: str
+
+
+class CanonPassage(BaseModel):
+    """The exact text a script may quote (P3: citations are checked against it)."""
+    passage_id: str
+    work: str
+    work_vi: str
+    author: str
+    translator: str | None
+    pub_year: int
+    language: Literal["en", "zh", "la", "fr", "vi"]
+    license: Literal["public_domain", "own"]
+    source_url: str
+    ref: str
+    ref_label: str
+    text: str
+    aligned: list[AlignedPassage] = []
