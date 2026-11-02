@@ -242,6 +242,8 @@ youtube-intel signals                              # S1-S3 (only with derived_me
 youtube-intel topics [--pairs FILE]                # weekly clusters + S4-S6 (same flag); --pairs scores R-03
 youtube-intel comments [--no-llm]                  # comment insights (same flag); OpenAI via the gateway
 youtube-intel eval-comments                        # R-04 F1 per class on human labels (OpenAI)
+youtube-intel research --pillar stoic [--window 14] [--n 3]   # Research agent -> TopicBriefs (OpenAI)
+youtube-intel eval-research                        # R-05: 20 windows, grounding rate; owner scores usefulness
 ```
 
 ## Data model

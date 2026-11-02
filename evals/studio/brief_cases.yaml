@@ -1,0 +1,25 @@
+# R-05 acceptance (spec §12): 20 research windows inside the R3 limit (<= 30 days).
+# Run on a day with fresh data:  youtube-intel eval-research   (OpenAI via the gateway)
+# Target: 100% of briefs grounded; the owner scores usefulness 1-5 in the detail file
+# (proposals/research-eval-*.json), mean >= 3.5.
+cases:
+  - {pillar: stoic, window_days: 7, n_briefs: 3}
+  - {pillar: stoic, window_days: 10, n_briefs: 3}
+  - {pillar: stoic, window_days: 14, n_briefs: 3}
+  - {pillar: stoic, window_days: 21, n_briefs: 3}
+  - {pillar: stoic, window_days: 28, n_briefs: 3}
+  - {pillar: stoic, window_days: 30, n_briefs: 3}
+  - {pillar: east, window_days: 7, n_briefs: 3}
+  - {pillar: east, window_days: 10, n_briefs: 3}
+  - {pillar: east, window_days: 14, n_briefs: 3}
+  - {pillar: east, window_days: 21, n_briefs: 3}
+  - {pillar: east, window_days: 28, n_briefs: 3}
+  - {pillar: east, window_days: 30, n_briefs: 3}
+  - {pillar: fable, window_days: 7, n_briefs: 3}
+  - {pillar: fable, window_days: 10, n_briefs: 3}
+  - {pillar: fable, window_days: 14, n_briefs: 3}
+  - {pillar: fable, window_days: 21, n_briefs: 3}
+  - {pillar: fable, window_days: 28, n_briefs: 3}
+  - {pillar: fable, window_days: 30, n_briefs: 3}
+  - {pillar: stoic, window_days: 14, n_briefs: 5}
+  - {pillar: east, window_days: 14, n_briefs: 5}

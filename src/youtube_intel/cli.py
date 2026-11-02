@@ -782,6 +782,80 @@ def cmd_eval_comments(args) -> int:
     return 0
 
 
+def _research_agent(cfg):
+    """Research agent wired to the read-only login and the gateway (OpenAI)."""
+    from studio.agents.research import ResearchAgent, ToolBox
+    from studio.gateway import gateway_from_config
+    from youtube_intel.assistant.tools import DbToolExecutor, build_registry
+
+    s, st = cfg.secrets, cfg.settings
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+    ro = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=st.assistant.db_user, password=s.assistant_db_password)
+    registry = build_registry(sorted({c.group for c in cfg.channels}),
+                              derived_metrics=st.derived_metrics_enabled)
+    box = ToolBox(registry, DbToolExecutor(ro, max_rows=st.assistant.max_rows,
+                                           statement_timeout_ms=st.assistant.statement_timeout_ms))
+    return ResearchAgent(box, gateway_from_config(cfg, db),
+                         derived_metrics=st.derived_metrics_enabled)
+
+
+def cmd_research(args) -> int:
+    """TopicBriefs for one pillar (spec §7.2). OpenAI through the gateway."""
+    from pathlib import Path
+    from studio.schemas import ResearchRequest
+
+    cfg = load_config(require=("db", "llm", "assistant"))
+    out = _research_agent(cfg).run(ResearchRequest(pillar=args.pillar, window_days=args.window,
+                                                   n_briefs=args.n))
+    doc = {"job_id": out.job_id, "note": out.note, "repaired": out.repaired,
+           "briefs": [b.model_dump(mode="json") for b in out.briefs], "dropped": out.dropped}
+    path = Path(args.out) / f"briefs-{args.pillar}-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+    for b in out.briefs:
+        print(f"  [{b.confidence}] {b.working_title}  ({len(b.evidence)} videos)")
+    print(f"  {len(out.briefs)} brief(s), {len(out.dropped)} dropped -> {path}"
+          + (f"\n  {out.note}" if out.note else ""))
+    return 0
+
+
+def cmd_eval_research(args) -> int:
+    """R-05 acceptance run: every brief grounded; owner scores usefulness 1-5 afterwards."""
+    from pathlib import Path
+    import yaml
+    from studio.schemas import ResearchRequest
+
+    cases = (yaml.safe_load(Path(args.cases).read_text(encoding="utf-8")) or {}).get("cases") or []
+    cfg = load_config(require=("db", "llm", "assistant"))
+    agent = _research_agent(cfg)
+    stamp = f"{datetime.now(timezone.utc):%Y%m%dT%H%M%S}"
+    detail, summary = [], {"cases": len(cases), "briefs": 0, "dropped": 0, "repaired_runs": 0,
+                           "empty_runs": 0, "derived_metrics": cfg.settings.derived_metrics_enabled}
+    for c in cases:
+        out = agent.run(ResearchRequest(**c))
+        summary["briefs"] += len(out.briefs)
+        summary["dropped"] += len(out.dropped)
+        summary["repaired_runs"] += out.repaired
+        summary["empty_runs"] += bool(out.note)
+        detail.append({"case": c, "job_id": out.job_id, "note": out.note, "dropped": out.dropped,
+                       "briefs": [{**b.model_dump(mode="json"), "usefulness_1_5": None}
+                                  for b in out.briefs]})
+    total = summary["briefs"] + summary["dropped"]
+    summary["grounded_rate"] = round(summary["briefs"] / total, 3) if total else None
+    # Real ids and numbers are API data (R3): the detail stays out of git.
+    dpath = Path(args.detail_out) / f"research-eval-{stamp}.json"
+    dpath.parent.mkdir(parents=True, exist_ok=True)
+    dpath.write_text(json.dumps(detail, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+    spath = Path(args.out) / f"research-{stamp}.json"
+    spath.parent.mkdir(parents=True, exist_ok=True)
+    spath.write_text(json.dumps({**summary, "detail_file": str(dpath)}, indent=2), encoding="utf-8")
+    print(json.dumps(summary, indent=2))
+    print(f"  Summary: {spath}\n  Detail (score usefulness_1_5 here): {dpath}")
+    return 0
+
+
 def cmd_quota(args) -> int:
     """YouTube quota used today, per bucket (Pacific-time day)."""
     from youtube_intel.youtube import quota_alerts
@@ -942,6 +1016,19 @@ def build_parser() -> argparse.ArgumentParser:
     cm = sub.add_parser("comments", help="Bình luận: thu, phân loại, gom câu hỏi (chỉ khi cờ bật)")
     cm.add_argument("--no-llm", action="store_true", help="collect only, no OpenAI call")
     cm.set_defaults(func=cmd_comments)
+
+    rs = sub.add_parser("research", help="TopicBrief cho một chuyên mục (OpenAI qua gateway)")
+    rs.add_argument("--pillar", required=True, choices=["stoic", "east", "fable"])
+    rs.add_argument("--window", type=int, default=14, help="days (default 14)")
+    rs.add_argument("--n", type=int, default=3, help="briefs (default 3)")
+    rs.add_argument("--out", default="proposals", help="git-ignored (API data, R3)")
+    rs.set_defaults(func=cmd_research)
+
+    er2 = sub.add_parser("eval-research", help="R-05: chạy các ca brief, đo grounding (OpenAI)")
+    er2.add_argument("--cases", default="evals/studio/brief_cases.yaml")
+    er2.add_argument("--out", default="evals/results")
+    er2.add_argument("--detail-out", default="proposals")
+    er2.set_defaults(func=cmd_eval_research)
 
     ec = sub.add_parser("eval-comments", help="F1 phân loại bình luận trên nhãn người (OpenAI)")
     ec.add_argument("--labels", default="evals/studio/comment_labels.csv")

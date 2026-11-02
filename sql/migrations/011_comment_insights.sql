@@ -61,7 +61,9 @@ CREATE INDEX IF NOT EXISTS ix_viewer_questions_fetched ON yti.viewer_questions (
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'yti_readonly') THEN
-        GRANT SELECT ON yti.viewer_questions TO yti_readonly;   -- not the comment text
+        GRANT SELECT ON yti.viewer_questions TO yti_readonly;
+        -- Column-level: lets read-only tools map questions to channels, never read text.
+        GRANT SELECT (comment_id, channel_id, video_id) ON yti.comment_labels TO yti_readonly;
     END IF;
 END
 $$;

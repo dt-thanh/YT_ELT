@@ -304,14 +304,14 @@ def get_data_coverage(cur, *, max_rows: int, group: str | None = None) -> ToolRe
 def list_channels(cur, *, max_rows: int, group: str | None = None) -> ToolResult:
     cur.execute(
         """
-        SELECT c.channel_id, c.title AS channel_title, c.group_code,
+        SELECT c.channel_id, c.title AS channel_title, c.group_code, c.language,
                count(DISTINCT v.video_id)    AS videos,
                max(o.observed_at)            AS last_observed_at
           FROM yti.tracked_channels c
           LEFT JOIN yti.videos_current v USING (channel_id)
           LEFT JOIN yti.video_observations o ON o.video_id = v.video_id
          WHERE c.enabled AND (%(group)s IS NULL OR c.group_code = %(group)s)
-         GROUP BY c.channel_id, c.title, c.group_code
+         GROUP BY c.channel_id, c.title, c.group_code, c.language
          ORDER BY c.group_code, c.title
          LIMIT %(lim)s;
         """,
@@ -470,6 +470,81 @@ def get_latest_brief(cur, *, max_rows: int, group: str,
     return finish("get_latest_brief", items, max_rows=max_rows, source="yti.reports", extra=extra)
 
 
+# ---- studio research tools (spec §7.2): only with derived_metrics_enabled ----
+
+def get_signals(cur, *, max_rows: int, group: str | None = None,
+                label: str | None = None) -> ToolResult:
+    """Latest S1-S3 per video, with the raw numbers they were computed from."""
+    cur.execute(
+        """
+        SELECT DISTINCT ON (s.video_id)
+               s.video_id, v.title AS video_title, s.channel_id, t.title AS channel_title,
+               t.group_code, t.language, s.signal_date, s.format_guess,
+               s.views, s.likes, s.comments, s.s1_age_days, s.s1, s.baseline_approx,
+               s.s1_label, s.s2, s.s3_like_rate, s.s3_comment_rate, s.fetched_at AS observed_at
+          FROM yti.video_signals s
+          JOIN yti.videos_current v USING (video_id)
+          JOIN yti.tracked_channels t ON t.channel_id = s.channel_id
+         WHERE t.enabled AND (%(group)s IS NULL OR t.group_code = %(group)s)
+           AND (%(label)s IS NULL OR s.s1_label = %(label)s)
+         ORDER BY s.video_id, s.signal_date DESC
+        """,
+        {"group": group, "label": label},
+    )
+    rows = sorted(cur.fetchall(), key=lambda r: -(float(r["s1"]) if r["s1"] is not None else -1))
+    return finish("get_signals", rows[:max_rows + 1], max_rows=max_rows, source="yti.video_signals")
+
+
+def get_topic_clusters(cur, *, max_rows: int, group: str | None = None,
+                       only: str | None = None) -> ToolResult:
+    """This week's topic clusters touching the group's channels, gaps and rising first."""
+    cur.execute(
+        """
+        SELECT c.cluster_id, c.week_start, c.label, c.n_videos, c.n_channels, c.languages,
+               c.is_rising, c.is_gap, c.is_saturated,
+               c.evidence->'strong_videos' AS strong_video_ids,
+               array_agg(m.video_id ORDER BY m.video_id) AS member_video_ids
+          FROM yti.topic_clusters c
+          JOIN yti.topic_cluster_members m USING (cluster_id)
+         WHERE c.week_start = (SELECT max(week_start) FROM yti.topic_clusters)
+           AND (%(only)s IS NULL OR (%(only)s = 'rising' AND c.is_rising)
+                OR (%(only)s = 'gap' AND c.is_gap) OR (%(only)s = 'saturated' AND c.is_saturated))
+           AND (%(group)s IS NULL OR EXISTS (
+                SELECT 1 FROM yti.topic_cluster_members m2
+                  JOIN yti.tracked_channels t ON t.channel_id = m2.channel_id
+                 WHERE m2.cluster_id = c.cluster_id AND t.group_code = %(group)s))
+         GROUP BY c.cluster_id
+         ORDER BY c.is_gap DESC, c.is_rising DESC, c.n_channels DESC, c.cluster_id
+         LIMIT %(lim)s
+        """,
+        {"group": group, "only": only, "lim": max_rows + 1},
+    )
+    return finish("get_topic_clusters", cur.fetchall(), max_rows=max_rows,
+                  source="yti.topic_clusters")
+
+
+def get_comment_insights(cur, *, max_rows: int, group: str | None = None) -> ToolResult:
+    """What viewers ask (restated in Vietnamese, never quoted), this week's clusters."""
+    cur.execute(
+        """
+        SELECT q.question_id, q.week_start, q.kind, q.paraphrase_vi, q.n_comments, q.n_videos,
+               q.languages
+          FROM yti.viewer_questions q
+         WHERE q.week_start = (SELECT max(week_start) FROM yti.viewer_questions)
+           AND q.paraphrase_vi IS NOT NULL
+           AND (%(group)s IS NULL OR EXISTS (
+                SELECT 1 FROM yti.comment_labels cl
+                  JOIN yti.tracked_channels t ON t.channel_id = cl.channel_id
+                 WHERE cl.comment_id = ANY(q.comment_ids) AND t.group_code = %(group)s))
+         ORDER BY q.n_comments DESC, q.question_id
+         LIMIT %(lim)s
+        """,
+        {"group": group, "lim": max_rows + 1},
+    )
+    return finish("get_comment_insights", cur.fetchall(), max_rows=max_rows,
+                  source="yti.viewer_questions")
+
+
 # =============================================================================
 # Registry
 # =============================================================================
@@ -530,7 +605,26 @@ def build_tools(groups, *, derived_metrics: bool = False) -> list[Tool]:
                  ["video_id"]),
              get_video_history, "yti.video_observations"),
     ]
-    if derived_metrics:      # comparing channels is a derived metric (spec §8)
+    if derived_metrics:      # comparing channels and S1-S6 are derived metrics (spec §8)
+        tools += [
+            Tool("get_signals",
+                 "Latest video signals: S1 (views vs the channel's usual level at the same age "
+                 "and format; s1_label 'nổi trội' only on a full baseline), S2 (early views/hour "
+                 "vs the channel), S3 (like/view, comment/view), with the raw numbers.",
+                 obj({"group": G, "label": {"type": "string",
+                                            "enum": ["rất nổi trội", "nổi trội", "cần xem"]}}),
+                 get_signals, "yti.video_signals"),
+            Tool("get_topic_clusters",
+                 "This week's topic clusters across EN/ZH/VI channels: is_rising (S4), is_gap "
+                 "(S5: rising abroad, little in Vietnamese), is_saturated (S6), member videos.",
+                 obj({"group": G, "only": {"type": "string",
+                                           "enum": ["rising", "gap", "saturated"]}}),
+                 get_topic_clusters, "yti.topic_clusters"),
+            Tool("get_comment_insights",
+                 "What viewers are asking or requesting, restated in Vietnamese (never quoted), "
+                 "with how many comments and videos.",
+                 obj({"group": G}), get_comment_insights, "yti.viewer_questions"),
+        ]
         tools.append(Tool(
             "compare_channels",
             "Compare channels on one metric: median views per hour of rankable videos, "
