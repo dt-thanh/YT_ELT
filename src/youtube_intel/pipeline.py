@@ -47,6 +47,7 @@ from youtube_intel.youtube import (
     ConfigurationError,
     QuotaExceededError,
     YouTubeClient,
+    quota_alerts,
 )
 from youtube_intel import quality, repository as repo
 
@@ -95,6 +96,7 @@ class CollectionResult:
     outcomes: list[ChannelOutcome] = field(default_factory=list)
     total_quota_units: int = 0
     aborted_reason: str | None = None
+    quota_warnings: list[str] = field(default_factory=list)
 
     @property
     def succeeded(self) -> list[ChannelOutcome]:
@@ -270,12 +272,16 @@ def run_collection(
                                                scheduled_for=scheduled_for,
                                                started_at=started_at,
                                                code_version=git_version())
+                    # Our decisions per channel (active, language, pillar) - all
+                    # configured channels, inactive ones included (migration 009).
+                    repo.sync_registry(cur, cfg.channels)
 
     with YouTubeClient(secrets.youtube_api_key,
                        timeout=settings.request_timeout_seconds,
                        max_attempts=settings.max_attempts) as yt:
         for channel in channels:
             units_before = yt.meter.estimated_units
+            events_before = len(yt.meter.events)
             outcome = ChannelOutcome(channel_id=channel.channel_id, title=channel.title)
             result.outcomes.append(outcome)
 
@@ -317,6 +323,9 @@ def run_collection(
             finally:
                 # `finally` chạy cả khi nhánh except ở trên `break`.
                 outcome.quota_units = yt.meter.estimated_units - units_before
+                if not dry_run:
+                    _record_quota(db, yt.meter.events[events_before:],
+                                  collection_id=collection_id, channel_id=channel.channel_id)
                 if outcome.status == "failed" and not dry_run:
                     # Transaction của kênh đã rollback -> không có gì được công bố.
                     outcome.quality_status = "pending"
@@ -343,7 +352,24 @@ def run_collection(
                                                status=result.status,
                                                ended_at=result.ended_at,
                                                notes=result.aborted_reason)
+                    used = {b: v["units"] for b, v in repo.quota_today(cur).items()}
+        result.quota_warnings = quota_alerts(used, settings.quota)
+        for w in result.quota_warnings:
+            logger.warning("QUOTA: %s", w)
     return result
+
+
+def _record_quota(db, events, *, collection_id: str, channel_id: str) -> None:
+    """Best effort, own transaction: the channel's transaction may have rolled back,
+    but the API calls were made and the quota was spent."""
+    try:
+        with db.connect() as conn:
+            with conn:
+                with repo.dict_cursor(conn) as cur:
+                    repo.insert_quota_usage(cur, events, purpose="collect",
+                                            collection_id=collection_id, channel_id=channel_id)
+    except Exception as e:
+        logger.error("Không ghi được quota_usage cho kênh %s: %s", channel_id, e)
 
 
 def _run_one_channel(cfg, yt, store, db, channel: ChannelConfig,

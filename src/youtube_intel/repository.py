@@ -490,3 +490,57 @@ def dict_cursor(conn):
     vỡ code phía sau. Đây là lý do nên tránh 'SELECT *' kết hợp với chỉ số.
     """
     return conn.cursor(cursor_factory=RealDictCursor)
+
+
+# =============================================================================
+# REGISTRY + QUOTA (migration 009)
+# =============================================================================
+
+def sync_registry(cur, channels) -> None:
+    """Write what WE decide about each configured channel (group, active, language,
+    pillar, added_by) - never the API metadata. Inactive channels are synced too,
+    so the database stops listing them as enabled."""
+    rows = [(c.channel_id, c.group, c.source_url or None, c.enabled, c.language,
+             c.pillar, c.added_by) for c in channels]
+    if not rows:
+        return
+    execute_values(
+        cur,
+        """
+        INSERT INTO yti.tracked_channels
+            (channel_id, group_code, source_url, enabled, language, pillar, added_by)
+        VALUES %s
+        ON CONFLICT (channel_id) DO UPDATE SET
+            group_code = EXCLUDED.group_code,
+            source_url = COALESCE(EXCLUDED.source_url, yti.tracked_channels.source_url),
+            enabled    = EXCLUDED.enabled,
+            language   = EXCLUDED.language,
+            pillar     = EXCLUDED.pillar,
+            added_by   = EXCLUDED.added_by
+        """,
+        rows,
+    )
+
+
+def insert_quota_usage(cur, events, *, purpose: str, collection_id: str | None = None,
+                       channel_id: str | None = None) -> int:
+    """events: (endpoint, bucket, units) per call, from QuotaMeter.events."""
+    rows = [(bucket, endpoint, units, purpose, collection_id, channel_id)
+            for endpoint, bucket, units in events]
+    if rows:
+        execute_values(
+            cur,
+            """INSERT INTO yti.quota_usage (bucket, endpoint, units, purpose,
+                                            collection_id, channel_id) VALUES %s""",
+            rows,
+        )
+    return len(rows)
+
+
+def quota_today(cur) -> dict[str, dict]:
+    """{bucket: {calls, units}} for the current Pacific-time quota day."""
+    cur.execute(
+        """SELECT bucket, calls, units FROM yti.v_quota_daily
+            WHERE quota_day = (now() AT TIME ZONE 'America/Los_Angeles')::date"""
+    )
+    return {r["bucket"]: {"calls": r["calls"], "units": r["units"]} for r in cur.fetchall()}

@@ -1,0 +1,34 @@
+# =============================================================================
+# YT_ELT Studio - cấu hình studio (đặc tả mục 11). Đi vào git; không chứa secret.
+# Các khối khác (style guide, trần chi phí, định tuyến model) thêm ở các giai đoạn sau.
+# =============================================================================
+
+# Tìm kênh ỨNG VIÊN bằng `youtube-intel suggest-channels` (R-01). Mỗi câu = 1 lần gọi
+# search.list (bucket riêng, 100 lần/ngày). Kết quả chỉ là ĐỀ XUẤT trong proposals/;
+# người chốt danh sách rồi mới chép vào config/channels.yaml.
+# Mục tiêu đặc tả mục 5: tiếng Anh 25-35 kênh, tiếng Trung 15-25, tiếng Việt 15-25;
+# còn hoạt động trong 60 ngày; có cả kênh lớn lẫn kênh nhỏ.
+channel_search:
+  active_within_days: 60
+  results_per_query: 25
+  queries:
+    - {pillar: stoic, language: en, query: "stoicism"}
+    - {pillar: stoic, language: en, query: "stoic philosophy marcus aurelius"}
+    - {pillar: stoic, language: en, query: "seneca letters philosophy"}
+    - {pillar: stoic, language: zh, query: "斯多葛 哲學"}
+    - {pillar: stoic, language: vi, query: "chủ nghĩa khắc kỷ"}
+    - {pillar: stoic, language: vi, query: "triết lý khắc kỷ"}
+    - {pillar: east,  language: en, query: "tao te ching explained"}
+    - {pillar: east,  language: en, query: "zhuangzi philosophy"}
+    - {pillar: east,  language: en, query: "confucius analects"}
+    - {pillar: east,  language: zh, query: "道德經 解讀"}
+    - {pillar: east,  language: zh, query: "莊子 故事"}
+    - {pillar: east,  language: zh, query: "論語 智慧"}
+    - {pillar: east,  language: vi, query: "đạo đức kinh lão tử"}
+    - {pillar: east,  language: vi, query: "triết lý phương đông"}
+    - {pillar: fable, language: en, query: "aesop fables"}
+    - {pillar: fable, language: en, query: "fables and moral stories for adults"}
+    - {pillar: fable, language: zh, query: "寓言故事"}
+    - {pillar: fable, language: zh, query: "成語故事"}
+    - {pillar: fable, language: vi, query: "truyện ngụ ngôn"}
+    - {pillar: fable, language: vi, query: "truyện cổ tích việt nam"}

@@ -12,3 +12,6 @@ logs/
 
 # Tài liệu cá nhân (đặc tả, CV) - không đưa lên repo
 #*.docx
+
+# Đề xuất chứa dữ liệu API công khai (tiêu đề kênh...): R3 - không commit, xóa trong 30 ngày
+proposals/

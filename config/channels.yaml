@@ -129,6 +129,17 @@ project:
     min_similarity: 0.10
 
   # ---------------------------------------------------------------------------
+  # QUOTA YouTube Data API theo bucket (docs/policy_notes.md, câu 9). Mỗi lần gọi ghi
+  # vào yti.quota_usage; cảnh báo khi một bucket dùng quá alert_ratio hạn mức ngày.
+  # Ngày quota tính theo giờ Thái Bình Dương (reset nửa đêm PT).
+  # ---------------------------------------------------------------------------
+  quota:
+    default_daily_units: 10000   # mọi endpoint trừ hai cái dưới
+    search_daily_calls: 100      # search.list - chỉ dùng khi tìm kênh mới
+    upload_daily_calls: 100      # videos.insert (P7)
+    alert_ratio: 0.8
+
+  # ---------------------------------------------------------------------------
   # RETENTION - vòng đời dữ liệu.
   #
   # ⚠️ XÓA LÀ THAO TÁC KHÔNG HOÀN TÁC ĐƯỢC. Mọi con số ở đây phải có lý do,
@@ -159,6 +170,14 @@ project:
   approved_stats_retention_days: 1095
 
 # -----------------------------------------------------------------------------
+# KÊNH THEO DÕI (đặc tả mục 5). Mỗi kênh:
+#   language : en | zh | vi        - ngôn ngữ nội dung
+#   pillar   : stoic | east | fable - chuyên mục studio (bỏ trống = kênh cũ, ngoài 3 chuyên mục)
+#   group    : với kênh mới, ĐẶT BẰNG pillar; books_learning / kids_animation là nhóm cũ
+#   active   : false = không thu nữa (vẫn giữ để chặn reference_names)
+#   added_by : ai chốt thêm kênh (danh sách 60-90 kênh do NGƯỜI chốt; agent chỉ đề xuất
+#              qua `youtube-intel suggest-channels`)
+#
 # BỐN KÊNH PILOT
 # reference_names: tên thương hiệu/nhân vật của kênh - gợi ý nội dung KHÔNG được
 # dùng lại (validator chặn). Chỉ ghi tên ĐÃ THẤY trong dữ liệu thật; thấy thêm
@@ -173,7 +192,8 @@ channels:
     title: FightMediocrity
     source_url: https://www.youtube.com/channel/UCXLesGEfmyhxqOjoAqhRwhA
     verified_at: 2026-09-20
-    enabled: true
+    language: en
+    active: true
     reference_names: ['FightMediocrity']
 
   - id: UC-RKpEc4eE9PwJaupN91xYQ
@@ -181,7 +201,8 @@ channels:
     title: Sprouts
     source_url: https://www.youtube.com/@sprouts
     verified_at: 2026-09-20
-    enabled: true
+    language: en
+    active: true
     reference_names: ['Sprouts']
 
   - id: UC1s_pX5PgH7R6QtTn80cKtA
@@ -189,7 +210,9 @@ channels:
     title: Wolfoo Tiếng Việt - Hoạt Hình Thiếu Nhi Vui Nhộn
     source_url: https://www.youtube.com/@WolfooTiengViet
     verified_at: 2026-09-20
-    enabled: true
+    language: vi
+    # Spec §5: no longer collected; kept only so its names stay blocked (R5).
+    active: false
     reference_names: ['Wolfoo', 'Kasper']
 
   - id: UCxeoWTyTJUppaRU3v5zcolQ
@@ -197,7 +220,9 @@ channels:
     title: Heo Peppa Tiếng Việt - Chính Thức
     source_url: https://www.youtube.com/@HeoPeppaTiengVietChinhThuc
     verified_at: 2026-09-20
-    enabled: true
+    language: vi
+    # Spec §5: no longer collected; kept only so its names stay blocked (R5).
+    active: false
     reference_names: ['Peppa', 'Heo Peppa']
 
 # Nhóm hợp lệ. Khai báo ở đây để config.py validate được:
@@ -210,3 +235,6 @@ channels:
 groups:
   - books_learning
   - kids_animation
+  - stoic           # Khắc kỷ ứng dụng
+  - east            # Triết lý phương Đông
+  - fable           # Ngụ ngôn và truyện cổ

@@ -33,7 +33,7 @@ import argparse
 import json
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 from youtube_intel.config import ConfigError, load_config
 from youtube_intel import pipeline, repository as repo
@@ -609,6 +609,78 @@ def cmd_delete_channel_data(args) -> int:
     return 0
 
 
+def cmd_suggest_channels(args) -> int:
+    """Propose candidate channels (search.list). Never edits config/channels.yaml."""
+    from pathlib import Path
+    from youtube_intel.channel_search import suggest_channels, write_proposal
+    from youtube_intel.studio_config import load_studio_config
+    from youtube_intel.youtube import YouTubeClient
+
+    cfg = load_config(require=("youtube", "db"))
+    cs = load_studio_config().channel_search
+    queries = [q for q in cs.queries
+               if (not args.pillar or q.pillar == args.pillar)
+               and (not args.language or q.language == args.language)]
+    if args.max_searches:
+        queries = queries[:args.max_searches]
+    s = cfg.secrets
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+    with db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            used = repo.quota_today(cur).get("search", {}).get("calls", 0)
+    limit = cfg.settings.quota.search_daily_calls
+    if used + len(queries) > limit:
+        print(f"search bucket: {used} calls used today, {len(queries)} more would pass "
+              f"{limit}. Narrow with --pillar/--language/--max-searches.")
+        return 1
+
+    now = datetime.now(timezone.utc)
+    with YouTubeClient(s.youtube_api_key, timeout=cfg.settings.request_timeout_seconds,
+                       max_attempts=cfg.settings.max_attempts) as yt:
+        try:
+            cands = suggest_channels(yt, queries, results_per_query=cs.results_per_query,
+                                     active_within_days=cs.active_within_days,
+                                     known_ids={c.channel_id for c in cfg.channels}, now=now)
+        finally:
+            with db.connect() as conn:
+                with conn:
+                    with repo.dict_cursor(conn) as cur:
+                        repo.insert_quota_usage(cur, yt.meter.events, purpose="suggest_channels")
+        by_bucket = yt.meter.by_bucket()
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / f"channel_candidates-{now:%Y%m%dT%H%M%S}.yaml"
+    write_proposal(cands, path, generated_at=now, searches=len(queries))
+    print(f"{len(cands)} candidates ({sum(c['active'] for c in cands)} active in "
+          f"{cs.active_within_days} days) from {len(queries)} searches -> {path}")
+    print(f"quota used: {by_bucket}")
+    print("Review, pick the channels, copy them into config/channels.yaml. "
+          "The file holds API data (R3): delete it within 30 days.")
+    return 0
+
+
+def cmd_quota(args) -> int:
+    """YouTube quota used today, per bucket (Pacific-time day)."""
+    from youtube_intel.youtube import quota_alerts
+
+    cfg = load_config(require=("db",))
+    s, q = cfg.secrets, cfg.settings.quota
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+    with db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            today = repo.quota_today(cur)
+    for bucket in ("default", "search", "upload"):
+        u = today.get(bucket, {"calls": 0, "units": 0})
+        print(f"  {bucket:<8} {u['units']:>6} / {q.limit(bucket):<6} units ({u['calls']} calls)")
+    alerts = quota_alerts({b: v["units"] for b, v in today.items()}, q)
+    for a in alerts:
+        print(f"  ⚠️ {a}")
+    return 1 if alerts else 0
+
+
 def cmd_verify_channels(args) -> int:
     """Xác minh mọi channel_id trong config bằng API. ~1 unit/kênh."""
     from youtube_intel.youtube import YouTubeClient
@@ -729,6 +801,17 @@ def build_parser() -> argparse.ArgumentParser:
     dc.add_argument("channel_id")
     dc.add_argument("--apply", action="store_true", help="XÓA THẬT.")
     dc.set_defaults(func=cmd_delete_channel_data)
+
+    sc = sub.add_parser("suggest-channels",
+                        help="Đề xuất kênh ứng viên (search.list: bucket riêng 100 lần/ngày)")
+    sc.add_argument("--pillar", choices=["stoic", "east", "fable"])
+    sc.add_argument("--language", choices=["en", "zh", "vi"])
+    sc.add_argument("--max-searches", type=int, help="only the first N configured queries")
+    sc.add_argument("--out", default="proposals", help="git-ignored folder (R3: API data)")
+    sc.set_defaults(func=cmd_suggest_channels)
+
+    qu = sub.add_parser("quota", help="Quota YouTube đã dùng hôm nay theo bucket")
+    qu.set_defaults(func=cmd_quota)
 
     v = sub.add_parser("verify-channels", help="Xác minh channel_id bằng API (~1 unit/kênh)")
     v.set_defaults(func=cmd_verify_channels)

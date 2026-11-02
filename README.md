@@ -229,6 +229,8 @@ youtube-intel llm-stats [--days 7]                 # calls, tokens, cost, p50/p9
 youtube-intel retention [--apply]                  # dry-run by default; staging, R3, orphan, raw
 youtube-intel delete-channel-data UC... [--apply]  # R3: all API data of one channel, on request
 youtube-intel verify-channels                      # check channel IDs
+youtube-intel suggest-channels [--pillar P] [--language L]   # propose candidates (search.list), never edits config
+youtube-intel quota                                # YouTube quota used today per bucket (default/search/upload)
 ```
 
 ## Data model

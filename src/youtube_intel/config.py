@@ -69,6 +69,27 @@ class ChannelConfig:
     # thay vì tự đoán tên riêng từ tiêu đề: đoán thì báo nhầm/lọt lưới, khai thì
     # kiểm tra được và sửa được mà không đụng code.
     reference_names: tuple[str, ...] = ()
+    # Studio (spec §5, migration 009): source language, pillar, who added the channel.
+    language: str | None = None             # en | zh | vi
+    pillar: str | None = None               # stoic | east | fable (None = legacy channel)
+    added_by: str | None = None
+
+
+LANGUAGES = ("en", "zh", "vi")
+PILLARS = ("stoic", "east", "fable")
+
+
+@dataclass(frozen=True)
+class QuotaSettings:
+    """YouTube Data API daily limits per bucket (docs/policy_notes.md, quota)."""
+    default_daily_units: int = 10_000
+    search_daily_calls: int = 100
+    upload_daily_calls: int = 100
+    alert_ratio: float = 0.8                # warn when a bucket passes this share of its limit
+
+    def limit(self, bucket: str) -> int:
+        return {"default": self.default_daily_units, "search": self.search_daily_calls,
+                "upload": self.upload_daily_calls}[bucket]
 
 
 @dataclass(frozen=True)
@@ -139,6 +160,7 @@ class Settings:
     approved_stats_retention_days: int = APPROVED_STATS_MAX_DAYS
     assistant: AssistantSettings = AssistantSettings()
     rag: RagSettings = RagSettings()
+    quota: QuotaSettings = QuotaSettings()
 
     def slot_hours(self) -> tuple[int, ...]:
         """Các giờ trong ngày có mốc thu thập, theo report_timezone.
@@ -310,6 +332,7 @@ def _parse_settings(block, path: Path) -> Settings:
         approved_stats_retention_days=need("approved_stats_retention_days", int),
         assistant=_parse_assistant(block.get("assistant"), path),
         rag=_parse_rag(block.get("rag"), path),
+        quota=_parse_quota(block.get("quota"), path),
     )
 
     # Kiểm tra MIỀN GIÁ TRỊ, không chỉ kiểu.
@@ -428,6 +451,28 @@ def _parse_rag(block, path: Path) -> RagSettings:
     return cfg
 
 
+def _parse_quota(block, path: Path) -> QuotaSettings:
+    """project.quota: every key optional; defaults in QuotaSettings."""
+    if block is None:
+        return QuotaSettings()
+    if not isinstance(block, dict):
+        raise ConfigError(f"{path}: project.quota must be a mapping.")
+    fields = {f.name: f.type for f in dataclasses.fields(QuotaSettings)}
+    unknown = set(block) - set(fields)
+    if unknown:
+        raise ConfigError(f"{path}: unknown key(s) in project.quota: {sorted(unknown)}")
+    try:
+        cfg = QuotaSettings(**{k: (float(v) if fields[k] == "float" else int(v))
+                               for k, v in block.items()})
+    except (TypeError, ValueError) as e:
+        raise ConfigError(f"{path}: project.quota has a wrong type: {e}") from e
+    if min(cfg.default_daily_units, cfg.search_daily_calls, cfg.upload_daily_calls) < 1:
+        raise ConfigError(f"{path}: project.quota limits must be >= 1")
+    if not 0 < cfg.alert_ratio <= 1:
+        raise ConfigError(f"{path}: project.quota.alert_ratio must be in (0, 1]")
+    return cfg
+
+
 def _parse_channels(block, groups_block, path: Path) -> tuple[ChannelConfig, ...]:
     if not isinstance(block, list) or not block:
         raise ConfigError(f"{path}: 'channels' phải là danh sách không rỗng.")
@@ -463,16 +508,31 @@ def _parse_channels(block, groups_block, path: Path) -> tuple[ChannelConfig, ...
                 f"{where}: group {group!r} không nằm trong {sorted(valid_groups)}."
             )
 
+        # Spec §5 calls the switch `active`; `enabled` is the older name. One only.
+        if "active" in item and "enabled" in item:
+            raise ConfigError(f"{where}: use `active` or `enabled`, not both.")
+        active = bool(item.get("active", item.get("enabled", True)))
+
+        language = item.get("language")
+        if language is not None and language not in LANGUAGES:
+            raise ConfigError(f"{where}: language {language!r} must be one of {LANGUAGES}.")
+        pillar = item.get("pillar")
+        if pillar is not None and pillar not in PILLARS:
+            raise ConfigError(f"{where}: pillar {pillar!r} must be one of {PILLARS}.")
+
         channels.append(
             ChannelConfig(
                 channel_id=channel_id,
                 group=group,
                 title=str(item.get("title", "")).strip(),
                 source_url=str(item.get("source_url", "")).strip(),
-                enabled=bool(item.get("enabled", True)),
+                enabled=active,
                 reference_names=tuple(
                     str(n).strip() for n in (item.get("reference_names") or []) if str(n).strip()
                 ),
+                language=language,
+                pillar=pillar,
+                added_by=(str(item["added_by"]).strip() if item.get("added_by") else None),
             )
         )
 

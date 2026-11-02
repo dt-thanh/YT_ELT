@@ -47,9 +47,17 @@ MAX_RESULTS = 50
 # Cảnh báo kêu sai quá nhiều còn tệ hơn không có cảnh báo.
 MISSING_TOLERANCE = 0.05
 
-# Bảng giá quota (units/request) - nguồn: developers.google.com/youtube/v3/determine_quota_cost
-# search.list giá 100 -> ĐẮT GẤP 100 LẦN, tuyệt đối tránh.
-QUOTA_COST = {"channels": 1, "playlistItems": 1, "videos": 1, "search": 100}
+# Quota (developers.google.com/youtube/data/determine_quota_cost, đọc 2026-10-31,
+# docs/policy_notes.md): BA bucket riêng. search.list và videos.insert mỗi cái có
+# bucket riêng 100 lần gọi/ngày, 1 unit/lần; mọi endpoint còn lại chung 10.000
+# unit/ngày. (Trước đây code ghi search = 100 unit trong bucket chung - sai.)
+QUOTA_COST = {"channels": 1, "playlistItems": 1, "videos": 1, "search": 1,
+              "commentThreads": 1, "videos.insert": 1}
+QUOTA_BUCKET = {"search": "search", "videos.insert": "upload"}       # còn lại: "default"
+
+
+def quota_bucket(endpoint: str) -> str:
+    return QUOTA_BUCKET.get(endpoint, "default")
 
 
 # =============================================================================
@@ -111,21 +119,45 @@ class QuotaMeter:
     và muốn quản thì phải ĐO. Con số này được ghi vào channel_batches.request_count.
     """
     request_count: int = 0
-    estimated_units: int = 0
+    estimated_units: int = 0               # bucket "default" (10.000/ngày)
     by_endpoint: dict[str, int] = field(default_factory=dict)
+    # One (endpoint, bucket, units) per call, in order; written to yti.quota_usage.
+    events: list[tuple[str, str, int]] = field(default_factory=list)
 
     def charge(self, endpoint: str) -> None:
         cost = QUOTA_COST.get(endpoint, 1)
+        bucket = quota_bucket(endpoint)
         self.request_count += 1
-        self.estimated_units += cost
+        if bucket == "default":
+            self.estimated_units += cost
         self.by_endpoint[endpoint] = self.by_endpoint.get(endpoint, 0) + cost
+        self.events.append((endpoint, bucket, cost))
+
+    def by_bucket(self) -> dict[str, int]:
+        out: dict[str, int] = {}
+        for _, bucket, units in self.events:
+            out[bucket] = out.get(bucket, 0) + units
+        return out
 
     def snapshot(self) -> dict:
         return {
             "request_count": self.request_count,
             "estimated_units": self.estimated_units,
             "by_endpoint": dict(self.by_endpoint),
+            "by_bucket": self.by_bucket(),
         }
+
+
+def quota_alerts(used: dict[str, int], quota) -> list[str]:
+    """used: {bucket: units today}; quota: config.QuotaSettings. A message per bucket
+    past alert_ratio of its daily limit (spec §8.4: warn above 80 %)."""
+    out = []
+    for bucket in ("default", "search", "upload"):
+        units, limit = used.get(bucket, 0), quota.limit(bucket)
+        if units > limit * quota.alert_ratio:
+            out.append(f"quota bucket {bucket}: {units}/{limit} today "
+                       f"(> {quota.alert_ratio:.0%})")
+    return out
 
 
 # =============================================================================
@@ -289,6 +321,47 @@ class YouTubeClient:
             description=snippet.get("description", ""),
             video_count=_to_int(stats.get("videoCount")),
         )
+
+    # ---- finding NEW channels (spec §5: only when looking for candidates) ----
+
+    def search_channels(self, query: str, *, language: str | None = None,
+                        max_results: int = MAX_RESULTS) -> list[str]:
+        """Channel ids matching a query. search.list: its own bucket, 100 calls/day."""
+        params = {"part": "snippet", "type": "channel", "q": query,
+                  "maxResults": min(max_results, MAX_RESULTS)}
+        if language:
+            params["relevanceLanguage"] = language
+        data = self._get("search", params)
+        return list(dict.fromkeys(
+            it["id"]["channelId"] for it in data.get("items", [])
+            if it.get("id", {}).get("channelId")))
+
+    def fetch_channels(self, channel_ids) -> list[dict]:
+        """Public facts about up to 50 channels per call (1 unit per call)."""
+        out = []
+        for batch in _chunks(list(channel_ids), MAX_RESULTS):
+            data = self._get("channels", {"part": "snippet,contentDetails,statistics",
+                                          "id": ",".join(batch), "maxResults": MAX_RESULTS})
+            for it in data.get("items", []):
+                sn, st = it.get("snippet", {}), it.get("statistics", {})
+                out.append({
+                    "channel_id": it["id"], "title": sn.get("title", ""),
+                    "country": sn.get("country"),
+                    "default_language": sn.get("defaultLanguage"),
+                    "subscribers": None if st.get("hiddenSubscriberCount")
+                    else _to_int(st.get("subscriberCount")),
+                    "videos": _to_int(st.get("videoCount")),
+                    "uploads_playlist_id": it.get("contentDetails", {})
+                    .get("relatedPlaylists", {}).get("uploads"),
+                })
+        return out
+
+    def latest_upload_at(self, playlist_id: str) -> str | None:
+        """Publish time of the newest video in an uploads playlist (1 unit)."""
+        data = self._get("playlistItems", {"part": "contentDetails", "maxResults": 1,
+                                           "playlistId": playlist_id})
+        items = data.get("items") or []
+        return items[0].get("contentDetails", {}).get("videoPublishedAt") if items else None
 
     def discover_video_ids(
         self, playlist_id: str, *, limit: int = 50, page_limit: int = 2
