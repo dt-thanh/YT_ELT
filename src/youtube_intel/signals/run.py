@@ -138,3 +138,82 @@ def run_signals(cfg, db, signal_cfg, *, now: datetime | None = None) -> dict:
     logger.info("signals: %d videos written, labels %s", n, dict(labels))
     return {"videos": n, "with_s1": sum(1 for r in rows if r.s1),
             "with_s2": sum(1 for r in rows if r.s2), "labels": dict(labels)}
+
+
+# =============================================================================
+# Weekly topic clusters and S4-S6 (R-03)
+# =============================================================================
+
+def load_topic_videos(cur, *, window_days: int, text_chars: int, now: datetime):
+    """Videos of active channels published in the window, with their latest S1."""
+    from youtube_intel.signals.clustering import TopicVideo, video_text
+
+    cur.execute(
+        """
+        SELECT v.video_id, v.channel_id, t.language, v.published_at, v.title, v.description,
+               s.s1, s.baseline_approx, v.fetched_at
+          FROM yti.videos_current v
+          JOIN yti.tracked_channels t USING (channel_id)
+          LEFT JOIN LATERAL (SELECT s1, baseline_approx FROM yti.video_signals vs
+                              WHERE vs.video_id = v.video_id
+                              ORDER BY signal_date DESC LIMIT 1) s ON TRUE
+         WHERE t.enabled AND v.published_at >= %s
+         ORDER BY v.published_at
+        """,
+        (now - timedelta(days=window_days),),
+    )
+    rows = cur.fetchall()
+    videos = [TopicVideo(r["video_id"], r["channel_id"], r["language"], r["published_at"],
+                         video_text(r["title"], r["description"], text_chars),
+                         float(r["s1"]) if r["s1"] is not None else None, r["baseline_approx"])
+              for r in rows]
+    oldest_fetch = min((r["fetched_at"] for r in rows), default=now)
+    return videos, oldest_fetch
+
+
+def write_clusters(cur, clusters, *, week_start: date, fetched_at: datetime) -> int:
+    """Replace the week's clusters (idempotent re-run). Labels stay NULL: naming needs
+    an LLM, which is not called before the owner allows API spending."""
+    import json
+
+    cur.execute("DELETE FROM yti.topic_clusters WHERE week_start = %s", (week_start,))
+    for c in clusters:
+        cur.execute(
+            """INSERT INTO yti.topic_clusters (week_start, cluster_key, n_videos, n_channels,
+                   languages, is_rising, is_gap, is_saturated, evidence, fetched_at)
+               VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s) RETURNING cluster_id""",
+            (week_start, c.key, len(c.members), c.n_channels, c.languages, c.is_rising,
+             c.is_gap, c.is_saturated, json.dumps(c.evidence), fetched_at))
+        cid = cur.fetchone()["cluster_id"]
+        execute_values(cur, """INSERT INTO yti.topic_cluster_members
+                                   (cluster_id, video_id, channel_id, language) VALUES %s""",
+                       [(cid, m.video_id, m.channel_id, m.language) for m in c.members])
+    return len(clusters)
+
+
+def run_topics(cfg, db, topic_cfg, embedder, *, now: datetime | None = None,
+               pairs=None) -> dict:
+    """Cluster the window, flag S4-S6, store the week. Raises with the flag off."""
+    from youtube_intel import repository as repo
+    from youtube_intel.signals.clustering import cluster_labels, pair_agreement
+    from youtube_intel.signals.gaps import assess
+
+    require_derived_metrics(cfg.settings)
+    now = now or datetime.now(timezone.utc)
+    week_start = (now - timedelta(days=now.weekday())).date()
+    with db.connect() as conn:
+        with conn:
+            with repo.dict_cursor(conn) as cur:
+                videos, fetched = load_topic_videos(cur, window_days=topic_cfg.window_days,
+                                                    text_chars=topic_cfg.text_chars, now=now)
+                labels = cluster_labels(videos, embedder,
+                                        min_cluster_size=topic_cfg.min_cluster_size)
+                clusters = assess(labels, videos, now, topic_cfg)
+                write_clusters(cur, clusters, week_start=week_start, fetched_at=fetched)
+    out = {"week_start": week_start.isoformat(), "videos": len(videos),
+           "clusters": len(clusters), "noise": sum(1 for k in labels.values() if k == -1),
+           "rising": sum(c.is_rising for c in clusters), "gap": sum(c.is_gap for c in clusters),
+           "saturated": sum(c.is_saturated for c in clusters), "embedding_model": embedder.name}
+    if pairs is not None:
+        out["pairs"] = pair_agreement(labels, pairs)
+    return out

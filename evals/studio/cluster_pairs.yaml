@@ -1,0 +1,8 @@
+# R-03 acceptance: 20 pairs of videos with the SAME idea in DIFFERENT languages
+# (en/zh/vi), chosen by a person from tracked channels. Target: >= 16 pairs in the
+# same cluster. Run:  youtube-intel topics --pairs evals/studio/cluster_pairs.yaml
+#
+# Empty until the 60-90 channels are chosen and collected (R-01) and the flag is on.
+# Video ids only - no titles (R3).
+pairs: []
+#  - {a: <video_id en>, b: <video_id vi>, note: "Marcus Aurelius on anger"}

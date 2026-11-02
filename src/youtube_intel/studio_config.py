@@ -46,9 +46,24 @@ class SignalSettings:
 
 
 @dataclass(frozen=True)
+class TopicSettings:
+    """Spec §8.2: weekly clusters and S4-S6 (initial guesses, calibrated in A-03)."""
+    embedding_model: str = "BAAI/bge-m3"
+    text_chars: int = 300
+    window_days: int = 90
+    min_cluster_size: int = 3
+    rising_days: int = 14
+    rising_min_channels: int = 3
+    rising_min_s1: float = 2.0
+    gap_max_vi_videos: int = 2
+    saturation_min_vi_videos: int = 4
+
+
+@dataclass(frozen=True)
 class StudioConfig:
     channel_search: ChannelSearch
     signals: SignalSettings = SignalSettings()
+    topics: TopicSettings = TopicSettings()
 
 
 def load_studio_config(path: Path | str | None = None) -> StudioConfig:
@@ -57,7 +72,8 @@ def load_studio_config(path: Path | str | None = None) -> StudioConfig:
         raise ConfigError(f"Không tìm thấy {path}")
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return StudioConfig(channel_search=_channel_search(raw.get("channel_search"), path),
-                        signals=_signals(raw.get("signals"), path))
+                        signals=_signals(raw.get("signals"), path),
+                        topics=_topics(raw.get("topics"), path))
 
 
 def _channel_search(block, path: Path) -> ChannelSearch:
@@ -110,4 +126,20 @@ def _signals(block, path: Path) -> SignalSettings:
             raise ConfigError(f"{path}: signals.{name} phải là [thấp, cao]")
     if not cfg.s1_ages_days or sorted(cfg.s1_ages_days) != list(cfg.s1_ages_days):
         raise ConfigError(f"{path}: signals.s1_ages_days phải tăng dần, không rỗng")
+    return cfg
+
+
+def _topics(block, path: Path) -> TopicSettings:
+    if block is None:
+        return TopicSettings()
+    if not isinstance(block, dict) or set(block) - set(TopicSettings.__dataclass_fields__):
+        raise ConfigError(f"{path}: topics phải là mapping với khóa của TopicSettings")
+    try:
+        cfg = TopicSettings(**block)
+    except TypeError as e:
+        raise ConfigError(f"{path}: topics sai: {e}") from e
+    if cfg.min_cluster_size < 2 or cfg.rising_min_channels < 1 or cfg.rising_days < 1:
+        raise ConfigError(f"{path}: topics: min_cluster_size >= 2, rising_* >= 1")
+    if cfg.rising_days > cfg.window_days:
+        raise ConfigError(f"{path}: topics.rising_days phải <= window_days")
     return cfg

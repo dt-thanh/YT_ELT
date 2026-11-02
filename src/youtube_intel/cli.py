@@ -680,6 +680,38 @@ def cmd_signals(args) -> int:
     return 0
 
 
+def cmd_topics(args) -> int:
+    """Weekly topic clusters and S4-S6 (only with derived_metrics_enabled, R2)."""
+    from pathlib import Path
+    import yaml
+    from youtube_intel.signals.clustering import BgeM3Embedder
+    from youtube_intel.signals.run import DerivedMetricsDisabled, require_derived_metrics, run_topics
+    from youtube_intel.studio_config import load_studio_config
+
+    cfg = load_config(require=("db",))
+    try:
+        require_derived_metrics(cfg.settings)        # before loading a 2 GB model
+    except DerivedMetricsDisabled as e:
+        print(f"  {e}")
+        return 0
+    tcfg = load_studio_config().topics
+    pairs = None
+    if args.pairs:
+        doc = yaml.safe_load(Path(args.pairs).read_text(encoding="utf-8")) or {}
+        pairs = [(p["a"], p["b"]) for p in doc.get("pairs") or []]
+    s = cfg.secrets
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+    out = run_topics(cfg, db, tcfg, BgeM3Embedder(tcfg.embedding_model), pairs=pairs)
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+    if pairs is not None:
+        path = Path(args.out) / f"topics-pairs-{out['week_start']}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"  Saved: {path}")
+    return 0
+
+
 def cmd_quota(args) -> int:
     """YouTube quota used today, per bucket (Pacific-time day)."""
     from youtube_intel.youtube import quota_alerts
@@ -831,6 +863,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sg = sub.add_parser("signals", help="Tín hiệu S1-S3 (chỉ khi derived_metrics_enabled)")
     sg.set_defaults(func=cmd_signals)
+
+    tp = sub.add_parser("topics", help="Cụm chủ đề tuần + S4-S6 (chỉ khi derived_metrics_enabled)")
+    tp.add_argument("--pairs", help="YAML of same-idea video pairs in different languages (R-03 eval)")
+    tp.add_argument("--out", default="evals/results")
+    tp.set_defaults(func=cmd_topics)
 
     qu = sub.add_parser("quota", help="Quota YouTube đã dùng hôm nay theo bucket")
     qu.set_defaults(func=cmd_quota)

@@ -44,7 +44,7 @@ flowchart LR
     PUB -. every 6h, independent .-> SODA[Soda monitor]
 ```
 
-Six Airflow DAGs, all thin wrappers around a CLI:
+Seven Airflow DAGs, all thin wrappers around a CLI:
 
 - **`yt_collect`** — daily at 21:00 (Asia/Ho_Chi_Minh), one task per channel in parallel. A final
   check task turns the run red if any channel fails; the Dataset event still fires for the rest.
@@ -55,6 +55,8 @@ Six Airflow DAGs, all thin wrappers around a CLI:
   titles/descriptions for search, and an embedding failure cannot block the brief.
 - **`yt_signals`** — on the same Dataset: video signals S1–S3 (spec §8.1); a no-op while
   `derived_metrics_enabled` is false.
+- **`yt_topics`** — weekly: bge-m3 + HDBSCAN topic clusters and S4–S6 (spec §8.2); a no-op
+  while `derived_metrics_enabled` is false. Needs `.[embeddings]` (torch) in the image.
 - **`yt_retention`** — daily at 20:30, on its own clock: deletes YouTube API data older than the
   R3 limits (below), so the 30-day rule holds even on days nothing is collected.
 
@@ -234,6 +236,7 @@ youtube-intel verify-channels                      # check channel IDs
 youtube-intel suggest-channels [--pillar P] [--language L]   # propose candidates (search.list), never edits config
 youtube-intel quota                                # YouTube quota used today per bucket (default/search/upload)
 youtube-intel signals                              # S1-S3 (only with derived_metrics_enabled)
+youtube-intel topics [--pairs FILE]                # weekly clusters + S4-S6 (same flag); --pairs scores R-03
 ```
 
 ## Data model

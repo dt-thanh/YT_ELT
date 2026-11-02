@@ -47,3 +47,17 @@ signals:
   s1_very_outstanding: 5.0     # "rất nổi trội"
   s2_window_hours: [24, 72]    # tốc độ trong 24-72 giờ đầu
   s2_gap_hours: [18, 30]       # hai quan sát cách nhau 18-30 giờ (như v_video_growth)
+
+# Cụm chủ đề và S4-S6 (đặc tả mục 8.2, R-03). CHỈ khi derived_metrics_enabled = true.
+# ⚠️ Developer Policies III.E.2 chỉ cho gộp dữ liệu của các kênh CÙNG chủ sở hữu nội dung;
+# S4 đếm số kênh KHÁC nhau trong một cụm - xem docs/policy_notes.md trước khi bật.
+topics:
+  embedding_model: BAAI/bge-m3   # đa ngôn ngữ EN/ZH/VI, chạy cục bộ (không tốn API)
+  text_chars: 300                # tiêu đề + đầu mô tả
+  window_days: 90                # video đưa vào gom cụm
+  min_cluster_size: 3            # HDBSCAN
+  rising_days: 14                # S4: trong 14 ngày...
+  rising_min_channels: 3         # ...ít nhất 3 kênh khác nhau...
+  rising_min_s1: 2.0             # ...mỗi kênh >= 1 video S1 >= 2 với baseline đầy đủ
+  gap_max_vi_videos: 2           # S5: cụm đang lên ở EN/ZH, < 2 video tiếng Việt trong 90 ngày
+  saturation_min_vi_videos: 4    # S6: nhiều video tiếng Việt mới mà S1 trung vị giảm dần
