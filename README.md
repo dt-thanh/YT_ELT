@@ -13,7 +13,7 @@ Streamlit · OpenAI (tool calling, embeddings)
 | Channels tracked | 4 (2 groups: `books_learning`, `kids_animation`) |
 | Scope | 50 most recent videos per channel (~200 videos), one snapshot per day |
 | Quota per run | 12 units of YouTube's 10,000/day |
-| Tests | 421 (382 unit, 8 DAG, 31 integration) |
+| Tests | 509 (458 unit, 8 DAG, 43 integration) |
 | Brief prompt eval | v1 13/20 → v2 17/20 → **v3 20/20** on 20 synthetic cases |
 | Assistant eval (2026-10-31, prompt a1, gpt-4o-mini) | derived metrics on: dev 16/32, holdout 17/39 runs · off: dev 11/27, holdout 17/36 runs · injection resisted 0/3 — see `evals/results/` |
 | RAG eval (2026-10-31, 21 labeled + 3 empty queries) | hybrid recall@5 0.501, MRR@5 0.651 · vector-only 0.636 / 0.758 · empty queries recognised 0/3 — see `evals/results/` |
@@ -280,9 +280,9 @@ erDiagram
 
 ```bash
 pip install -e ".[dev,llm,dashboard]"
-pytest -m "not integration"          # 382 unit tests, no Docker, no network, ~10 s
+pytest -m "not integration"          # 458 unit tests, no Docker, no network, ~12 s
 
-docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 421
+docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 509
 ```
 
 CI runs unit tests, then brings up the full stack with migrations from an empty database (run
@@ -332,7 +332,7 @@ its backlog (section 14), one commit per item ID:
 | Phase | What | Status |
 |---|---|---|
 | P0 | Close the current system: grounding fixes G-01/G-02, `derived_metrics_enabled` wired, live assistant eval, RAG labels + calibration, R3 retention, this section | done 2026-10-31 |
-| P1 | Research: 60–90 channels in EN/ZH/VI, signals S1–S6 (only with the flag on), Research and Report agents | — |
+| P1 | Research: 60–90 channels in EN/ZH/VI, signals S1–S6 (only with the flag on), Research and Report agents | code done 2026-11-02; waiting for the channel list, labels and live LLM runs |
 | P2 | Canon: public-domain originals (Marcus Aurelius, Seneca, Epictetus, Lão Tử, Trang Tử, Luận Ngữ, Tôn Tử, Aesop, La Fontaine) with exact citations | — |
 | P3 | Writer and Checker agents; citations checked by code, translations judged by back-translation | — |
 | P4 | Production with FFmpeg: TTS, still images with slow motion, a short AI intro clip, subtitles | — |
