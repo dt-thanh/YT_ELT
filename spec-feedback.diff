@@ -1,0 +1,152 @@
+--- truoc
++++ sau
+@@ -16 +16 @@
+-| D4 | Tín hiệu | View, like, số bình luận, tốc độ view, và phân tích nội dung bình luận |
++| D4 | Tín hiệu | Chế độ cơ bản: view, like, số bình luận, mức tăng view của từng video. Tín hiệu nâng cao, gom cụm chủ đề và phân tích bình luận chỉ bật khi derived\_metrics\_enabled = true sau khi được YouTube chấp thuận (R2) |
+@@ -79 +79 @@
+-| Thời gian người làm mỗi video | dưới 60 phút | Thời điểm tại 3 điểm duyệt |
++| Thời gian người làm mỗi video | dưới 60 phút | Tổng human\_effort\_minutes của job (không tính thời gian chờ giữa các điểm duyệt) |
+@@ -93,2 +93,2 @@
+-| R2 | Chính sách YouTube API: không dùng chỉ số tự tính thay cho số liệu API, không xếp hạng hay "gamify" view giữa các kênh, chỉ dùng phép toán đơn giản ([Developer Policies Guide](https://developers.google.cn/youtube/terms/developer-policies-guide?hl=en)) | Thu hồi quyền API | Tín hiệu chỉ dùng nội bộ cho người vận hành; không xuất bảng xếp hạng kênh ra ngoài; mọi chỉ số là tỉ lệ hoặc hiệu đơn giản trên số thô |
+-| R3 | Lưu trữ dữ liệu API: không lưu vô thời hạn; xóa trong 30 ngày khi được yêu cầu | Vi phạm điều khoản | retention.py chạy theo lịch; thời hạn lưu cấu hình được; kiểm lại điều khoản gốc trước khi chốt số ngày |
++| R2 | Derived metrics: nếu chưa được chấp thuận, không được dùng API Data để tạo metric hay dữ liệu mới, cũng không được thay số liệu API bằng số tự tính (Developer Policies III.E.4.h). Điểm số và tỉ lệ tự tính, gắn tag hay phân loại nội dung, phân tích cảm xúc bình luận, xếp hạng giữa các kênh chỉ được phép khi dự án chấp nhận phần sửa đổi chính sách với use case Analytics & Reporting (III.L) ([Developer Policies](https://developers.google.com/youtube/terms/developer-policies), [Derived Metrics Policy](https://developers.google.com/youtube/terms/derived-metrics-policy)) | Giảm quota hoặc thu hồi quyền API | Cờ derived\_metrics\_enabled (mặc định false) chặn mọi tính năng nâng cao liệt kê ở mục 8. Khi cờ tắt chỉ còn số thô, sắp xếp, lọc và mức tăng view của từng video, luôn hiển thị cạnh số thô và ghi rõ "tính độc lập". Đây là cách phân ranh thận trọng, không phải tư vấn pháp lý; trường hợp chưa rõ thì xếp vào nâng cao |
++| R3 | Lưu trữ (III.E.4): Non-Authorized Data (dữ liệu công khai lấy bằng API key, gồm dữ liệu mọi kênh đang theo dõi) chỉ được lưu tạm và tối đa 30 ngày; thống kê Non-Authorized cũng không quá 30 ngày. Authorized Data (kênh của mình, qua OAuth): thống kê và Analytics lưu theo nhu cầu nhưng phải kiểm lại quyền mỗi 30 ngày; dữ liệu Authorized khác thì xóa hoặc làm mới sau 30 ngày. Người dùng yêu cầu xóa thì xóa trong 7 ngày | Vi phạm điều khoản | Bảng lưu trữ theo lớp dữ liệu ngay dưới; retention.py xóa theo fetched\_at và data\_class |
+@@ -99,0 +100,13 @@
++
++**Quy tắc lưu trữ theo lớp dữ liệu (R3).** Mọi bảng và file chứa API Data có cột fetched\_at và data\_class. Mặc định là không lưu dài hạn thống kê công khai khi chưa có quyền.
++
++| Lớp dữ liệu | Ví dụ | Cờ tắt (mặc định) | Cờ bật, đã được chấp thuận |
++| --- | --- | --- | --- |
++| Snapshot thô | JSON API lưu trên MinIO | Tối đa 30 ngày | Tối đa 30 ngày (chứa cả tiêu đề, mô tả); phần thống kê được tách sang bảng thống kê |
++| Thống kê Non-Authorized | view, like, số bình luận, số subscriber của kênh đang theo dõi | Tối đa 30 ngày, sau đó xóa hoặc làm mới | Tối đa 36 tháng |
++| Metadata và văn bản | tiêu đề, mô tả, tên kênh, văn bản bình luận | Tối đa 30 ngày, sau đó xóa hoặc làm mới | Vẫn tối đa 30 ngày |
++| Dữ liệu suy ra | S1–S6, cụm chủ đề, nhãn và cảm xúc bình luận, embedding | Không tạo; embedding phục vụ tìm kiếm hiện có bị xóa cùng văn bản gốc | Kết quả dạng số hoặc nhãn: tối đa 36 tháng. Embedding, tóm tắt, câu diễn đạt lại từ văn bản gốc: theo hạn của văn bản gốc (30 ngày) |
++| Dữ liệu kênh của mình (Authorized) | Analytics, retention, thống kê video của mình | Lưu theo nhu cầu; kiểm lại quyền OAuth mỗi 30 ngày; dữ liệu Authorized khác 30 ngày | Như cột bên trái |
++| Dữ liệu không đến từ API | canon, kịch bản, media, approvals, chi phí, publications | Không giới hạn | Không giới hạn |
++
++Hệ quả cho thiết kế: khi cờ tắt, mọi so sánh theo thời gian chỉ dùng dữ liệu trong 30 ngày gần nhất. Nguồn: [Developer Policies](https://developers.google.com/youtube/terms/developer-policies) (III.E.4), [Derived Metrics Policy](https://developers.google.com/youtube/terms/derived-metrics-policy) (mục lưu trữ).
+@@ -170 +183 @@
+-Tiêu chí chọn kênh: còn hoạt động trong 60 ngày, đúng một trong 3 chuyên mục, có cả kênh lớn lẫn kênh nhỏ (kênh nhỏ cho tín hiệu "vượt mức thường" rõ hơn). Danh sách kênh do người chốt; agent chỉ đề xuất ứng viên. Lưu ý quota: search.list tốn 100 đơn vị mỗi lần gọi, nên chỉ dùng khi tìm kênh mới, không dùng trong thu thập hằng ngày.
++Tiêu chí chọn kênh: còn hoạt động trong 60 ngày, đúng một trong 3 chuyên mục, có cả kênh lớn lẫn kênh nhỏ (kênh nhỏ cho tín hiệu "vượt mức thường" rõ hơn). Danh sách kênh do người chốt; agent chỉ đề xuất ứng viên. Lưu ý quota: search.list có bucket quota riêng, mặc định 100 lần gọi/ngày, mỗi lần 1 đơn vị (mục 8.4). Chỉ dùng khi tìm kênh mới, không dùng trong thu thập hằng ngày.
+@@ -201 +214 @@
+-- **Trạng thái job:** planned → researching → awaiting\_topic\_approval → writing → checking → awaiting\_script\_approval → producing → qc → awaiting\_final\_approval → ready\_to\_publish → published → analyzed. Nhánh rejected và failed từ mọi trạng thái.
++- **Trạng thái job:** planned → researching → awaiting\_topic\_approval → writing → checking → awaiting\_script\_approval → producing → qc → awaiting\_final\_approval → ready\_to\_publish → published (khi publications đã có youtube\_video\_id, nhập tay hoặc từ P7) → analyzed. Nhánh rejected và failed từ mọi trạng thái.
+@@ -208 +221 @@
+-- **Ràng buộc:** mọi con số đi qua grounding đã sửa G-01, G-02; không số nào không có trong kết quả tool; không xếp hạng kênh.
++- **Ràng buộc:** mọi con số đi qua grounding đã sửa G-01, G-02; không số nào không có trong kết quả tool; khi derived\_metrics\_enabled = false, brief chỉ dùng số thô, mức tăng view của từng video và link video để người tự đọc; các trường cần tín hiệu nâng cao (ngôn ngữ đã lên, mức bão hòa, câu hỏi từ bình luận) để trống.
+@@ -212 +225 @@
+-- **Bản tin thị trường hằng ngày:** chủ đề mới nổi, video vượt mức thường, khoảng trống EN/ZH so với VI, câu hỏi nổi bật trong bình luận.
++- **Bản tin thị trường hằng ngày:** chủ đề mới nổi, video vượt mức thường, khoảng trống EN/ZH so với VI, câu hỏi nổi bật trong bình luận (các mục này cần cờ bật). Khi cờ tắt, bản tin chỉ gồm video mới và mức tăng view theo số thô của từng kênh.
+@@ -235 +248 @@
+-| Nguồn | Mọi citation khớp passage (so khớp chuẩn hóa, không dùng LLM) | Code |
++| Nguồn | Citation chính xác: đoạn trích bằng ngôn ngữ gốc khớp passage nguồn sau chuẩn hóa (không dùng LLM). Fail thì chặn job | Code |
+@@ -236,0 +250 @@
++| Bản dịch | Bản dịch tiếng Việt giữ đúng nghĩa đoạn gốc: dịch ngược + LLM-judge, ra điểm và nhận xét, không so khớp chính xác. Kết quả ghi riêng với kiểm tra citation; dưới ngưỡng thì gắn cảnh báo cho người duyệt. Người vẫn duyệt bản dịch ở bước kịch bản | LLM-judge |
+@@ -245 +259 @@
+-- Chạy sau khi video đăng 7 ngày và 28 ngày.
++- Chạy sau khi video đăng 7 ngày và 28 ngày. Video đăng thủ công được nhận biết qua youtube\_video\_id mà người nhập vào publications, nên Analyst chạy được trước khi có P7.
+@@ -252 +266,15 @@
+-Tín hiệu được tính bằng SQL và Python xác định trong DAG, không do LLM tính. LLM chỉ đọc kết quả. Mọi tín hiệu là tỉ lệ hoặc hiệu đơn giản trên số thô của API, luôn lưu kèm số thô, và chỉ dùng nội bộ (R2). Ngưỡng ban đầu là giá trị đoán, sẽ hiệu chỉnh bằng dữ liệu của agent Analyst.
++Tín hiệu được tính bằng SQL và Python xác định trong DAG, không do LLM tính; LLM chỉ đọc kết quả. Mọi số tự tính luôn lưu và hiển thị kèm số thô của API, chỉ dùng nội bộ. Ngưỡng ban đầu là giá trị đoán, sẽ hiệu chỉnh bằng dữ liệu của agent Analyst.
++
++Cờ derived\_metrics\_enabled (R2) chia tính năng thành hai chế độ. Cờ mặc định là false, chỉ được bật khi dự án được YouTube chấp thuận use case Analytics & Reporting.
++
++| Tính năng | Chế độ | Ghi chú |
++| --- | --- | --- |
++| Số thô: view, like, số bình luận, thời lượng | Cơ bản | Lấy thẳng từ API |
++| Sắp xếp, lọc theo số thô | Cơ bản |  |
++| Mức tăng view và views\_per\_hour của một video giữa hai snapshot trong cửa sổ lưu trữ | Cơ bản | Hiển thị cạnh số thô, ghi "tính độc lập" |
++| S1, S2 (so với mức thường của kênh) | Nâng cao |  |
++| S3 (tỉ lệ like/view, comment/view) | Nâng cao | Tỉ lệ tự tính |
++| S4–S6, gom cụm và phân loại chủ đề | Nâng cao |  |
++| Phân loại và cảm xúc bình luận (8.3) | Nâng cao |  |
++| So sánh hoặc xếp hạng giữa các kênh | Nâng cao | Không bao giờ công bố |
++| Lưu thống kê công khai quá 30 ngày | Nâng cao | Tối đa 36 tháng (R3) |
+@@ -256 +284 @@
+-**S1 — Vượt mức thường của kênh.** So view của video ở tuổi a ngày với trung vị view ở cùng tuổi của 20 video gần nhất trong kênh. Công bằng với kênh nhỏ.
++**S1 — Vượt mức thường của kênh (nâng cao).** So view của video ở tuổi a ngày với trung vị view ở cùng tuổi của các video cùng kênh **và cùng định dạng** (Short hoặc video dài). Không so Short với video dài vì mức view của hai loại khác hẳn nhau.
+@@ -259 +287 @@
+-\mathrm{S1}(v) = \frac{\mathrm{views}_v(a)}{\operatorname{median}_{u \in \mathrm{last20}(c)} \mathrm{views}_u(a)}, \quad a \in \{2, 7, 28\}\ \text{ngày}
++\mathrm{S1}(v) = \frac{\mathrm{views}_v(a)}{\operatorname{median}_{u \in \mathrm{peers}(c,\,f)} \mathrm{views}_u(a)}, \quad a \in \{2, 7, 28\}\ \text{ngày}
+@@ -262 +290,3 @@
+-Nếu chưa có đủ lịch sử snapshot ở cùng tuổi, dùng trung vị view hiện tại của các video 7–60 ngày tuổi và gắn cờ baseline\_approx. Ngưỡng ban đầu: S1 từ 2 trở lên là "nổi trội", từ 5 trở lên là "rất nổi trội".
++peers(c, f) là tối đa 20 video gần nhất của kênh c có cùng định dạng f và có snapshot ở tuổi a. Định dạng lấy theo thời lượng trong contentDetails.duration: đến 180 giây coi là Short. Đây là heuristic, lưu kèm cờ format\_guess.
++
++Baseline đầy đủ cần ít nhất 5 video cùng định dạng có snapshot ở tuổi a. Nếu thiếu, dùng trung vị view hiện tại của các video cùng định dạng 7–60 ngày tuổi, gắn baseline\_approx = true và hiển thị cảnh báo. Video có baseline\_approx chỉ được gắn "cần xem", không bao giờ tự động gắn "nổi trội" và không được tính vào S4. Ngưỡng ban đầu khi baseline đầy đủ: S1 từ 2 trở lên là "nổi trội", từ 5 trở lên là "rất nổi trội".
+@@ -272 +302 @@
+-Một cụm được coi là đang lên khi trong 14 ngày có ít nhất 3 kênh khác nhau, mỗi kênh có ít nhất một video S1 từ 2 trở lên. Yêu cầu nhiều kênh để loại trường hợp một video viral nhờ sức mạnh riêng của kênh đó.
++Một cụm được coi là đang lên khi trong 14 ngày có ít nhất 3 kênh khác nhau, mỗi kênh có ít nhất một video S1 từ 2 trở lên với baseline đầy đủ (không tính video baseline\_approx). Yêu cầu nhiều kênh để loại trường hợp một video viral nhờ sức mạnh riêng của kênh đó.
+@@ -280 +310 @@
+-Chỉ lấy bình luận của video nổi trội (S1 từ 2 trở lên hoặc comment/view cao) để tiết kiệm quota và chi phí LLM.
++Chỉ chạy khi derived\_metrics\_enabled = true; văn bản bình luận và dữ liệu suy ra từ nó theo quy tắc lưu trữ R3. Khi đó, chỉ lấy bình luận của video nổi trội (S1 từ 2 trở lên hoặc comment/view cao) để tiết kiệm quota và chi phí LLM.
+@@ -291 +321,3 @@
+-Ước tính hằng ngày với 90 kênh: playlistItems khoảng 90 đơn vị, videos.list khoảng 20–40 đơn vị (50 video mỗi lần gọi), commentThreads khoảng 30–60 đơn vị. Tổng dưới 500 đơn vị/ngày, thấp hơn nhiều so với quota mặc định của một project. Ghi mọi lần gọi vào bảng quota\_usage để đo thật.
++YouTube Data API có ba nhóm quota tách riêng ([Quota cost](https://developers.google.com/youtube/data/determine_quota_cost)). search.list có bucket riêng, mặc định 100 lần gọi/ngày, mỗi lần 1 đơn vị. videos.insert có bucket riêng, 100 lần gọi/ngày. Mọi endpoint còn lại dùng chung 10.000 đơn vị/ngày.
++
++Ước tính nhóm chung hằng ngày với 90 kênh: playlistItems khoảng 90 đơn vị, videos.list khoảng 20–40 đơn vị (50 video mỗi lần gọi), commentThreads khoảng 30–60 đơn vị (chỉ khi cờ bật). Tổng dưới 500 đơn vị/ngày. Bảng quota\_usage ghi từng lần gọi theo bucket (search, upload, default) và cảnh báo khi một bucket dùng quá 80% hạn mức ngày.
+@@ -317 +349 @@
+-**Bản dịch của kênh:** Writer dịch đoạn cần dùng; Checker kiểm ý nghĩa bằng dịch ngược và LLM-judge; người duyệt ở bước kịch bản. Bản đã duyệt lưu vào canon\_translations để dùng lại nhất quán giữa các video.
++**Bản dịch của kênh:** Writer dịch đoạn cần dùng sang tiếng Việt. Có hai kiểm tra tách riêng và ghi riêng trong CheckReport. (1) **Kiểm citation chính xác:** đoạn trích bằng ngôn ngữ gốc phải khớp passage nguồn sau chuẩn hóa; làm bằng code, fail thì chặn job. (2) **Đánh giá bản dịch:** đo bản tiếng Việt có giữ đúng nghĩa hay không bằng dịch ngược và LLM-judge, ra điểm và nhận xét. Không bao giờ so khớp chính xác, vì một đoạn có nhiều cách dịch đúng; điểm dưới ngưỡng thì gắn cảnh báo. Người vẫn duyệt bản dịch ở bước kịch bản; bản đã duyệt lưu vào canon\_translations để dùng lại nhất quán giữa các video.
+@@ -337 +369 @@
+-13. **Đăng:** giai đoạn đầu người tự tải lên YouTube Studio. Từ P7: upload qua API với privacyStatus = private, người chuyển sang public.
++13. **Đăng:** giai đoạn đầu người tự tải lên YouTube Studio, rồi nhập youtube\_video\_id vào hộp thư duyệt; hệ thống lưu vào publications với published\_via = manual để Analyst theo dõi được. Từ P7: upload qua API với privacyStatus = private, người chuyển sang public.
+@@ -348,2 +380,2 @@
+-| 009\_signals | video\_signals, topic\_clusters, topic\_cluster\_members | S1–S3 theo ngày kèm số thô và cờ baseline\_approx; cụm theo tuần với cờ is\_rising, is\_gap, is\_saturated |
+-| 010\_comment\_insights | comment\_labels, viewer\_questions | Nhãn, ngôn ngữ, chủ đề ngắn; câu hỏi đã gom cụm kèm số đếm |
++| 009\_signals | video\_signals, topic\_clusters, topic\_cluster\_members | S1–S3 theo ngày kèm số thô, format\_guess và cờ baseline\_approx; cụm theo tuần với cờ is\_rising, is\_gap, is\_saturated. Chỉ ghi khi derived\_metrics\_enabled = true |
++| 010\_comment\_insights | comment\_labels, viewer\_questions | Nhãn, ngôn ngữ, chủ đề ngắn; câu hỏi đã gom cụm kèm số đếm. Chỉ ghi khi cờ bật |
+@@ -351 +383 @@
+-| 012\_studio\_jobs | jobs, job\_events, approvals | Trạng thái job mục 7.1; mỗi quyết định duyệt có người, thời điểm, lý do |
++| 012\_studio\_jobs | jobs, job\_events, approvals | Trạng thái job mục 7.1; mỗi quyết định duyệt có người, thời điểm, lý do và human\_effort\_minutes (thời gian người thực sự làm ở bước đó, không tính thời gian chờ) |
+@@ -353,2 +385,2 @@
+-| 014\_studio\_media | media\_jobs, media\_bundles, publications | Chi phí từng lần gọi; video\_id YouTube sau khi đăng |
+-| 015\_learning\_ops | learnings, quota\_usage; llm\_calls thêm job\_id, agent | Vòng phản hồi và đo chi phí theo agent |
++| 014\_studio\_media | media\_jobs, media\_bundles, publications | Chi phí từng lần gọi; publications lưu youtube\_video\_id, published\_via (manual hoặc api), published\_at |
++| 015\_learning\_ops | learnings, quota\_usage; llm\_calls thêm job\_id, agent; bảng mới chứa API Data có fetched\_at, data\_class (bảng hiện có làm ở P0-07) | Vòng phản hồi, đo chi phí theo agent, quota theo bucket (search, upload, default), xóa dữ liệu theo R3 |
+@@ -392,3 +424,4 @@
+-| Phân loại bình luận | 200 bình luận EN, ZH, VI gán tay | F1 theo lớp | 0,75 cho question và request |
+-| TopicBrief | 20 cửa sổ dữ liệu quá khứ | Mọi số có căn cứ; người chấm hữu ích 1–5 | 100% căn cứ; trung bình từ 3,5 |
+-| Kịch bản | 20 brief | Citation khớp; đủ format; LLM-judge đã hiệu chỉnh theo điểm người | 100% citation; judge lệch người tối đa 1 điểm |
++| Phân loại bình luận (chỉ khi cờ bật) | 200 bình luận EN, ZH, VI gán tay; chỉ lưu comment\_id và nhãn, văn bản lấy lại qua API khi chạy eval (R3), bình luận đã bị xóa thì loại | F1 theo lớp | 0,75 cho question và request |
++| TopicBrief | 20 cửa sổ dữ liệu trong hạn lưu trữ (R3) | Mọi số có căn cứ; người chấm hữu ích 1–5 | 100% căn cứ; trung bình từ 3,5 |
++| Kịch bản | 20 brief | Citation khớp chính xác passage; đủ format; LLM-judge đã hiệu chỉnh theo điểm người | 100% citation khớp; judge lệch người tối đa 1 điểm |
++| Bản dịch tiếng Việt | 30 đoạn kinh điển có bản dịch đã được người chấm | Điểm ngữ nghĩa của LLM-judge (có dịch ngược) so với điểm người | Lệch người tối đa 1 điểm trên 80% số mẫu |
+@@ -401 +434 @@
+-**Dashboard vận hành** hiển thị, theo agent và theo tuần: chi phí, thời gian, tỉ lệ Checker fail, tỉ lệ người bác, thời gian người làm mỗi video.
++**Dashboard vận hành** hiển thị, theo agent và theo tuần: chi phí, thời gian, tỉ lệ Checker fail, tỉ lệ người bác, tổng human\_effort\_minutes mỗi video.
+@@ -440 +473 @@
+-| P0-04 | Nối cờ derived\_metrics\_enabled vào code | Cờ false thì không tool nào trả chỉ số dẫn xuất; có test |
++| P0-04 | Nối cờ derived\_metrics\_enabled vào code, chặn đúng các tính năng nâng cao ở mục 8 | Cờ false (mặc định): không tính, không lưu, không trả S1–S6, cụm chủ đề, phân loại hay cảm xúc bình luận, so sánh giữa các kênh; chỉ còn số thô, sắp xếp, lọc, mức tăng view của từng video. Mỗi tính năng bị chặn có một test |
+@@ -442,0 +476 @@
++| P0-07 | Áp quy tắc lưu trữ R3 vào retention.py; thêm fetched\_at, data\_class cho các bảng hiện có | Với cờ tắt: snapshot thô, thống kê Non-Authorized, metadata, văn bản bình luận và embedding suy ra từ chúng bị xóa hoặc làm mới sau tối đa 30 ngày; có test cho từng lớp dữ liệu |
+@@ -448,5 +482,5 @@
+-| R-01 | Migration 008; channels.yaml thêm language, pillar, active; 60–90 kênh do người chốt | DAG thu thập chạy hết danh sách; quota\_usage dưới 500 đơn vị/ngày |
+-| R-02 | Tín hiệu S1–S3 (migration 009) | Unit test trên dữ liệu mẫu; cờ baseline\_approx gắn đúng; luôn lưu kèm số thô |
+-| R-03 | Nhúng bge-m3, gom cụm HDBSCAN theo tuần, S4–S6 | 20 cặp video cùng ý khác ngôn ngữ: ít nhất 16 cặp vào cùng cụm; 10 cụm kiểm tay: ít nhất 8 cụm nhất quán |
+-| R-04 | Phân tích bình luận (migration 010) | F1 từ 0,75 cho question và request trên 200 nhãn; không lưu tên hiển thị |
+-| R-05 | Agent Research xuất TopicBrief | 20 brief eval: 100% số liệu có căn cứ; người chấm hữu ích trung bình từ 3,5 |
++| R-01 | Migration 008; channels.yaml thêm language, pillar, active; 60–90 kênh do người chốt | DAG thu thập chạy hết danh sách; quota\_usage ghi theo bucket, nhóm chung dưới 500 đơn vị/ngày; search.list chỉ gọi khi tìm kênh mới |
++| R-02 | Tín hiệu S1–S3 (migration 009), chỉ khi cờ bật | S1 so cùng tuổi và cùng định dạng; baseline\_approx gắn đúng và video baseline\_approx không bao giờ được gắn "nổi trội"; luôn lưu kèm số thô; unit test trên dữ liệu mẫu |
++| R-03 | Nhúng bge-m3, gom cụm HDBSCAN theo tuần, S4–S6 (chỉ khi cờ bật) | 20 cặp video cùng ý khác ngôn ngữ: ít nhất 16 cặp vào cùng cụm; 10 cụm kiểm tay: ít nhất 8 cụm nhất quán |
++| R-04 | Phân tích bình luận (migration 010, chỉ khi cờ bật) | F1 từ 0,75 cho question và request trên 200 nhãn; không lưu tên hiển thị |
++| R-05 | Agent Research xuất TopicBrief | 20 brief eval: 100% số liệu có căn cứ; người chấm hữu ích trung bình từ 3,5; với cờ tắt, brief vẫn chạy được chỉ với số thô và mức tăng view |
+@@ -470 +504 @@
+-| W-03 | Agent Checker đủ các kiểm tra mục 7.6 | Recall lỗi từ 0,9 trên 30 kịch bản cài lỗi |
++| W-03 | Agent Checker đủ các kiểm tra mục 7.6 | Recall lỗi từ 0,9 trên 30 kịch bản cài lỗi; kiểm citation chính xác và đánh giá bản dịch ra hai kết quả riêng |
+@@ -482 +516 @@
+-| M-06 | Mốc thí điểm: 5 video làm bán thủ công, chạy từng bước bằng CLI | Ghi thời gian người, chi phí, phần bị sửa nhiều nhất cho từng video |
++| M-06 | Mốc thí điểm: 5 video làm bán thủ công, chạy từng bước bằng CLI | Ghi human\_effort\_minutes, chi phí, phần bị sửa nhiều nhất cho từng video |
+@@ -489 +523 @@
+-| O-02 | 3 điểm duyệt: interrupt + FastAPI + hộp thư Streamlit | Bác kèm lý do thì quay về bước trước và agent nhận được lý do |
++| O-02 | 3 điểm duyệt: interrupt + FastAPI + hộp thư Streamlit | Bác kèm lý do thì quay về bước trước và agent nhận được lý do; mỗi lần duyệt ghi human\_effort\_minutes do người nhập |
+@@ -496,0 +531 @@
++| A-00 | Nhập youtube\_video\_id sau khi đăng thủ công (hộp thư duyệt hoặc API), lưu publications với published\_via = manual | Analyst chạy được với video đăng thủ công trước P7; video\_id phải thuộc kênh đã kết nối OAuth; job chuyển sang published |
+@@ -499 +534 @@
+-| A-03 | Hiệu chỉnh ngưỡng S1–S6 theo kết quả thật | Sau 20 video: báo cáo tín hiệu nào dự đoán đúng, ngưỡng mới ghi lý do |
++| A-03 | Hiệu chỉnh ngưỡng S1–S6 theo kết quả thật (khi cờ bật) | Sau 20 video: báo cáo tín hiệu nào dự đoán đúng, ngưỡng mới ghi lý do |
+@@ -536,0 +572 @@
++- [ ] Q7: Có nộp đơn chấp nhận phần sửa đổi chính sách (use case Analytics & Reporting) để bật derived\_metrics\_enabled không? Chưa được chấp thuận thì studio chạy ở chế độ cơ bản.
+@@ -545,0 +582,3 @@
++- [YouTube API Services Developer Policies](https://developers.google.com/youtube/terms/developer-policies)
++- [Additional policies for derived metrics and data storage](https://developers.google.com/youtube/terms/derived-metrics-policy)
++- [YouTube Data API: Quota cost](https://developers.google.com/youtube/data/determine_quota_cost)
