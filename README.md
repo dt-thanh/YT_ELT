@@ -248,6 +248,12 @@ youtube-intel eval-comments                        # R-04 F1 per class on human 
 youtube-intel research --pillar stoic [--window 14] [--n 3]   # Research agent -> TopicBriefs (OpenAI)
 youtube-intel eval-research                        # R-05: 20 windows, grounding rate; owner scores usefulness
 youtube-intel market-report [--pillar P] [--show] [--streak]   # R-06 daily market report
+youtube-intel canon-load [--source ID] [--refresh]   # C-02: cut + load verified canon sources (docs/canon_sources.md)
+youtube-intel embed-canon [--batch 16]             # bge-m3 vectors for new/changed passages (local, no API)
+youtube-intel canon-sample [--n 30]                # C-02: random passages for the ref_label hand-check
+youtube-intel canon-search "query" [--pillar P]    # hybrid canon search, any language
+youtube-intel eval-canon                           # C-03: Recall@5 on 40 Vietnamese questions (local)
+python -m studio.mcp.canon_server                  # C-04: MCP server search_canon / get_passage (stdio)
 ```
 
 ## Data model
@@ -280,9 +286,9 @@ erDiagram
 
 ```bash
 pip install -e ".[dev,llm,dashboard]"
-pytest -m "not integration"          # 458 unit tests, no Docker, no network, ~12 s
+pytest -m "not integration"          # 484 unit tests, no Docker, no network, ~14 s
 
-docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 509
+docker exec airflow-scheduler bash -lc "cd /opt/airflow && pytest tests/"   # all 532
 ```
 
 CI runs unit tests, then brings up the full stack with migrations from an empty database (run
@@ -333,7 +339,7 @@ its backlog (section 14), one commit per item ID:
 |---|---|---|
 | P0 | Close the current system: grounding fixes G-01/G-02, `derived_metrics_enabled` wired, live assistant eval, RAG labels + calibration, R3 retention, this section | done 2026-10-31 |
 | P1 | Research: 60–90 channels in EN/ZH/VI, signals S1–S6 (only with the flag on), Research and Report agents | code done 2026-11-02; waiting for the channel list, labels and live LLM runs |
-| P2 | Canon: public-domain originals (Marcus Aurelius, Seneca, Epictetus, Lão Tử, Trang Tử, Luận Ngữ, Tôn Tử, Aesop, La Fontaine) with exact citations | — |
+| P2 | Canon: public-domain originals (Marcus Aurelius, Seneca, Epictetus, Lão Tử, Trang Tử, Luận Ngữ, Tôn Tử, Aesop, La Fontaine) with exact citations | code done 2026-11-02: 13 verified sources, 5493 passages, MCP server; search Recall@5 0.642 (hybrid) / 0.725 (vector), **below the 0.8 target**; La Fontaine and Basore not loaded; waiting for owner decisions and the 30-passage hand-check |
 | P3 | Writer and Checker agents; citations checked by code, translations judged by back-translation | — |
 | P4 | Production with FFmpeg: TTS, still images with slow motion, a short AI intro clip, subtitles | — |
 | P5 | LangGraph orchestration with Postgres checkpoints and three human approval points | — |
