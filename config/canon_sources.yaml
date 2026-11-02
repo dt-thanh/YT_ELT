@@ -1,0 +1,593 @@
+# =============================================================================
+# Canon sources (spec §9, C-01). Only `status: verified` sources are loaded.
+#
+# verified = year of publication, download URL and license checked against the
+# source pages on 2026-11-02, with the evidence below. Vietnam rule used: author's /
+# translator's life + 50 years (protection ends 31 Dec of the 50th year after death).
+# This is a technical record, not legal advice; the owner confirms (see the report).
+#
+# Each source: how to fetch it, and how to cut it along its natural units
+# (canon/chunk.py: heading levels as regexes). passage_id = <id>.<ref>.
+# =============================================================================
+sources:
+
+  # ---------------------------------------------------------------- stoic -----
+  - id: meditations.long1862
+    work: Thoughts of Marcus Aurelius Antoninus (Meditations)
+    work_vi: Suy tưởng
+    author: Marcus Aurelius
+    translator: George Long
+    pub_year: 1862
+    language: en
+    pillar: stoic
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Gutenberg #15877 page: translator 'Long, George, 1800-1879'; 'Copyright: Public domain in the USA'."
+      - "Not #2680: that file is Meric Casaubon's 1634 translation."
+      - "VN life+50: Long died 1879 -> public domain."
+    source_url: https://www.gutenberg.org/ebooks/15877
+    fetch: [https://www.gutenberg.org/cache/epub/15877/pg15877.txt]
+    parser:
+      start_after: '^THE THOUGHTS$'
+      end_before: '^INDEXES\.$'
+      drop_indented: 4                     # translator's footnotes [A] ... are indented
+      levels:
+        - {name: book, pattern: '^([IVX]+)\.$', value: roman}
+        - {name: item, pattern: '^(\d+)\. ', inline: true, implicit_first: true}
+    ref_label: "Suy tưởng, quyển {book}, đoạn {item}"
+    align: "meditations.{book}.{item}"
+
+  - id: enchiridion.higginson1865
+    work: The Enchiridion
+    work_vi: Cẩm nang
+    author: Epictetus
+    translator: Thomas Wentworth Higginson
+    pub_year: 1865
+    language: en
+    pillar: stoic
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Gutenberg #45109 page: translator 'Higginson, Thomas Wentworth, 1823-1911'; public domain in the USA."
+      - "Translation first published 1865 (The Works of Epictetus). The scan is the 1948 Liberal Arts Press edition: its introduction by Albert Salomon is NOT loaded (start after 'THE ENCHIRIDION')."
+      - "VN life+50: Higginson died 1911 -> public domain."
+    source_url: https://www.gutenberg.org/ebooks/45109
+    fetch: [https://www.gutenberg.org/cache/epub/45109/pg45109.txt]
+    parser:
+      start_after: '^\s*THE ENCHIRIDION\s*$'
+      end_before: '^\s*Footnotes\s*$'
+      levels:
+        - {name: item, pattern: '^([IVXL]+)(?:\[\d+\])?$', value: roman}   # 'XXIX[2]'
+    ref_label: "Cẩm nang, mục {item}"
+
+  # ----------------------------------------------------------------- east -----
+  - id: daodejing.legge1891
+    work: The Tao Teh King
+    work_vi: Đạo Đức Kinh
+    author: Laozi
+    translator: James Legge
+    pub_year: 1891
+    language: en
+    pillar: east
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Gutenberg #216 page: translator 'Legge, James, 1815-1897'; public domain in the USA."
+      - "Published 1891, Sacred Books of the East vol. 39 (archive.org wg939)."
+      - "VN life+50: Legge died 1897 -> public domain."
+    source_url: https://www.gutenberg.org/ebooks/216
+    fetch: [https://www.gutenberg.org/cache/epub/216/pg216.txt]
+    parser:
+      start_after: '^PART 1\.$'
+      strip_line_prefix: '^(?:Ch\. )?\d+\.\s*'     # verse numbers inside a chapter
+      levels:
+        - {name: ch, pattern: '^(?:Ch\. )?(\d+)\.(?:\s|$)', inline: true, after_blank_lines: 2}
+    ref_label: "Đạo Đức Kinh, chương {ch}"
+    align: "daodejing.{ch}"
+
+  - id: analects.legge1861
+    work: The Analects of Confucius
+    work_vi: Luận Ngữ
+    author: Confucius
+    translator: James Legge
+    pub_year: 1861
+    language: en
+    pillar: east
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Gutenberg #3330 page: translator Legge, James, 1815-1897; public domain in the USA."
+      - "First published 1861, The Chinese Classics vol. 1."
+      - "VN life+50: Legge died 1897 -> public domain."
+    source_url: https://www.gutenberg.org/ebooks/3330
+    fetch: [https://www.gutenberg.org/cache/epub/3330/pg3330.txt]
+    parser:
+      start_after: '^CONFUCIAN ANALECTS\.$'
+      strip_line_prefix: '^\d+\.\s*'
+      levels:
+        - {name: book, pattern: '^BOOK ([IVXL]+)\.', value: roman}
+        # The Gutenberg file has typos in chapter numerals (two 'CHAP. XVII.' in a row in
+        # books II, III, V, IX, XIV): chapters are counted in order within each book.
+        # Some headings also lack a period ('CHAP II.', 'CHAP. XVII The').
+        - {name: ch, pattern: '^(?:CHAPTER|CHAP\.?)\s*[IVXL]+\.?\s+', value: sequence, inline: true}
+    ref_label: "Luận Ngữ, thiên {book}, chương {ch}"
+    align: "lunyu.{book}.{ch}"
+
+  - id: artofwar.giles1910
+    work: The Art of War
+    work_vi: Binh pháp Tôn Tử
+    author: Sun Tzu
+    translator: Lionel Giles
+    pub_year: 1910
+    language: en
+    pillar: east
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Gutenberg #17405 page: translator 'Giles, Lionel, 1875-1958'; 'Original Publication: 1910'; public domain in the USA."
+      - "VN life+50: Giles died 1958 -> public domain since 2009."
+    source_url: https://www.gutenberg.org/ebooks/17405
+    fetch: [https://www.gutenberg.org/cache/epub/17405/pg17405.txt]
+    parser:
+      start_after: 'CHAPTER XIII\. THE USE OF SPIES'      # last line of the contents
+      levels:
+        - {name: ch, pattern: '^([IVXL]+)\. [A-Z]', value: roman}
+        - {name: verse, pattern: '^(\d+)(?:, (\d+))?\. ', inline: true, range_group: 2}   # Giles merges: '5, 6.'
+    ref_label: "Binh pháp Tôn Tử, thiên {ch}, câu {verse}"
+    align: "sunzi.{ch}"                     # Chinese paragraphs != Giles verses: align by chapter
+
+  # ---------------------------------------------------------------- fable -----
+  - id: aesop.townsend1867
+    work: Three Hundred Aesop's Fables
+    work_vi: Ngụ ngôn Aesop
+    author: Aesop
+    translator: George Fyler Townsend
+    pub_year: 1867
+    language: en
+    pillar: fable
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Gutenberg #21 page: translator 'Townsend, George Fyler, 1814-1900'; public domain in the USA."
+      - "Published 1867 (Wikisource author page)."
+      - "VN life+50: Townsend died 1900 -> public domain."
+    source_url: https://www.gutenberg.org/ebooks/21
+    fetch: [https://www.gutenberg.org/cache/epub/21/pg21.txt]
+    parser:
+      start_after: '^AESOP’S FABLES$'
+      end_before: '^FOOTNOTES$'
+      levels:
+        - {name: fable, pattern: '^([A-Z][^.!?“”"]{2,80})$', value: sequence, title_group: 1,
+           after_blank_lines: 3}
+    ref_label: "Ngụ ngôn Aesop, truyện {fable}: {title}"
+
+  - id: letters.gummere1917
+    work: Moral Letters to Lucilius
+    work_vi: Thư gửi Lucilius
+    author: Seneca
+    translator: Richard Mott Gummere
+    pub_year: 1917                        # vol. 1 1917, vol. 2 1920, vol. 3 1925
+    language: en
+    pillar: stoic
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "en.wikisource 'Moral letters to Lucilius' header: 'volume 1 published 1917; volume 2 published 1920; volume 3 published 1925'."
+      - "License template PD/US|1969: public domain in the US (published before 1931)."
+      - "VN life+50: Gummere died 1969-12-03 (Wikidata Q18911307) -> public domain since 2020-01-01."
+      - "action=raw has no text (proofread <pages> tags): fetched with action=render."
+      - "Loeb section numbers are kept in the rendered page as <span class=wst-verse id=N.>; passages follow them (section 1 = start of the letter)."
+    source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+    fetch:
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_1&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_2&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_3&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_4&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_5&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_6&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_7&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_8&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_9&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_10&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_11&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_12&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_13&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_14&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_15&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_16&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_17&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_18&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_19&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_20&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_21&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_22&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_23&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_24&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_25&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_26&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_27&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_28&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_29&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_30&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_31&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_32&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_33&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_34&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_35&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_36&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_37&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_38&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_39&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_40&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_41&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_42&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_43&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_44&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_45&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_46&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_47&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_48&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_49&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_50&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_51&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_52&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_53&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_54&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_55&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_56&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_57&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_58&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_59&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_60&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_61&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_62&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_63&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_64&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_65&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_66&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_67&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_68&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_69&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_70&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_71&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_72&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_73&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_74&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_75&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_76&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_77&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_78&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_79&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_80&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_81&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_82&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_83&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_84&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_85&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_86&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_87&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_88&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_89&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_90&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_91&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_92&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_93&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_94&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_95&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_96&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_97&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_98&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_99&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_100&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_101&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_102&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_103&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_104&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_105&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_106&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_107&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_108&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_109&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_110&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_111&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_112&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_113&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_114&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_115&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_116&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_117&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_118&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_119&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_120&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_121&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_122&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_123&action=render
+      - https://en.wikisource.org/w/index.php?title=Moral_letters_to_Lucilius/Letter_124&action=render
+    format: html
+    parser:
+      fetch_heading: "LETTER {n}"
+      drop_lines: '^\s*↑'                 # footnotes (letter 87 has no closing Farewell)
+      replace:
+        # navigation and title; never past the next page, titles may hold a <sup> footnote
+        - ['(?s)(LETTER \d+\n\n)(?:(?!\nLETTER \d+\n).)*?<p[^>]*>\s*[IVXLC]+\.\s(?:(?!</p>).)*</p>', "\\1"]
+        - ['(?s)(Farewell\.)(?:(?!Farewell\.).)*?(?=\nLETTER \d+\n|\Z)', "\\1"]   # footnotes after the last Farewell
+        # Loeb section numbers: <span class="wst-verse ..." id="6."><sup><b>6.</b></sup></span>
+        - ['(?s)<span class="wst-verse[^"]*" id="(\d+)\.">.*?</span>', "\n\n§\\1 "]
+      levels:
+        - {name: letter, pattern: '^LETTER (\d+)$'}
+        - {name: sec, pattern: '^§(\d+) ', inline: true, implicit_first: true}
+    ref_label: "Thư gửi Lucilius, thư {letter}, mục {sec}"
+
+  # ------------------------------------------------- Chinese originals (east) -----
+  - id: daodejing.wangbi
+    work: 老子道德經 (王弼本)
+    work_vi: Đạo Đức Kinh
+    author: Laozi
+    translator: null
+    pub_year: -400                          # approximate date of composition (negative = BC)
+    language: zh
+    pillar: east
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Ancient text (Laozi, c. 4th century BC): public domain everywhere."
+      - "zh.wikisource '道德經 (王弼本)' (Wang Bi edition, 81 chapters). Wang Bi's commentary (':' lines) and the 音義 sections are NOT loaded."
+    source_url: https://zh.wikisource.org/wiki/%E9%81%93%E5%BE%B7%E7%B6%93_%28%E7%8E%8B%E5%BC%BC%E6%9C%AC%29
+    fetch: ["https://zh.wikisource.org/w/index.php?title=%E9%81%93%E5%BE%B7%E7%B6%93%20%28%E7%8E%8B%E5%BC%BC%E6%9C%AC%29&action=raw"]
+    format: wikitext
+    parser:
+      end_before: '^\s*王弼老子道德經二卷|^==\s*老子道經音義'   # colophon after ch. 81
+      drop_lines: '^:|^=[^=]'
+      levels:
+        - {name: ch, pattern: '^==\s*(\S+?)章\s*==$', value: han}
+    ref_label: "Đạo Đức Kinh, chương {ch} (nguyên văn)"
+    align: "daodejing.{ch}"
+  - id: sunzi.wikisource
+    work: 孫子兵法
+    work_vi: Binh pháp Tôn Tử
+    author: Sun Tzu
+    translator: null
+    pub_year: -500                          # approximate date of composition (negative = BC)
+    language: zh
+    pillar: east
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Ancient text (Sun Wu, c. 5th century BC): public domain everywhere."
+      - "zh.wikisource '孫子兵法': 13 chapters; the non-canonical 答話 section is NOT loaded."
+    source_url: https://zh.wikisource.org/wiki/%E5%AD%AB%E5%AD%90%E5%85%B5%E6%B3%95
+    fetch: ["https://zh.wikisource.org/w/index.php?title=%E5%AD%AB%E5%AD%90%E5%85%B5%E6%B3%95&action=raw"]
+    format: wikitext
+    parser:
+      end_before: '^==\s*答話'
+      levels:
+        - {name: ch, pattern: '^==\s*\S+?第(\S+?)\s*==$', value: han}
+        - {name: para, pattern: '^(?=\S)', value: sequence, inline: true, after_blank_lines: 1, implicit_first: true}
+    ref_label: "Binh pháp Tôn Tử, thiên {ch}, đoạn {para} (nguyên văn)"
+    align: "sunzi.{ch}"
+  - id: lunyu.wikisource
+    work: 論語
+    work_vi: Luận Ngữ
+    author: Confucius
+    translator: null
+    pub_year: -400                          # approximate date of composition (negative = BC)
+    language: zh
+    pillar: east
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Ancient text: public domain everywhere; zh.wikisource index page carries PD-old."
+      - "20 books (學而第一 .. 堯曰第二十); the non-canonical 知道第二十二 is NOT loaded."
+      - "Chapter division follows Wikisource ('一之一'), which can differ from Legge's in a few books."
+    source_url: https://zh.wikisource.org/wiki/%E8%AB%96%E8%AA%9E
+    fetch:
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%AD%B8%E8%80%8C%E7%AC%AC%E4%B8%80&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E7%88%B2%E6%94%BF%E7%AC%AC%E4%BA%8C&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%85%AB%E4%BD%BE%E7%AC%AC%E4%B8%89&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E9%87%8C%E4%BB%81%E7%AC%AC%E5%9B%9B&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%85%AC%E5%86%B6%E9%95%B7%E7%AC%AC%E4%BA%94&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E9%9B%8D%E4%B9%9F%E7%AC%AC%E5%85%AD&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E8%BF%B0%E8%80%8C%E7%AC%AC%E4%B8%83&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E6%B3%B0%E4%BC%AF%E7%AC%AC%E5%85%AB&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%AD%90%E7%BD%95%E7%AC%AC%E4%B9%9D&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E9%84%89%E9%BB%A8%E7%AC%AC%E5%8D%81&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%85%88%E9%80%B2%E7%AC%AC%E5%8D%81%E4%B8%80&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E9%A1%8F%E6%B7%B5%E7%AC%AC%E5%8D%81%E4%BA%8C&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%AD%90%E8%B7%AF%E7%AC%AC%E5%8D%81%E4%B8%89&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E6%86%B2%E5%95%8F%E7%AC%AC%E5%8D%81%E5%9B%9B&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E8%A1%9E%E9%9D%88%E5%85%AC%E7%AC%AC%E5%8D%81%E4%BA%94&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%AD%A3%E6%B0%8F%E7%AC%AC%E5%8D%81%E5%85%AD&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E9%99%BD%E8%B2%A8%E7%AC%AC%E5%8D%81%E4%B8%83&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%BE%AE%E5%AD%90%E7%AC%AC%E5%8D%81%E5%85%AB&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%AD%90%E5%BC%B5%E7%AC%AC%E5%8D%81%E4%B9%9D&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%AB%96%E8%AA%9E/%E5%A0%AF%E6%9B%B0%E7%AC%AC%E4%BA%8C%E5%8D%81&action=raw"
+    format: wikitext
+    parser:
+      fetch_heading: "==第{n}篇=="
+      levels:
+        - {name: book, pattern: '^==第(\d+)篇==$'}
+        - {name: ch, pattern: '^[一二三四五六七八九十]+之([一二三四五六七八九十]+)$', value: han}
+    ref_label: "Luận Ngữ, thiên {book}, chương {ch} (nguyên văn)"
+    align: "lunyu.{book}.{ch}"
+  - id: zhuangzi.wikisource
+    work: 莊子
+    work_vi: Trang Tử
+    author: Zhuangzi
+    translator: null
+    pub_year: -300                          # approximate date of composition (negative = BC)
+    language: zh
+    pillar: east
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Ancient text: public domain everywhere; zh.wikisource index page carries PD-old."
+      - "33 chapters as sub-pages, in the order of the index (內篇 1-7, 外篇 8-22, 雜篇 23-33)."
+      - "Legge's 1891 English translation is on neither Gutenberg nor Wikisource: not loaded (see the report)."
+    source_url: https://zh.wikisource.org/wiki/%E8%8E%8A%E5%AD%90
+    fetch:
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E9%80%8D%E9%81%99%E9%81%8A&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E9%BD%8A%E7%89%A9%E8%AB%96&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E9%A4%8A%E7%94%9F%E4%B8%BB&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E4%BA%BA%E9%96%93%E4%B8%96&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%BE%B7%E5%85%85%E7%AC%A6&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%A4%A7%E5%AE%97%E5%B8%AB&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E6%87%89%E5%B8%9D%E7%8E%8B&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E9%A7%A2%E6%8B%87&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E9%A6%AC%E8%B9%84&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E8%83%A0%E7%AF%8B&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%9C%A8%E5%AE%A5&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%A4%A9%E5%9C%B0&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%A4%A9%E9%81%93&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%A4%A9%E9%81%8B&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%88%BB%E6%84%8F&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E7%B9%95%E6%80%A7&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E7%A7%8B%E6%B0%B4&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E8%87%B3%E6%A8%82&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E9%81%94%E7%94%9F&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%B1%B1%E6%9C%A8&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E7%94%B0%E5%AD%90%E6%96%B9&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E7%9F%A5%E5%8C%97%E9%81%8A&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%BA%9A%E6%A1%91%E6%A5%9A&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%BE%90%E7%84%A1%E9%AC%BC&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%89%87%E9%99%BD&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%A4%96%E7%89%A9&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%AF%93%E8%A8%80&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E8%AE%93%E7%8E%8B&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E7%9B%9C%E8%B7%96&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E8%AA%AA%E5%8A%8D&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E6%BC%81%E7%88%B6&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%88%97%E7%A6%A6%E5%AF%87&action=raw"
+      - "https://zh.wikisource.org/w/index.php?title=%E8%8E%8A%E5%AD%90/%E5%A4%A9%E4%B8%8B&action=raw"
+    format: wikitext
+    parser:
+      fetch_heading: "==第{n}篇=="
+      levels:
+        - {name: ch, pattern: '^==第(\d+)篇==$'}
+        - {name: para, pattern: '^(?=\S)', value: sequence, inline: true, after_blank_lines: 1, implicit_first: true}
+    ref_label: "Trang Tử, thiên {ch}, đoạn {para} (nguyên văn)"
+    align: "zhuangzi.{ch}"
+
+  # ------------------------------------------------------ Latin originals (stoic) -----
+  - id: debrevitate.latin
+    work: De Brevitate Vitae
+    work_vi: Về sự ngắn ngủi của đời người
+    author: Seneca
+    translator: null
+    pub_year: 49                          # approximate date of composition (AD)
+    language: la
+    pillar: stoic
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Ancient text (Seneca, c. AD 49): public domain everywhere. The Latin Library page carries no copyright claim."
+      - "Basore's English (Loeb Moral Essays vol. II, 1932) is NOT used: printed in Great Britain, possible URAA restoration in the US until 2027."
+    source_url: https://www.thelatinlibrary.com/sen/sen.brevita.shtml
+    fetch: [https://www.thelatinlibrary.com/sen/sen.brevita.shtml]
+    format: html
+    parser:
+      replace:
+        - ['(?s)<table.*?(?=\nLIBER \d|\Z)', ""]          # site navigation footer (no </table>)
+        # source quirks: 'XVII<tab>I Ipsae' (section 1 as a letter), 'XIII' without a period
+        - ['<p>\s*XVII\s+I\s', "<p>XVII.\n\n§1 "]
+        - ['<span style="font-size: 80%;">(\d+)</span>', "\n\n§\\1 "]
+        - ['<p>\s*([IVXL]+)\.?(?=\s)', "<p>\\1.\n\n"]
+      start_after: 'DE BREVITATE VITAE'
+      levels:
+        - {name: ch, pattern: '^([IVXL]+)\.$', value: roman}
+        - {name: sec, pattern: '^§(\d+) ', inline: true}
+    ref_label: "Về sự ngắn ngủi của đời người, chương {ch}, đoạn {sec} (nguyên văn Latin)"
+
+  - id: deira.latin
+    work: De Ira
+    work_vi: Về cơn giận
+    author: Seneca
+    translator: null
+    pub_year: 45                          # approximate date of composition (AD)
+    language: la
+    pillar: stoic
+    license: public_domain
+    status: verified
+    verified_on: 2026-11-02
+    evidence:
+      - "Ancient text (Seneca, c. AD 45): public domain everywhere. The Latin Library pages carry no copyright claim."
+      - "Basore's English (Loeb Moral Essays vol. I, 1928) is public domain in the US, but no clean text source was found: not loaded."
+    source_url: https://www.thelatinlibrary.com/sen/sen.ira1.shtml
+    fetch:
+      - https://www.thelatinlibrary.com/sen/sen.ira1.shtml
+      - https://www.thelatinlibrary.com/sen/sen.ira2.shtml
+      - https://www.thelatinlibrary.com/sen/sen.ira3.shtml
+    format: html
+    parser:
+      fetch_heading: "LIBER {n}"
+      replace:
+        - ['(?s)<table.*?(?=\nLIBER \d|\Z)', ""]          # site navigation footer (no </table>)
+        # several sections share one <p>: '... iudicium. 3. Quid quod ...' -> own lines
+        - ['(?<=[.?!:;\x27"\]])\s+(\d{1,2})\.\s+(?=[A-Za-z\[<&*\x27"])', "\n\n\\1. "]
+      levels:
+        - {name: book, pattern: '^LIBER (\d+)$'}
+        - {name: ch, pattern: '^([IVXL]+)\.$', value: roman}
+        - {name: sec, pattern: '^(\d+)\. ', inline: true}
+    ref_label: "Về cơn giận, quyển {book}, chương {ch}, đoạn {sec} (nguyên văn Latin)"
+
+  # ------------------------------------------------- recorded, NOT loaded -----------
+  - id: lafontaine.fables
+    work: Fables
+    work_vi: Ngụ ngôn La Fontaine
+    author: Jean de La Fontaine
+    translator: null
+    pub_year: 1668
+    language: fr
+    pillar: fable
+    license: public_domain
+    status: excluded
+    evidence:
+      - "License fine (La Fontaine 1621-1695). fr.wikisource 'Fables de La Fontaine (édition originale)': ~242 fables, one page each, page names inconsistent (tome numbers, bare titles, disambiguation pages); raw wikitext is <pages> tags (needs action=render)."
+      - "Not loaded in P2: a loader for this page structure was not built. Owner decides whether it is worth it."
+    source_url: "https://fr.wikisource.org/wiki/Fables_de_La_Fontaine_(%C3%A9dition_originale)"
+    ref_label: "Ngụ ngôn La Fontaine, quyển {book}, bài {fable}"
+
+  - id: moralessays.basore
+    work: Moral Essays (Loeb)
+    work_vi: Tiểu luận đạo đức (bản dịch Basore)
+    author: Seneca
+    translator: John W. Basore
+    pub_year: 1928
+    language: en
+    pillar: stoic
+    license: public_domain
+    status: excluded
+    evidence:
+      - "Vol. I (1928: De Ira, De Providentia, De Constantia, De Clementia) is public domain in the US, but no clean text source was found."
+      - "Vol. II (1932: De Brevitate Vitae ...) and vol. III (1935) were printed in Great Britain: possible URAA restoration keeps them under US copyright until 2027 / 2030. Not used; the Latin originals are loaded instead."
+      - "Basore died 1958 (LC n88669750): public domain in Vietnam."
+    source_url: https://archive.org/details/moralessayswithe01seneuoft
+    ref_label: "{item}"
+
+  - id: zhuangzi.legge1891
+    work: The Writings of Kwang-dze
+    work_vi: Trang Tử (bản dịch Legge)
+    author: Zhuangzi
+    translator: James Legge
+    pub_year: 1891
+    language: en
+    pillar: east
+    license: public_domain
+    status: excluded
+    evidence:
+      - "Public domain (Legge died 1897), but not on Project Gutenberg nor en.wikisource; only OCR scans on archive.org (wg939, sacredbooksofeas40oxfo)."
+      - "Gutenberg #59709 is Herbert Giles' 1889 translation, not Legge's: not substituted without the owner's decision."
+    source_url: https://archive.org/details/wg939
+    ref_label: "{item}"
