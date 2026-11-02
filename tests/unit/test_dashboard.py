@@ -197,3 +197,13 @@ def test_assistant_without_configuration_shows_guidance(app):
     at.sidebar.radio[0].set_value("5 · Trợ lý AI").run()
     assert not at.exception
     assert any("OPENAI_API_KEY" in m.value for m in at.markdown)
+
+
+def test_market_report_is_shown_as_rendered(app):
+    payload = {"kind": "market_report", "markdown": "# Bản tin thị trường: stoic\n\n- 88,000 view",
+               "grounding_errors": ["number '1' does not match"]}
+    at = app(payload=payload).run()
+    at.sidebar.radio[0].set_value("4 · Bản tin AI").run()
+    assert not at.exception
+    assert any("Bản tin thị trường: stoic" in m.value for m in at.markdown)
+    assert any("Kiểm chứng" in c.value for c in at.caption)

@@ -93,3 +93,10 @@ comments:
   refresh_days: 7                # không lấy lại video đã lấy trong 7 ngày
   classify_batch: 25             # bình luận mỗi lần gọi model rẻ
   min_question_cluster: 2        # câu hỏi/yêu cầu gom cụm cần >= 2 bình luận
+
+# Bản tin thị trường hằng ngày (đặc tả mục 7.3, R-06). Chỉ cho người vận hành, không công bố.
+report:
+  new_video_days: 7              # "video mới" = đăng trong 7 ngày, có mức tăng view tính được
+  per_channel: 5                 # tối đa 5 video mỗi kênh
+  llm_summary: false             # đoạn tóm tắt do LLM viết (qua gateway, có grounding).
+                                 # TẮT cho tới khi bật chi tiêu OpenAI; bản tin vẫn đầy đủ số.

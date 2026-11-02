@@ -315,7 +315,13 @@ elif page.startswith("4"):
         st.warning("📝 Bản mẫu (draft): LLM tắt, thiếu key, hoặc hỏng 2 lần rồi rơi về bản mẫu"
                    + (f" · {attempts['validations']}" if attempts.get("validations") else ""))
 
-    if detail:
+    if detail and (detail["validated_payload"] or {}).get("kind") == "market_report":
+        # Bản tin thị trường (R-06): số liệu đã do code render và grounding kiểm.
+        payload = detail["validated_payload"]
+        st.markdown(payload["markdown"])
+        for e in payload.get("grounding_errors") or []:
+            st.caption(f"Kiểm chứng: {e}")
+    elif detail:
         # KHÔNG tính gì ở đây: số liệu render từ evidence đã lưu cùng bản tin,
         # bằng CHÍNH hàm mà lệnh `report --show` dùng.
         st.markdown(render_markdown(detail["validated_payload"], detail["evidence_bundle"]))

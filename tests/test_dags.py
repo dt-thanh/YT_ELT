@@ -13,7 +13,7 @@ airflow = pytest.importorskip("airflow")      # máy dev không có airflow -> B
 from airflow.models import DagBag            # noqa: E402
 
 EXPECTED = {"yt_collect", "yt_quality", "yt_report", "yt_embed", "yt_retention",
-            "yt_signals", "yt_topics", "yt_comments"}
+            "yt_signals", "yt_topics", "yt_comments", "yt_market_report"}
 
 
 @pytest.fixture(scope="module")

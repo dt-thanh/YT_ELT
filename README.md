@@ -44,7 +44,7 @@ flowchart LR
     PUB -. every 6h, independent .-> SODA[Soda monitor]
 ```
 
-Eight Airflow DAGs, all thin wrappers around a CLI:
+Nine Airflow DAGs, all thin wrappers around a CLI:
 
 - **`yt_collect`** — daily at 21:00 (Asia/Ho_Chi_Minh), one task per channel in parallel. A final
   check task turns the run red if any channel fails; the Dataset event still fires for the rest.
@@ -60,6 +60,9 @@ Eight Airflow DAGs, all thin wrappers around a CLI:
 - **`yt_comments`** — daily at 23:00: comments of outstanding videos, classified by a cheap model
   through the studio gateway, questions clustered and restated (spec §8.3); a no-op while
   `derived_metrics_enabled` is false.
+- **`yt_market_report`** — on the same Dataset: the Report agent's daily market report per pillar,
+  numbers rendered by code and checked by grounding (spec §7.3); no OpenAI unless
+  `report.llm_summary` is on.
 - **`yt_retention`** — daily at 20:30, on its own clock: deletes YouTube API data older than the
   R3 limits (below), so the 30-day rule holds even on days nothing is collected.
 
@@ -244,6 +247,7 @@ youtube-intel comments [--no-llm]                  # comment insights (same flag
 youtube-intel eval-comments                        # R-04 F1 per class on human labels (OpenAI)
 youtube-intel research --pillar stoic [--window 14] [--n 3]   # Research agent -> TopicBriefs (OpenAI)
 youtube-intel eval-research                        # R-05: 20 windows, grounding rate; owner scores usefulness
+youtube-intel market-report [--pillar P] [--show] [--streak]   # R-06 daily market report
 ```
 
 ## Data model

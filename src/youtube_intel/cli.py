@@ -782,6 +782,13 @@ def cmd_eval_comments(args) -> int:
     return 0
 
 
+def _tool_groups(cfg) -> list[str]:
+    """Groups a studio tool may filter on: configured groups plus every pillar, so a
+    pillar with no channel yet is an empty result, not an invalid argument."""
+    from youtube_intel.config import PILLARS
+    return sorted({c.group for c in cfg.channels} | set(PILLARS))
+
+
 def _research_agent(cfg):
     """Research agent wired to the read-only login and the gateway (OpenAI)."""
     from studio.agents.research import ResearchAgent, ToolBox
@@ -793,8 +800,7 @@ def _research_agent(cfg):
                        user=s.db_user, password=s.db_password)
     ro = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
                        user=st.assistant.db_user, password=s.assistant_db_password)
-    registry = build_registry(sorted({c.group for c in cfg.channels}),
-                              derived_metrics=st.derived_metrics_enabled)
+    registry = build_registry(_tool_groups(cfg), derived_metrics=st.derived_metrics_enabled)
     box = ToolBox(registry, DbToolExecutor(ro, max_rows=st.assistant.max_rows,
                                            statement_timeout_ms=st.assistant.statement_timeout_ms))
     return ResearchAgent(box, gateway_from_config(cfg, db),
@@ -854,6 +860,63 @@ def cmd_eval_research(args) -> int:
     print(json.dumps(summary, indent=2))
     print(f"  Summary: {spath}\n  Detail (score usefulness_1_5 here): {dpath}")
     return 0
+
+
+def cmd_market_report(args) -> int:
+    """Daily market report per pillar (spec §7.3). No OpenAI unless report.llm_summary."""
+    from studio.agents.report import ALLOWED_TOOLS, ReportAgent, save_market_report, validated_streak
+    from studio.agents.research import ToolBox
+    from youtube_intel.assistant.tools import DbToolExecutor, build_registry
+    from youtube_intel.config import PILLARS
+    from youtube_intel.studio_config import load_studio_config
+
+    rcfg = load_studio_config().report
+    need = ("db", "assistant") + (("llm",) if rcfg.llm_summary else ())
+    cfg = load_config(require=need)
+    s, st = cfg.secrets, cfg.settings
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+    pillars = [args.pillar] if args.pillar else [
+        p for p in PILLARS if any(c.enabled and c.pillar == p for c in cfg.channels)]
+    if args.streak:
+        with db.connect() as conn:
+            with repo.dict_cursor(conn) as cur:
+                for p in pillars or PILLARS:
+                    cur.execute("SELECT as_of::date AS d FROM yti.reports WHERE group_code = %s "
+                                "AND model_name = 'market_report' AND status = 'validated'", (p,))
+                    days = [r["d"] for r in cur.fetchall()]
+                    print(f"  {p}: {validated_streak(days, datetime.now(timezone.utc).date())} "
+                          "consecutive day(s) with a validated report (R-06 needs 7)")
+        return 0
+    if not pillars:
+        print("  No active channel has a pillar yet (R-01: the owner picks the 60-90 channels).")
+        return 0
+    ro = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=st.assistant.db_user, password=s.assistant_db_password)
+    box = ToolBox(build_registry(_tool_groups(cfg), derived_metrics=st.derived_metrics_enabled),
+                  DbToolExecutor(ro, max_rows=st.assistant.max_rows,
+                                 statement_timeout_ms=st.assistant.statement_timeout_ms),
+                  allowed=ALLOWED_TOOLS)
+    gateway = None
+    if rcfg.llm_summary:
+        from studio.gateway import gateway_from_config
+        gateway = gateway_from_config(cfg, db)
+    agent = ReportAgent(box, gateway, derived_metrics=st.derived_metrics_enabled, settings=rcfg)
+    bad = 0
+    for p in pillars:
+        rep = agent.run(p)
+        with db.connect() as conn:
+            with conn:
+                with repo.dict_cursor(conn) as cur:
+                    rid = save_market_report(cur, rep, day=datetime.now(timezone.utc).date())
+        status = "validated" if rep.validated else "draft (grounding failed)"
+        print(f"  {p}: {status} · report_id {rid}")
+        for e in rep.grounding_errors[:5]:
+            print(f"     - {e}")
+        if args.show:
+            print("\n" + rep.markdown)
+        bad += not rep.validated
+    return 1 if bad else 0
 
 
 def cmd_quota(args) -> int:
@@ -1029,6 +1092,12 @@ def build_parser() -> argparse.ArgumentParser:
     er2.add_argument("--out", default="evals/results")
     er2.add_argument("--detail-out", default="proposals")
     er2.set_defaults(func=cmd_eval_research)
+
+    mr = sub.add_parser("market-report", help="Bản tin thị trường hằng ngày theo chuyên mục")
+    mr.add_argument("--pillar", choices=["stoic", "east", "fable"])
+    mr.add_argument("--show", action="store_true")
+    mr.add_argument("--streak", action="store_true", help="days in a row with a validated report")
+    mr.set_defaults(func=cmd_market_report)
 
     ec = sub.add_parser("eval-comments", help="F1 phân loại bình luận trên nhãn người (OpenAI)")
     ec.add_argument("--labels", default="evals/studio/comment_labels.csv")

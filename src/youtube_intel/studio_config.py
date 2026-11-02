@@ -71,11 +71,20 @@ class CommentSettings:
 
 
 @dataclass(frozen=True)
+class ReportSettings:
+    """Spec §7.3."""
+    new_video_days: int = 7
+    per_channel: int = 5
+    llm_summary: bool = False
+
+
+@dataclass(frozen=True)
 class StudioConfig:
     channel_search: ChannelSearch
     signals: SignalSettings = SignalSettings()
     topics: TopicSettings = TopicSettings()
     comments: CommentSettings = CommentSettings()
+    report: ReportSettings = ReportSettings()
 
 
 def load_studio_config(path: Path | str | None = None) -> StudioConfig:
@@ -86,7 +95,8 @@ def load_studio_config(path: Path | str | None = None) -> StudioConfig:
     return StudioConfig(channel_search=_channel_search(raw.get("channel_search"), path),
                         signals=_signals(raw.get("signals"), path),
                         topics=_topics(raw.get("topics"), path),
-                        comments=_comments(raw.get("comments"), path))
+                        comments=_comments(raw.get("comments"), path),
+                        report=_report(raw.get("report"), path))
 
 
 def _channel_search(block, path: Path) -> ChannelSearch:
@@ -166,4 +176,15 @@ def _comments(block, path: Path) -> CommentSettings:
     cfg = CommentSettings(**block)
     if not 1 <= cfg.per_video <= 100 or not 1 <= cfg.classify_batch <= 50:
         raise ConfigError(f"{path}: comments.per_video trong 1..100, classify_batch trong 1..50")
+    return cfg
+
+
+def _report(block, path: Path) -> ReportSettings:
+    if block is None:
+        return ReportSettings()
+    if not isinstance(block, dict) or set(block) - set(ReportSettings.__dataclass_fields__):
+        raise ConfigError(f"{path}: report phải là mapping với khóa của ReportSettings")
+    cfg = ReportSettings(**block)
+    if cfg.new_video_days < 1 or not 1 <= cfg.per_channel <= 10:
+        raise ConfigError(f"{path}: report.new_video_days >= 1, per_channel trong 1..10")
     return cfg
