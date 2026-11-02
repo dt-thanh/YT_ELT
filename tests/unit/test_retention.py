@@ -93,8 +93,9 @@ def test_flag_on_only_statistics_get_the_longer_limit():
     R.delete_r3(cur, ON)
     days = {sql: p["days"] for sql, p in cur.calls}
     for rule in R.R3_RULES:
-        assert days[rule.delete_sql] == (ON.stats_days if rule.data_class == "stats_non_authorized"
-                                         else ON.api_days)
+        assert days[rule.delete_sql] == (ON.stats_days if rule.limit == "stats" else ON.api_days)
+        # 36 months only for numbers: statistics and signals derived from them
+        assert rule.limit == "api" or rule.data_class in ("stats_non_authorized", "derived")
 
 
 def test_staging_rule_ignores_quality_status():

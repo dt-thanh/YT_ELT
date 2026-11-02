@@ -661,6 +661,25 @@ def cmd_suggest_channels(args) -> int:
     return 0
 
 
+def cmd_signals(args) -> int:
+    """S1-S3 for recent videos (only with derived_metrics_enabled = true, R2)."""
+    from youtube_intel.signals.run import DerivedMetricsDisabled, run_signals
+    from youtube_intel.studio_config import load_studio_config
+
+    cfg = load_config(require=("db",))
+    s = cfg.secrets
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+    try:
+        out = run_signals(cfg, db, load_studio_config().signals)
+    except DerivedMetricsDisabled as e:
+        print(f"  {e}")           # not an error: basic mode is the default
+        return 0
+    print(f"  {out['videos']} videos · S1 {out['with_s1']} · S2 {out['with_s2']} · "
+          f"labels {out['labels']}")
+    return 0
+
+
 def cmd_quota(args) -> int:
     """YouTube quota used today, per bucket (Pacific-time day)."""
     from youtube_intel.youtube import quota_alerts
@@ -809,6 +828,9 @@ def build_parser() -> argparse.ArgumentParser:
     sc.add_argument("--max-searches", type=int, help="only the first N configured queries")
     sc.add_argument("--out", default="proposals", help="git-ignored folder (R3: API data)")
     sc.set_defaults(func=cmd_suggest_channels)
+
+    sg = sub.add_parser("signals", help="Tín hiệu S1-S3 (chỉ khi derived_metrics_enabled)")
+    sg.set_defaults(func=cmd_signals)
 
     qu = sub.add_parser("quota", help="Quota YouTube đã dùng hôm nay theo bucket")
     qu.set_defaults(func=cmd_quota)

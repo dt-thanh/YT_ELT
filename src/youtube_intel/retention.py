@@ -293,6 +293,15 @@ R3_RULES: tuple[R3Rule, ...] = (
            f"SELECT count(*) AS n, min(fetched_at) AS oldest "
            f"FROM yti_staging.video_observations_stg WHERE fetched_at < {_CUTOFF}",
            f"DELETE FROM yti_staging.video_observations_stg WHERE fetched_at < {_CUTOFF}"),
+    # Signals and clusters (migration 010): numbers derived from public statistics.
+    R3Rule("tín hiệu S1-S3", "derived", "stats",
+           f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.video_signals "
+           f"WHERE fetched_at < {_CUTOFF}",
+           f"DELETE FROM yti.video_signals WHERE fetched_at < {_CUTOFF}"),
+    R3Rule("cụm chủ đề", "derived", "stats",
+           f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.topic_clusters "
+           f"WHERE fetched_at < {_CUTOFF}",
+           f"DELETE FROM yti.topic_clusters WHERE fetched_at < {_CUTOFF}"),
     R3Rule("bản tin (evidence có tiêu đề + số liệu)", "metadata_text", "api",
            f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.reports "
            f"WHERE fetched_at < {_CUTOFF}",

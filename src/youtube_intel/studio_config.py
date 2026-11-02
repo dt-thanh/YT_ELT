@@ -30,8 +30,25 @@ class ChannelSearch:
 
 
 @dataclass(frozen=True)
+class SignalSettings:
+    """Spec §8.1 thresholds (initial guesses, calibrated in A-03)."""
+    window_days: int = 60
+    short_max_seconds: int = 180
+    s1_ages_days: tuple[int, ...] = (2, 7, 28)
+    age_tolerance_hours: float = 12
+    peers_max: int = 20
+    peers_min: int = 5
+    approx_age_days: tuple[int, int] = (7, 60)
+    s1_outstanding: float = 2.0
+    s1_very_outstanding: float = 5.0
+    s2_window_hours: tuple[float, float] = (24, 72)
+    s2_gap_hours: tuple[float, float] = (18, 30)
+
+
+@dataclass(frozen=True)
 class StudioConfig:
     channel_search: ChannelSearch
+    signals: SignalSettings = SignalSettings()
 
 
 def load_studio_config(path: Path | str | None = None) -> StudioConfig:
@@ -39,7 +56,8 @@ def load_studio_config(path: Path | str | None = None) -> StudioConfig:
     if not path.exists():
         raise ConfigError(f"Không tìm thấy {path}")
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    return StudioConfig(channel_search=_channel_search(raw.get("channel_search"), path))
+    return StudioConfig(channel_search=_channel_search(raw.get("channel_search"), path),
+                        signals=_signals(raw.get("signals"), path))
 
 
 def _channel_search(block, path: Path) -> ChannelSearch:
@@ -66,3 +84,30 @@ def _channel_search(block, path: Path) -> ChannelSearch:
     if cs.active_within_days < 1:
         raise ConfigError(f"{path}: channel_search.active_within_days phải >= 1")
     return cs
+
+
+def _signals(block, path: Path) -> SignalSettings:
+    if block is None:
+        return SignalSettings()
+    if not isinstance(block, dict):
+        raise ConfigError(f"{path}: signals phải là mapping")
+    known = {f for f in SignalSettings.__dataclass_fields__}
+    unknown = set(block) - known
+    if unknown:
+        raise ConfigError(f"{path}: khóa lạ trong signals: {sorted(unknown)}")
+    try:
+        vals = {k: (tuple(v) if isinstance(v, list) else v) for k, v in block.items()}
+        cfg = SignalSettings(**vals)
+    except TypeError as e:
+        raise ConfigError(f"{path}: signals sai: {e}") from e
+    if not 1 <= cfg.peers_min <= cfg.peers_max:
+        raise ConfigError(f"{path}: cần 1 <= peers_min <= peers_max")
+    if not 1 < cfg.s1_outstanding < cfg.s1_very_outstanding:
+        raise ConfigError(f"{path}: cần 1 < s1_outstanding < s1_very_outstanding")
+    for name in ("approx_age_days", "s2_window_hours", "s2_gap_hours"):
+        lo, hi = getattr(cfg, name)
+        if not 0 <= lo < hi:
+            raise ConfigError(f"{path}: signals.{name} phải là [thấp, cao]")
+    if not cfg.s1_ages_days or sorted(cfg.s1_ages_days) != list(cfg.s1_ages_days):
+        raise ConfigError(f"{path}: signals.s1_ages_days phải tăng dần, không rỗng")
+    return cfg

@@ -32,3 +32,18 @@ channel_search:
     - {pillar: fable, language: zh, query: "成語故事"}
     - {pillar: fable, language: vi, query: "truyện ngụ ngôn"}
     - {pillar: fable, language: vi, query: "truyện cổ tích việt nam"}
+
+# Tín hiệu S1-S3 (đặc tả mục 8.1, R-02). CHỈ tính khi derived_metrics_enabled = true.
+# Ngưỡng ban đầu là giá trị đoán (đặc tả); hiệu chỉnh ở A-03 bằng kết quả thật.
+signals:
+  window_days: 60              # tính tín hiệu cho video đăng trong 60 ngày gần nhất
+  short_max_seconds: 180       # <= 180 giây coi là Short (heuristic, lưu format_guess)
+  s1_ages_days: [2, 7, 28]     # so cùng tuổi; dùng tuổi lớn nhất video đã đạt và có snapshot
+  age_tolerance_hours: 12      # snapshot "ở tuổi a" = quan sát cách mốc a tối đa 12 giờ
+  peers_max: 20                # tối đa 20 video gần nhất cùng kênh, cùng định dạng
+  peers_min: 5                 # ít hơn -> baseline_approx
+  approx_age_days: [7, 60]     # baseline_approx: trung vị view hiện tại của video 7-60 ngày tuổi
+  s1_outstanding: 2.0          # "nổi trội" (chỉ khi baseline đầy đủ)
+  s1_very_outstanding: 5.0     # "rất nổi trội"
+  s2_window_hours: [24, 72]    # tốc độ trong 24-72 giờ đầu
+  s2_gap_hours: [18, 30]       # hai quan sát cách nhau 18-30 giờ (như v_video_growth)
