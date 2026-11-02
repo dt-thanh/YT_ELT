@@ -919,6 +919,88 @@ def cmd_market_report(args) -> int:
     return 1 if bad else 0
 
 
+def _elt_db(cfg):
+    s = cfg.secrets
+    return repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                         user=s.db_user, password=s.db_password)
+
+
+def cmd_canon_load(args) -> int:
+    """C-02: fetch, cut and load every VERIFIED source of config/canon_sources.yaml."""
+    from canon import ingest
+
+    cfg = load_config(require=("db",))
+    db = _elt_db(cfg)
+    bad = 0
+    for src in ingest.load_sources():
+        if args.source and src.id != args.source:
+            continue
+        if src.status != "verified":
+            print(f"  skip {src.id:<28} status {src.status} (C-01: not loaded)")
+            continue
+        try:
+            parts = ingest.passages(src, ingest.fetch(src, refresh=args.refresh))
+            with db.connect() as conn:
+                with conn:
+                    with repo.dict_cursor(conn) as cur:
+                        out = ingest.load_work(cur, src, parts)
+            print(f"  load {src.id:<28} {out['passages']:>5} passages ({out['removed']} removed)")
+        except Exception as e:
+            bad += 1
+            print(f"  FAIL {src.id:<28} {type(e).__name__}: {e}")
+    return 1 if bad else 0
+
+
+def cmd_embed_canon(args) -> int:
+    """Embed passages without an embedding (bge-m3, local, no API cost)."""
+    from canon import ingest
+    from youtube_intel.signals.clustering import BgeM3Embedder
+    from youtube_intel.studio_config import load_studio_config
+
+    model = load_studio_config().topics.embedding_model
+    db = _elt_db(load_config(require=("db",)))
+    with db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            todo = ingest.pending_embeddings(cur, model)
+    if not todo:
+        print("  nothing to embed")
+        return 0
+    emb = BgeM3Embedder(model)
+    done = 0
+    for i in range(0, len(todo), args.batch):
+        rows = todo[i:i + args.batch]
+        vecs = emb.embed([r["text"][:4000] for r in rows])
+        with db.connect() as conn:
+            with conn:
+                with repo.dict_cursor(conn) as cur:
+                    done += ingest.store_embeddings(cur, rows, vecs, model)
+        print(f"  embedded {done}/{len(todo)}")
+    return 0
+
+
+def cmd_canon_sample(args) -> int:
+    """C-02 acceptance: N random passages for the owner to check ref_label by hand."""
+    import random
+    import yaml
+
+    db = _elt_db(load_config(require=("db",)))
+    with db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            cur.execute("""SELECT p.passage_id, p.ref_label, w.source_url, left(p.text, 240) AS start
+                             FROM yti.canon_passages p JOIN yti.canon_works w USING (work_id)
+                            ORDER BY p.passage_id""")
+            rows = [dict(r) for r in cur.fetchall()]
+    picked = sorted(random.Random(args.seed).sample(rows, min(args.n, len(rows))),
+                    key=lambda r: r["passage_id"])
+    doc = {"note": ("C-02: open source_url, find the passage, and set ref_label_correct to "
+                    "true/false. Target: 100 %."), "seed": args.seed,
+           "passages": [{**r, "ref_label_correct": None} for r in picked]}
+    with open(args.out, "w", encoding="utf-8") as f:
+        yaml.safe_dump(doc, f, allow_unicode=True, sort_keys=False, width=110)
+    print(f"  {len(picked)} passages -> {args.out}")
+    return 0
+
+
 def cmd_quota(args) -> int:
     """YouTube quota used today, per bucket (Pacific-time day)."""
     from youtube_intel.youtube import quota_alerts
@@ -1098,6 +1180,21 @@ def build_parser() -> argparse.ArgumentParser:
     mr.add_argument("--show", action="store_true")
     mr.add_argument("--streak", action="store_true", help="days in a row with a validated report")
     mr.set_defaults(func=cmd_market_report)
+
+    cl = sub.add_parser("canon-load", help="C-02: nạp các nguồn canon ĐÃ XÁC MINH")
+    cl.add_argument("--source", help="only this source id")
+    cl.add_argument("--refresh", action="store_true", help="download again")
+    cl.set_defaults(func=cmd_canon_load)
+
+    ecn = sub.add_parser("embed-canon", help="Embedding bge-m3 cho passage canon (cục bộ)")
+    ecn.add_argument("--batch", type=int, default=32)
+    ecn.set_defaults(func=cmd_embed_canon)
+
+    csm = sub.add_parser("canon-sample", help="C-02: chọn passage ngẫu nhiên để kiểm ref_label")
+    csm.add_argument("--n", type=int, default=30)
+    csm.add_argument("--seed", type=int, default=2026)
+    csm.add_argument("--out", default="evals/studio/canon_refcheck.yaml")
+    csm.set_defaults(func=cmd_canon_sample)
 
     ec = sub.add_parser("eval-comments", help="F1 phân loại bình luận trên nhãn người (OpenAI)")
     ec.add_argument("--labels", default="evals/studio/comment_labels.csv")

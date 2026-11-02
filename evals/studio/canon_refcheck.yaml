@@ -1,0 +1,204 @@
+# Pre-checked by Claude on 2026-11-02: every ref_label below matches the nearest
+# heading/section marker in the downloaded source. ref_label_correct is left for the owner.
+note: 'C-02: open source_url, find the passage, and set ref_label_correct to true/false. Target: 100 %.'
+seed: 2026
+passages:
+- passage_id: aesop.townsend1867.117
+  ref_label: 'Ngụ ngôn Aesop, truyện 117: The Three Tradesmen'
+  source_url: https://www.gutenberg.org/ebooks/21
+  start: A GREAT CITY was besieged, and its inhabitants were called together to consider the best means of protecting
+    it from the enemy. A Bricklayer earnestly recommended bricks as affording the best material for an effective
+    resistance. A Carpente
+  ref_label_correct: null
+- passage_id: aesop.townsend1867.184
+  ref_label: 'Ngụ ngôn Aesop, truyện 184: The Bull and the Calf'
+  source_url: https://www.gutenberg.org/ebooks/21
+  start: A BULL was striving with all his might to squeeze himself through a narrow passage which led to his stall.
+    A young Calf came up, and offered to go before and show him the way by which he could manage to pass. “Save
+    yourself the trouble,” sa
+  ref_label_correct: null
+- passage_id: analects.legge1861.4.26
+  ref_label: Luận Ngữ, thiên 4, chương 26
+  source_url: https://www.gutenberg.org/ebooks/3330
+  start: Tsze-yu said, 'In serving a prince, frequent remonstrances lead to disgrace. Between friends, frequent
+    reproofs make the friendship distant.'
+  ref_label_correct: null
+- passage_id: analects.legge1861.9.29
+  ref_label: Luận Ngữ, thiên 9, chương 29
+  source_url: https://www.gutenberg.org/ebooks/3330
+  start: 'The Master said, ''There are some with whom we may study in common, but we shall find them unable to go
+    along
+
+    with us to principles. Perhaps we may go on with them to principles, but we shall find them unable to get established
+    in those alon'
+  ref_label_correct: null
+- passage_id: artofwar.giles1910.10.7
+  ref_label: Binh pháp Tôn Tử, thiên 10, câu 7
+  source_url: https://www.gutenberg.org/ebooks/17405
+  start: In a position of this sort, even though the enemy should offer us an attractive bait, it will be advisable
+    not to stir forth, but rather to retreat, thus enticing the enemy in his turn; then, when part of his army has
+    come out, we may deliv
+  ref_label_correct: null
+- passage_id: artofwar.giles1910.11.60
+  ref_label: Binh pháp Tôn Tử, thiên 11, câu 60
+  source_url: https://www.gutenberg.org/ebooks/17405
+  start: Success in warfare is gained by carefully accommodating ourselves to the enemy’s purpose.
+  ref_label_correct: null
+- passage_id: artofwar.giles1910.13.5
+  ref_label: Binh pháp Tôn Tử, thiên 13, câu 5
+  source_url: https://www.gutenberg.org/ebooks/17405
+  start: Now this foreknowledge cannot be elicited from spirits; it cannot be obtained inductively from experience,
+    nor by any deductive calculation.
+  ref_label_correct: null
+- passage_id: deira.latin.2.36.3
+  ref_label: Về cơn giận, quyển 2, chương 36, đoạn 3 (nguyên văn Latin)
+  source_url: https://www.thelatinlibrary.com/sen/sen.ira1.shtml
+  start: 'Speculo quidem neminem deterritum ab ira credideris. Quid ergo? qui ad speculum uenerat ut se mutaret,
+    iam mutauerat: iratis quidem nulla est formosior effigies quam atrox et horrida qualesque esse etiam uideri
+    uolunt.'
+  ref_label_correct: null
+- passage_id: deira.latin.3.24.3
+  ref_label: Về cơn giận, quyển 3, chương 24, đoạn 3 (nguyên văn Latin)
+  source_url: https://www.thelatinlibrary.com/sen/sen.ira1.shtml
+  start: 'Puerum aetas excuset, feminam sexus, extraneum libertas, domesticum familiaritas. Nunc primum offendit:
+    cogitemus quam diu placuerit; saepe et alias offendit: feramus quod diu tulimus. Amicus est: fecit quod noluit;
+    inimicus: fecit quod deb'
+  ref_label_correct: null
+- passage_id: enchiridion.higginson1865.23
+  ref_label: Cẩm nang, mục 23
+  source_url: https://www.gutenberg.org/ebooks/45109
+  start: If you ever happen to turn your attention to externals, for the pleasure of anyone, be assured that you
+    have ruined your scheme of life. Be content, then, in everything, with being a philosopher; and if you wish
+    to seem so likewise to anyon
+  ref_label_correct: null
+- passage_id: letters.gummere1917.10.3
+  ref_label: Thư gửi Lucilius, thư 10, mục 3
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: 'I remember in what a great-souled way you hurled forth certain phrases, and how full of strength they
+    were! I immediately congratulated myself and said: “These words did not come from the edge of the lips; these
+    utterances have a solid foun'
+  ref_label_correct: null
+- passage_id: letters.gummere1917.118.15
+  ref_label: Thư gửi Lucilius, thư 118, mục 15
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: 'Some reply: “But that which becomes greater does not necessarily become different. It matters not at all
+    whether you pour wine into a flask or into a vat; the wine keeps its peculiar quality in both vessels. Small
+    and large quantities of ho'
+  ref_label_correct: null
+- passage_id: letters.gummere1917.18.14
+  ref_label: Thư gửi Lucilius, thư 18, mục 14
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: 'But now I must begin to fold up my letter. “Settle your debts first,” you cry. Here is a draft on Epicurus;
+    he will pay down the sum: “Ungoverned anger begets madness.” You cannot help knowing the truth of these words,
+    since you have had no'
+  ref_label_correct: null
+- passage_id: letters.gummere1917.21.6
+  ref_label: Thư gửi Lucilius, thư 21, mục 6
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: 'Whenever men have been thrust forward by fortune, whenever they have become part and parcel of another’s
+    influence, they have found abundant favour, their houses have been thronged, only so long as they themselves
+    have kept their position; '
+  ref_label_correct: null
+- passage_id: letters.gummere1917.70.21
+  ref_label: Thư gửi Lucilius, thư 70, mục 21
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: Yes, indeed; it was not a very elegant or becoming way to die; but what is more foolish than to be over-nice
+    about dying? What a brave fellow! He surely deserved to be allowed to choose his fate! How bravely he would
+    have wielded a sword! W
+  ref_label_correct: null
+- passage_id: letters.gummere1917.77.5
+  ref_label: Thư gửi Lucilius, thư 77, mục 5
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: Tullius Marcellinus, a man whom you knew very well, who in youth was a quiet soul and became old prematurely,
+    fell ill of a disease which was by no means hopeless; but it was protracted and troublesome, and it demanded
+    much attention; hence
+  ref_label_correct: null
+- passage_id: letters.gummere1917.85.11
+  ref_label: Thư gửi Lucilius, thư 85, mục 11
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: Again, if you grant any privileges to sadness, fear, desire, and all the other wrong impulses, they will
+    cease to lie within our jurisdiction. And why? Simply because the means of arousing them lie outside our own
+    power. They will according
+  ref_label_correct: null
+- passage_id: letters.gummere1917.87.17
+  ref_label: Thư gửi Lucilius, thư 87, mục 17
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: 'Virtue stands above all such things. It is appraised in coin of its own minting; and it deems none of
+    these random windfalls to be good. But medicine and navigation do not forbid themselves and their followers
+    to marvel at such things. One '
+  ref_label_correct: null
+- passage_id: letters.gummere1917.95.30
+  ref_label: Thư gửi Lucilius, thư 95, mục 30
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: We are mad, not only individually, but nationally. We check manslaughter and isolated murders; but what
+    of war and the much-vaunted crime of slaughtering whole peoples? There are no limits to our greed, none to our
+    cruelty. And as long as s
+  ref_label_correct: null
+- passage_id: letters.gummere1917.95.35
+  ref_label: Thư gửi Lucilius, thư 95, mục 35
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: 'If we would hold men firmly bound and tear them away from the ills which clutch them fast, they must learn
+    what is evil and what is good. They must know ​that everything except virtue changes its name and becomes now
+    good and now bad. Just '
+  ref_label_correct: null
+- passage_id: letters.gummere1917.99.16
+  ref_label: Thư gửi Lucilius, thư 99, mục 16
+  source_url: https://en.wikisource.org/wiki/Moral_letters_to_Lucilius
+  start: What, then, shall we do? Let us allow them to fall, but let us not command them do so; let us weep according
+    as emotion floods our eyes, but not as much as mere imitation shall demand. Let us, indeed, add nothing to natural
+    grief, nor augme
+  ref_label_correct: null
+- passage_id: lunyu.wikisource.1.2
+  ref_label: Luận Ngữ, thiên 1, chương 2 (nguyên văn)
+  source_url: https://zh.wikisource.org/wiki/%E8%AB%96%E8%AA%9E
+  start: 有子曰：「其爲人也孝弟，而好犯上者，鮮矣；不好犯上，而好作亂者，未之有也。君子務本，本立而道生；孝弟也者，其爲仁之本與？」
+  ref_label_correct: null
+- passage_id: lunyu.wikisource.4.24
+  ref_label: Luận Ngữ, thiên 4, chương 24 (nguyên văn)
+  source_url: https://zh.wikisource.org/wiki/%E8%AB%96%E8%AA%9E
+  start: 子曰：「君子欲訥於言而敏於行。」
+  ref_label_correct: null
+- passage_id: lunyu.wikisource.7.15
+  ref_label: Luận Ngữ, thiên 7, chương 15 (nguyên văn)
+  source_url: https://zh.wikisource.org/wiki/%E8%AB%96%E8%AA%9E
+  start: 子曰：「飯疏食，飮水，曲肱而枕之，樂亦在其中矣。不義而富且貴，於我如浮雲。」
+  ref_label_correct: null
+- passage_id: meditations.long1862.11.16
+  ref_label: Suy tưởng, quyển 11, đoạn 16
+  source_url: https://www.gutenberg.org/ebooks/15877
+  start: 'As to living in the best way, this power is in the soul, if it be indifferent to things which are indifferent.
+    And it will be indifferent, if it looks on each of these things separately and all together, and if it remembers
+    that not one of '
+  ref_label_correct: null
+- passage_id: meditations.long1862.3.9
+  ref_label: Suy tưởng, quyển 3, đoạn 9
+  source_url: https://www.gutenberg.org/ebooks/15877
+  start: Reverence the faculty which produces opinion. On this faculty it entirely depends whether there shall exist
+    in thy ruling part any opinion inconsistent with nature and the constitution of the rational animal. And this
+    faculty promises freed
+  ref_label_correct: null
+- passage_id: meditations.long1862.6.38
+  ref_label: Suy tưởng, quyển 6, đoạn 38
+  source_url: https://www.gutenberg.org/ebooks/15877
+  start: Frequently consider the connection of all things in the universe and their relation to one another. For
+    in a manner all things are implicated with one another, and all in this way are friendly to one another; for
+    one thing comes in order af
+  ref_label_correct: null
+- passage_id: meditations.long1862.8.14
+  ref_label: Suy tưởng, quyển 8, đoạn 14
+  source_url: https://www.gutenberg.org/ebooks/15877
+  start: 'Whatever man thou meetest with, immediately say to thyself: What opinions has this man about good and
+    bad? For if with respect to pleasure and pain and the causes of each, and with respect to fame and ignominy,
+    death and life, he has such a'
+  ref_label_correct: null
+- passage_id: meditations.long1862.9.13
+  ref_label: Suy tưởng, quyển 9, đoạn 13
+  source_url: https://www.gutenberg.org/ebooks/15877
+  start: To-day I have got out of all trouble, or rather I have cast out all trouble, for it was not outside, but
+    within and in my opinions.
+  ref_label_correct: null
+- passage_id: zhuangzi.wikisource.20.4
+  ref_label: Trang Tử, thiên 20, đoạn 4 (nguyên văn)
+  source_url: https://zh.wikisource.org/wiki/%E8%8E%8A%E5%AD%90
+  start: 孔子圍於陳、蔡之間，七日不火食。太公任往弔之，曰：「子幾死乎？」曰：「然。」「子惡死乎？」曰：「然。」任曰：「予嘗言不死之道。東海有鳥焉，其名曰意怠。其爲鳥也，翂翂翐翐，而似无能，引援而飛，迫脅而棲，進不敢爲前，退不敢爲後，食不敢先嘗，必取其緒，是故其行列不斥，而外人卒不得害，是以免於患。直木先伐，甘井先竭。子其意者，飾知以驚愚，脩身以明汙，昭昭乎如揭日月而行，故不免也。昔吾聞之大成之人曰：『自伐者无功，功成者墮，名成者虧。』孰能去功與名，而還與衆人？道流而不明居，得行而不名
+  ref_label_correct: null

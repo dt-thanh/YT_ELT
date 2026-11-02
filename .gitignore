@@ -15,3 +15,6 @@ logs/
 
 # Đề xuất chứa dữ liệu API công khai (tiêu đề kênh...): R3 - không commit, xóa trong 30 ngày
 proposals/
+
+# Văn bản nguồn tải về (tải lại được bằng `youtube-intel canon-load --refresh`)
+data/
