@@ -1,0 +1,1671 @@
+{
+  "run_at": "2026-11-02T09:10:50.969588+00:00",
+  "embedding_model": "BAAI/bge-m3",
+  "queries": 40,
+  "target_recall@5": 0.8,
+  "summary": {
+    "vector": {
+      "recall@5": 0.725,
+      "mrr@5": 0.636
+    },
+    "fulltext": {
+      "recall@5": 0.0,
+      "mrr@5": 0.0
+    },
+    "hybrid": {
+      "recall@5": 0.642,
+      "mrr@5": 0.439
+    }
+  },
+  "per_query": [
+    {
+      "id": "c01",
+      "query": "Thời gian là thứ duy nhất thật sự thuộc về mình",
+      "relevant": [
+        "letters.gummere1917.1.3"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.4.35",
+            "letters.gummere1917.1.3",
+            "letters.gummere1917.124.17",
+            "letters.gummere1917.93.7",
+            "meditations.long1862.6.3"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        },
+        "fulltext": {
+          "ranked": [],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "meditations.long1862.4.35",
+            "letters.gummere1917.1.3",
+            "letters.gummere1917.124.17",
+            "letters.gummere1917.93.7",
+            "meditations.long1862.6.3"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c02",
+      "query": "Mỗi sáng hãy chuẩn bị tinh thần sẽ gặp người vô ơn, kiêu ngạo, đố kỵ",
+      "relevant": [
+        "meditations.long1862.2.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.2.1",
+            "letters.gummere1917.107.4",
+            "meditations.long1862.7.65",
+            "artofwar.giles1910.1.23",
+            "meditations.long1862.8.22"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "aesop.townsend1867.34",
+            "aesop.townsend1867.204",
+            "aesop.townsend1867.53",
+            "aesop.townsend1867.75",
+            "analects.legge1861.17.20"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.34",
+            "meditations.long1862.2.1",
+            "aesop.townsend1867.204",
+            "letters.gummere1917.107.4",
+            "aesop.townsend1867.53"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c03",
+      "query": "Muốn yên tĩnh thì không cần về quê hay ra biển, hãy lui vào trong tâm mình",
+      "relevant": [
+        "meditations.long1862.4.3"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.4.3",
+            "meditations.long1862.7.28",
+            "letters.gummere1917.69.2",
+            "letters.gummere1917.56.5",
+            "letters.gummere1917.55.8"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.12.1",
+            "analects.legge1861.19.12",
+            "aesop.townsend1867.34",
+            "aesop.townsend1867.75",
+            "letters.gummere1917.82.23"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.12.1",
+            "meditations.long1862.4.3",
+            "analects.legge1861.19.12",
+            "meditations.long1862.7.28",
+            "aesop.townsend1867.34"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c04",
+      "query": "Đừng sống như thể mình còn cả vạn năm nữa",
+      "relevant": [
+        "meditations.long1862.4.17"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.4.17",
+            "artofwar.giles1910.6.28",
+            "meditations.long1862.2.14",
+            "meditations.long1862.7.65",
+            "letters.gummere1917.26.7"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "aesop.townsend1867.210",
+            "aesop.townsend1867.136",
+            "artofwar.giles1910.6.17",
+            "artofwar.giles1910.6.20",
+            "deira.latin.2.31.7"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.210",
+            "meditations.long1862.4.17",
+            "aesop.townsend1867.136",
+            "artofwar.giles1910.6.28",
+            "artofwar.giles1910.6.17"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c05",
+      "query": "Cách trả đũa tốt nhất là đừng trở thành giống kẻ làm hại mình",
+      "relevant": [
+        "meditations.long1862.6.6"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.6.6",
+            "meditations.long1862.7.65",
+            "meditations.long1862.10.16",
+            "enchiridion.higginson1865.20",
+            "letters.gummere1917.81.19"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "daodejing.legge1891.46",
+            "debrevitate.latin.13.7",
+            "debrevitate.latin.4.6",
+            "debrevitate.latin.7.4",
+            "deira.latin.1.11.2"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "daodejing.legge1891.46",
+            "meditations.long1862.6.6",
+            "debrevitate.latin.13.7",
+            "meditations.long1862.7.65",
+            "debrevitate.latin.4.6"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c06",
+      "query": "Buổi sáng lười không muốn dậy thì nghĩ gì",
+      "relevant": [
+        "meditations.long1862.5.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "letters.gummere1917.83.6",
+            "letters.gummere1917.123.4",
+            "analects.legge1861.15.30",
+            "letters.gummere1917.122.9",
+            "letters.gummere1917.122.1"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "fulltext": {
+          "ranked": [
+            "letters.gummere1917.12.8",
+            "letters.gummere1917.12.7",
+            "letters.gummere1917.12.6",
+            "daodejing.legge1891.48",
+            "aesop.townsend1867.169"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "letters.gummere1917.122.1",
+            "letters.gummere1917.12.8",
+            "letters.gummere1917.83.6",
+            "letters.gummere1917.12.7",
+            "letters.gummere1917.123.4"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c07",
+      "query": "Điều làm mình khổ không phải sự việc bên ngoài mà là cách mình phán đoán nó",
+      "relevant": [
+        "meditations.long1862.8.47",
+        "enchiridion.higginson1865.5"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "enchiridion.higginson1865.5",
+            "meditations.long1862.8.47",
+            "letters.gummere1917.78.14",
+            "letters.gummere1917.13.7",
+            "letters.gummere1917.81.29"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "enchiridion.higginson1865.5",
+            "meditations.long1862.8.47",
+            "letters.gummere1917.78.14",
+            "letters.gummere1917.13.7",
+            "letters.gummere1917.81.29"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        }
+      }
+    },
+    {
+      "id": "c08",
+      "query": "Đừng bàn chuyện người tốt phải thế nào nữa, hãy làm người tốt đi",
+      "relevant": [
+        "meditations.long1862.10.16"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.10.16",
+            "enchiridion.higginson1865.8",
+            "meditations.long1862.6.6",
+            "meditations.long1862.4.17",
+            "meditations.long1862.4.11"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "aesop.townsend1867.34",
+            "aesop.townsend1867.204",
+            "aesop.townsend1867.53",
+            "aesop.townsend1867.75",
+            "daodejing.legge1891.46"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.34",
+            "meditations.long1862.10.16",
+            "aesop.townsend1867.204",
+            "enchiridion.higginson1865.8",
+            "aesop.townsend1867.53"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c09",
+      "query": "Có việc nằm trong quyền kiểm soát của ta, có việc thì không",
+      "relevant": [
+        "enchiridion.higginson1865.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "letters.gummere1917.85.13",
+            "enchiridion.higginson1865.1",
+            "meditations.long1862.9.38",
+            "meditations.long1862.7.20",
+            "letters.gummere1917.14.16"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        },
+        "fulltext": {
+          "ranked": [
+            "deira.latin.2.31.7",
+            "analects.legge1861.18.11",
+            "analects.legge1861.9.2",
+            "debrevitate.latin.12.2",
+            "debrevitate.latin.13.1"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "deira.latin.2.31.7",
+            "letters.gummere1917.85.13",
+            "analects.legge1861.18.11",
+            "enchiridion.higginson1865.1",
+            "analects.legge1861.9.2"
+          ],
+          "recall": 1.0,
+          "mrr": 0.25
+        }
+      }
+    },
+    {
+      "id": "c10",
+      "query": "Đừng đòi mọi chuyện xảy ra theo ý mình, hãy chấp nhận chúng như chúng là",
+      "relevant": [
+        "enchiridion.higginson1865.8"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "enchiridion.higginson1865.8",
+            "meditations.long1862.4.11",
+            "artofwar.giles1910.6.28",
+            "letters.gummere1917.108.2",
+            "meditations.long1862.8.33"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.14.18",
+            "analects.legge1861.19.24",
+            "analects.legge1861.3.22",
+            "aesop.townsend1867.34",
+            "analects.legge1861.12.2"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.14.18",
+            "enchiridion.higginson1865.8",
+            "analects.legge1861.19.24",
+            "meditations.long1862.4.11",
+            "analects.legge1861.3.22"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c11",
+      "query": "Đời người như một vai diễn do người khác giao, ta chỉ cần diễn cho tốt",
+      "relevant": [
+        "enchiridion.higginson1865.17"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "enchiridion.higginson1865.17",
+            "meditations.long1862.7.40",
+            "letters.gummere1917.95.44",
+            "letters.gummere1917.77.20",
+            "letters.gummere1917.120.22"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.16.1",
+            "analects.legge1861.11.11",
+            "analects.legge1861.18.11",
+            "analects.legge1861.14.38",
+            "analects.legge1861.3.1"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.16.1",
+            "enchiridion.higginson1865.17",
+            "analects.legge1861.11.11",
+            "meditations.long1862.7.40",
+            "analects.legge1861.18.11"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c12",
+      "query": "Đọc quá nhiều sách tràn lan thì chẳng đọng lại gì",
+      "relevant": [
+        "letters.gummere1917.2.2"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "letters.gummere1917.2.3",
+            "letters.gummere1917.106.12",
+            "letters.gummere1917.45.1",
+            "letters.gummere1917.59.10",
+            "letters.gummere1917.88.37"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.20.2",
+            "analects.legge1861.19.3",
+            "analects.legge1861.12.20",
+            "analects.legge1861.15.10",
+            "analects.legge1861.15.5"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.20.2",
+            "letters.gummere1917.2.3",
+            "analects.legge1861.19.3",
+            "letters.gummere1917.106.12",
+            "analects.legge1861.12.20"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c13",
+      "query": "Ta sợ hãi trong tưởng tượng nhiều hơn những gì thực sự xảy ra",
+      "relevant": [
+        "letters.gummere1917.13.4"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "letters.gummere1917.13.9",
+            "letters.gummere1917.104.10",
+            "letters.gummere1917.104.25",
+            "letters.gummere1917.13.4",
+            "letters.gummere1917.57.6"
+          ],
+          "recall": 1.0,
+          "mrr": 0.25
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.18.11",
+            "analects.legge1861.9.2"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.18.11",
+            "letters.gummere1917.13.9",
+            "analects.legge1861.9.2",
+            "letters.gummere1917.104.10",
+            "letters.gummere1917.104.25"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c14",
+      "query": "Đời người không ngắn, chỉ là ta phung phí quá nhiều",
+      "relevant": [
+        "debrevitate.latin.1.3"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "letters.gummere1917.99.11",
+            "letters.gummere1917.61.4",
+            "letters.gummere1917.77.20",
+            "letters.gummere1917.117.32",
+            "letters.gummere1917.106.12"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.18.11",
+            "analects.legge1861.16.1",
+            "analects.legge1861.11.11",
+            "analects.legge1861.18.3",
+            "analects.legge1861.10.11"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.18.11",
+            "letters.gummere1917.99.11",
+            "analects.legge1861.16.1",
+            "letters.gummere1917.61.4",
+            "analects.legge1861.11.11"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c15",
+      "query": "Cơn giận giống như một cơn điên ngắn",
+      "relevant": [
+        "deira.latin.1.1.2"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.11.38",
+            "artofwar.giles1910.12.20",
+            "artofwar.giles1910.7.18",
+            "deira.latin.1.2.5",
+            "letters.gummere1917.18.15"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "fulltext": {
+          "ranked": [],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "meditations.long1862.11.38",
+            "artofwar.giles1910.12.20",
+            "artofwar.giles1910.7.18",
+            "deira.latin.1.2.5",
+            "letters.gummere1917.18.15"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c16",
+      "query": "Thuốc chữa cơn giận tốt nhất là chờ đợi, trì hoãn",
+      "relevant": [
+        "deira.latin.2.29.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "deira.latin.2.29.1",
+            "deira.latin.3.12.4",
+            "artofwar.giles1910.12.20",
+            "letters.gummere1917.63.12",
+            "deira.latin.1.8.1"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "debrevitate.latin.13.7",
+            "debrevitate.latin.4.6",
+            "debrevitate.latin.7.4",
+            "deira.latin.1.11.2",
+            "deira.latin.1.16.4"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "debrevitate.latin.13.7",
+            "deira.latin.2.29.1",
+            "debrevitate.latin.4.6",
+            "deira.latin.3.12.4",
+            "artofwar.giles1910.12.20"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c17",
+      "query": "Đạo mà gọi tên ra được thì không phải là Đạo vĩnh hằng",
+      "relevant": [
+        "daodejing.legge1891.1",
+        "daodejing.wangbi.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "daodejing.legge1891.1",
+            "daodejing.wangbi.47",
+            "daodejing.legge1891.32",
+            "daodejing.wangbi.7",
+            "daodejing.wangbi.34"
+          ],
+          "recall": 0.5,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "daodejing.legge1891.50",
+            "analects.legge1861.11.25",
+            "analects.legge1861.14.22",
+            "analects.legge1861.16.2",
+            "analects.legge1861.2.23"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "daodejing.legge1891.1",
+            "daodejing.legge1891.50",
+            "analects.legge1861.11.25",
+            "daodejing.wangbi.47",
+            "analects.legge1861.14.22"
+          ],
+          "recall": 0.5,
+          "mrr": 1.0
+        }
+      }
+    },
+    {
+      "id": "c18",
+      "query": "Người tốt nhất giống như nước, làm lợi cho muôn vật mà không tranh giành",
+      "relevant": [
+        "daodejing.legge1891.8",
+        "daodejing.wangbi.8"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.7.42",
+            "daodejing.legge1891.8",
+            "daodejing.wangbi.8",
+            "meditations.long1862.6.6",
+            "daodejing.wangbi.68"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        },
+        "fulltext": {
+          "ranked": [
+            "debrevitate.latin.13.7",
+            "debrevitate.latin.4.6",
+            "debrevitate.latin.7.4",
+            "deira.latin.1.11.2",
+            "deira.latin.1.16.4"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "debrevitate.latin.13.7",
+            "meditations.long1862.7.42",
+            "daodejing.legge1891.8",
+            "debrevitate.latin.4.6",
+            "daodejing.wangbi.8"
+          ],
+          "recall": 1.0,
+          "mrr": 0.3333333333333333
+        }
+      }
+    },
+    {
+      "id": "c19",
+      "query": "Hiểu người là khôn, hiểu chính mình mới là sáng suốt",
+      "relevant": [
+        "daodejing.legge1891.33",
+        "daodejing.wangbi.33"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "letters.gummere1917.94.28",
+            "daodejing.wangbi.33",
+            "daodejing.legge1891.33",
+            "letters.gummere1917.9.3",
+            "letters.gummere1917.9.13"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.17.20",
+            "analects.legge1861.6.1",
+            "analects.legge1861.7.31",
+            "letters.gummere1917.12.8",
+            "letters.gummere1917.66.2"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.17.20",
+            "letters.gummere1917.94.28",
+            "analects.legge1861.6.1",
+            "daodejing.wangbi.33",
+            "analects.legge1861.7.31"
+          ],
+          "recall": 0.5,
+          "mrr": 0.25
+        }
+      }
+    },
+    {
+      "id": "c20",
+      "query": "Hành trình ngàn dặm bắt đầu từ một bước chân",
+      "relevant": [
+        "daodejing.legge1891.64",
+        "daodejing.wangbi.64"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "artofwar.giles1910.11.67",
+            "letters.gummere1917.55.1",
+            "artofwar.giles1910.9.28",
+            "letters.gummere1917.49.11",
+            "artofwar.giles1910.5.12"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "fulltext": {
+          "ranked": [
+            "aesop.townsend1867.6",
+            "analects.legge1861.14.22",
+            "deira.latin.1.16.2",
+            "aesop.townsend1867.247",
+            "analects.legge1861.15.1"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.6",
+            "artofwar.giles1910.11.67",
+            "analects.legge1861.14.22",
+            "letters.gummere1917.55.1",
+            "artofwar.giles1910.9.28"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c21",
+      "query": "Lời nói thật thì không hoa mỹ, lời hoa mỹ thì không thật",
+      "relevant": [
+        "daodejing.legge1891.81",
+        "daodejing.wangbi.81"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.12.17",
+            "analects.legge1861.1.3",
+            "daodejing.wangbi.81",
+            "lunyu.wikisource.9.22",
+            "meditations.long1862.4.11"
+          ],
+          "recall": 0.5,
+          "mrr": 0.3333333333333333
+        },
+        "fulltext": {
+          "ranked": [
+            "meditations.long1862.1.17",
+            "letters.gummere1917.84.1",
+            "letters.gummere1917.61.1",
+            "letters.gummere1917.104.6",
+            "letters.gummere1917.104.1"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "meditations.long1862.1.17",
+            "meditations.long1862.12.17",
+            "analects.legge1861.1.3",
+            "letters.gummere1917.84.1",
+            "daodejing.wangbi.81"
+          ],
+          "recall": 0.5,
+          "mrr": 0.2
+        }
+      }
+    },
+    {
+      "id": "c22",
+      "query": "Học rồi thường xuyên ôn luyện chẳng phải là niềm vui sao",
+      "relevant": [
+        "analects.legge1861.1.1",
+        "lunyu.wikisource.1.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "analects.legge1861.1.1",
+            "letters.gummere1917.88.1",
+            "letters.gummere1917.16.1",
+            "lunyu.wikisource.1.1",
+            "letters.gummere1917.36.4"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.20.2",
+            "deira.latin.3.19.3",
+            "analects.legge1861.19.3",
+            "debrevitate.latin.15.5",
+            "analects.legge1861.12.20"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.1.1",
+            "analects.legge1861.20.2",
+            "deira.latin.3.19.3",
+            "letters.gummere1917.88.1",
+            "analects.legge1861.19.3"
+          ],
+          "recall": 0.5,
+          "mrr": 1.0
+        }
+      }
+    },
+    {
+      "id": "c23",
+      "query": "Điều mình không muốn thì đừng làm cho người khác",
+      "relevant": [
+        "analects.legge1861.15.23",
+        "lunyu.wikisource.15.23",
+        "analects.legge1861.12.2",
+        "lunyu.wikisource.12.2"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "meditations.long1862.8.42",
+            "meditations.long1862.12.17",
+            "meditations.long1862.4.11",
+            "meditations.long1862.6.6",
+            "meditations.long1862.7.65"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "fulltext": {
+          "ranked": [
+            "daodejing.legge1891.46"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "daodejing.legge1891.46",
+            "meditations.long1862.8.42",
+            "meditations.long1862.12.17",
+            "meditations.long1862.4.11",
+            "meditations.long1862.6.6"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c24",
+      "query": "Biết thì nói là biết, không biết thì nói là không biết",
+      "relevant": [
+        "analects.legge1861.2.17",
+        "lunyu.wikisource.2.17"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "daodejing.wangbi.71",
+            "zhuangzi.wikisource.32.3",
+            "analects.legge1861.2.17",
+            "lunyu.wikisource.2.17",
+            "lunyu.wikisource.15.7"
+          ],
+          "recall": 1.0,
+          "mrr": 0.3333333333333333
+        },
+        "fulltext": {
+          "ranked": [],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "daodejing.wangbi.71",
+            "zhuangzi.wikisource.32.3",
+            "analects.legge1861.2.17",
+            "lunyu.wikisource.2.17",
+            "lunyu.wikisource.15.7"
+          ],
+          "recall": 1.0,
+          "mrr": 0.3333333333333333
+        }
+      }
+    },
+    {
+      "id": "c25",
+      "query": "Ba người cùng đi ắt có người là thầy của ta",
+      "relevant": [
+        "analects.legge1861.7.21",
+        "lunyu.wikisource.7.21"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "lunyu.wikisource.7.21",
+            "analects.legge1861.7.21",
+            "analects.legge1861.14.40",
+            "artofwar.giles1910.9.28",
+            "meditations.long1862.7.42"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.18.11",
+            "analects.legge1861.9.2",
+            "deira.latin.1.20.4",
+            "deira.latin.2.27.1",
+            "deira.latin.3.14.3"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.18.11",
+            "lunyu.wikisource.7.21",
+            "analects.legge1861.7.21",
+            "analects.legge1861.9.2",
+            "analects.legge1861.14.40"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c26",
+      "query": "Biết người biết ta trăm trận không nguy",
+      "relevant": [
+        "artofwar.giles1910.3.18",
+        "sunzi.wikisource.3.8",
+        "artofwar.giles1910.10.31"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "artofwar.giles1910.3.18",
+            "sunzi.wikisource.3.8",
+            "lunyu.wikisource.9.29",
+            "artofwar.giles1910.10.31",
+            "lunyu.wikisource.2.2"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.18.11",
+            "analects.legge1861.9.2"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.18.11",
+            "artofwar.giles1910.3.18",
+            "analects.legge1861.9.2",
+            "sunzi.wikisource.3.8",
+            "lunyu.wikisource.9.29"
+          ],
+          "recall": 0.6666666666666666,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c27",
+      "query": "Chiến tranh dựa trên sự lừa dối",
+      "relevant": [
+        "artofwar.giles1910.1.18",
+        "sunzi.wikisource.1.3"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "artofwar.giles1910.1.18",
+            "artofwar.giles1910.7.37",
+            "artofwar.giles1910.7.15",
+            "artofwar.giles1910.6.30",
+            "artofwar.giles1910.13.10"
+          ],
+          "recall": 0.5,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.14.22",
+            "analects.legge1861.5.2"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "analects.legge1861.14.22",
+            "artofwar.giles1910.1.18",
+            "analects.legge1861.5.2",
+            "artofwar.giles1910.7.37",
+            "artofwar.giles1910.7.15"
+          ],
+          "recall": 0.5,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c28",
+      "query": "Không cần đánh mà vẫn khuất phục được đối phương mới là giỏi nhất",
+      "relevant": [
+        "artofwar.giles1910.3.2",
+        "sunzi.wikisource.3.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "artofwar.giles1910.3.2",
+            "artofwar.giles1910.3.6",
+            "meditations.long1862.6.6",
+            "artofwar.giles1910.4.14",
+            "artofwar.giles1910.2.19"
+          ],
+          "recall": 0.5,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "letters.gummere1917.82.23",
+            "enchiridion.higginson1865.24",
+            "letters.gummere1917.104.33",
+            "letters.gummere1917.11.9",
+            "letters.gummere1917.109.3"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "artofwar.giles1910.3.2",
+            "letters.gummere1917.82.23",
+            "artofwar.giles1910.3.6",
+            "enchiridion.higginson1865.24",
+            "letters.gummere1917.104.33"
+          ],
+          "recall": 0.5,
+          "mrr": 1.0
+        }
+      }
+    },
+    {
+      "id": "c29",
+      "query": "Người đầu bếp mổ bò mười chín năm mà dao vẫn sắc như mới",
+      "relevant": [
+        "zhuangzi.wikisource.3.2"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "aesop.townsend1867.90",
+            "meditations.long1862.7.51",
+            "artofwar.giles1910.7.37",
+            "letters.gummere1917.76.14",
+            "analects.legge1861.7.7"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "fulltext": {
+          "ranked": [
+            "artofwar.giles1910.6.17",
+            "artofwar.giles1910.6.20",
+            "deira.latin.2.31.7",
+            "debrevitate.latin.12.2",
+            "debrevitate.latin.13.1"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.90",
+            "artofwar.giles1910.6.17",
+            "artofwar.giles1910.6.20",
+            "meditations.long1862.7.51",
+            "artofwar.giles1910.7.37"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c30",
+      "query": "Nằm mơ thấy mình hóa bướm, tỉnh dậy không biết mình là người hay bướm",
+      "relevant": [
+        "zhuangzi.wikisource.2.13"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "aesop.townsend1867.223",
+            "artofwar.giles1910.7.19",
+            "aesop.townsend1867.234",
+            "letters.gummere1917.53.7",
+            "zhuangzi.wikisource.2.13"
+          ],
+          "recall": 1.0,
+          "mrr": 0.2
+        },
+        "fulltext": {
+          "ranked": [
+            "aesop.townsend1867.53",
+            "letters.gummere1917.12.7",
+            "letters.gummere1917.12.6",
+            "daodejing.legge1891.48",
+            "aesop.townsend1867.169"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.223",
+            "aesop.townsend1867.53",
+            "artofwar.giles1910.7.19",
+            "letters.gummere1917.12.7",
+            "aesop.townsend1867.234"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c31",
+      "query": "Con cá khổng lồ ở biển bắc hóa thành chim lớn bay về nam",
+      "relevant": [
+        "zhuangzi.wikisource.1.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "zhuangzi.wikisource.1.1",
+            "aesop.townsend1867.152",
+            "aesop.townsend1867.300",
+            "aesop.townsend1867.259",
+            "artofwar.giles1910.9.22"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "deira.latin.2.31.7",
+            "analects.legge1861.7.29",
+            "artofwar.giles1910.11.28",
+            "debrevitate.latin.12.2",
+            "debrevitate.latin.13.1"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "deira.latin.2.31.7",
+            "zhuangzi.wikisource.1.1",
+            "aesop.townsend1867.152",
+            "analects.legge1861.7.29",
+            "aesop.townsend1867.300"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c32",
+      "query": "Ếch ngồi đáy giếng không thể nói chuyện biển cả",
+      "relevant": [
+        "zhuangzi.wikisource.17.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "analects.legge1861.9.8",
+            "aesop.townsend1867.300",
+            "artofwar.giles1910.10.4",
+            "aesop.townsend1867.34",
+            "aesop.townsend1867.42"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "fulltext": {
+          "ranked": [
+            "letters.gummere1917.12.7",
+            "letters.gummere1917.12.6",
+            "daodejing.legge1891.48",
+            "aesop.townsend1867.169",
+            "aesop.townsend1867.211"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.48",
+            "analects.legge1861.9.8",
+            "letters.gummere1917.12.7",
+            "aesop.townsend1867.300",
+            "letters.gummere1917.12.6"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c33",
+      "query": "Anh không phải cá sao biết được niềm vui của cá",
+      "relevant": [
+        "zhuangzi.wikisource.17.12"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "zhuangzi.wikisource.17.12",
+            "meditations.long1862.11.31",
+            "meditations.long1862.11.38",
+            "meditations.long1862.9.38",
+            "artofwar.giles1910.4.8"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "zhuangzi.wikisource.17.12",
+            "meditations.long1862.11.31",
+            "meditations.long1862.11.38",
+            "meditations.long1862.9.38",
+            "artofwar.giles1910.4.8"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        }
+      }
+    },
+    {
+      "id": "c34",
+      "query": "Con cáo không với tới chùm nho liền chê nho còn xanh",
+      "relevant": [
+        "aesop.townsend1867.196"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "aesop.townsend1867.239",
+            "aesop.townsend1867.7",
+            "aesop.townsend1867.78",
+            "meditations.long1862.6.54",
+            "aesop.townsend1867.40"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.18.8"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.239",
+            "analects.legge1861.18.8",
+            "aesop.townsend1867.7",
+            "aesop.townsend1867.78",
+            "meditations.long1862.6.54"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        }
+      }
+    },
+    {
+      "id": "c35",
+      "query": "Rùa chậm mà kiên trì thắng thỏ chủ quan trong cuộc đua",
+      "relevant": [
+        "aesop.townsend1867.12"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "aesop.townsend1867.12",
+            "artofwar.giles1910.9.28",
+            "artofwar.giles1910.11.17",
+            "analects.legge1861.4.23",
+            "deira.latin.2.16.1"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.13.17",
+            "analects.legge1861.14.26",
+            "analects.legge1861.15.6",
+            "analects.legge1861.18.8",
+            "artofwar.giles1910.11.28"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.12",
+            "analects.legge1861.13.17",
+            "analects.legge1861.14.26",
+            "artofwar.giles1910.9.28",
+            "analects.legge1861.15.6"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        }
+      }
+    },
+    {
+      "id": "c36",
+      "query": "Cậu bé chăn cừu nói dối có sói nhiều lần nên không ai tin nữa",
+      "relevant": [
+        "aesop.townsend1867.55"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "aesop.townsend1867.55",
+            "aesop.townsend1867.230",
+            "aesop.townsend1867.198",
+            "aesop.townsend1867.252",
+            "aesop.townsend1867.234"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.14.22",
+            "analects.legge1861.3.6",
+            "analects.legge1861.11.17",
+            "analects.legge1861.11.2",
+            "analects.legge1861.12.9"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.55",
+            "analects.legge1861.14.22",
+            "aesop.townsend1867.230",
+            "analects.legge1861.3.6",
+            "aesop.townsend1867.198"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        }
+      }
+    },
+    {
+      "id": "c37",
+      "query": "Con chuột nhỏ cắn dây cứu sư tử khỏi lưới thợ săn",
+      "relevant": [
+        "aesop.townsend1867.1"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "aesop.townsend1867.1",
+            "aesop.townsend1867.6",
+            "aesop.townsend1867.14",
+            "aesop.townsend1867.137",
+            "aesop.townsend1867.146"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "letters.gummere1917.66.47",
+            "aesop.townsend1867.138",
+            "letters.gummere1917.104.33",
+            "letters.gummere1917.80.3",
+            "letters.gummere1917.108.27"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.49",
+            "aesop.townsend1867.1",
+            "letters.gummere1917.66.47",
+            "aesop.townsend1867.138",
+            "aesop.townsend1867.6"
+          ],
+          "recall": 1.0,
+          "mrr": 0.5
+        }
+      }
+    },
+    {
+      "id": "c38",
+      "query": "Mùa hè chỉ ca hát không tích trữ, mùa đông phải đi xin ăn",
+      "relevant": [
+        "aesop.townsend1867.11"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "aesop.townsend1867.11",
+            "lunyu.wikisource.7.9",
+            "lunyu.wikisource.8.12",
+            "meditations.long1862.7.40",
+            "artofwar.giles1910.9.30"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.16.1",
+            "analects.legge1861.11.11",
+            "analects.legge1861.18.11",
+            "analects.legge1861.18.3",
+            "aesop.townsend1867.161"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.11",
+            "analects.legge1861.16.1",
+            "analects.legge1861.11.11",
+            "lunyu.wikisource.7.9",
+            "analects.legge1861.18.11"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        }
+      }
+    },
+    {
+      "id": "c39",
+      "query": "Con quạ khát nước thả sỏi vào bình cho nước dâng lên",
+      "relevant": [
+        "aesop.townsend1867.192"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "artofwar.giles1910.9.30",
+            "aesop.townsend1867.267",
+            "aesop.townsend1867.192",
+            "aesop.townsend1867.106",
+            "aesop.townsend1867.83"
+          ],
+          "recall": 1.0,
+          "mrr": 0.3333333333333333
+        },
+        "fulltext": {
+          "ranked": [
+            "debrevitate.latin.12.5",
+            "debrevitate.latin.17.3",
+            "debrevitate.latin.2.2",
+            "debrevitate.latin.8.5",
+            "deira.latin.1.16.3"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "artofwar.giles1910.9.30",
+            "debrevitate.latin.12.5",
+            "aesop.townsend1867.267",
+            "debrevitate.latin.17.3",
+            "aesop.townsend1867.192"
+          ],
+          "recall": 1.0,
+          "mrr": 0.2
+        }
+      }
+    },
+    {
+      "id": "c40",
+      "query": "Gió bấc và mặt trời thi nhau xem ai làm người đi đường cởi áo",
+      "relevant": [
+        "aesop.townsend1867.243"
+      ],
+      "modes": {
+        "vector": {
+          "ranked": [
+            "aesop.townsend1867.243",
+            "artofwar.giles1910.9.28",
+            "artofwar.giles1910.12.11",
+            "artofwar.giles1910.7.17",
+            "artofwar.giles1910.11.5"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        },
+        "fulltext": {
+          "ranked": [
+            "analects.legge1861.15.41",
+            "analects.legge1861.3.6",
+            "aesop.townsend1867.313",
+            "analects.legge1861.10.13",
+            "analects.legge1861.10.9"
+          ],
+          "recall": 0.0,
+          "mrr": 0.0
+        },
+        "hybrid": {
+          "ranked": [
+            "aesop.townsend1867.243",
+            "analects.legge1861.15.41",
+            "analects.legge1861.3.6",
+            "artofwar.giles1910.9.28",
+            "aesop.townsend1867.313"
+          ],
+          "recall": 1.0,
+          "mrr": 1.0
+        }
+      }
+    }
+  ]
+}

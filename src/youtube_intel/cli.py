@@ -978,6 +978,26 @@ def cmd_embed_canon(args) -> int:
     return 0
 
 
+def _canon_query_vec(query: str):
+    from youtube_intel.signals.clustering import BgeM3Embedder
+    from youtube_intel.studio_config import load_studio_config
+    return BgeM3Embedder(load_studio_config().topics.embedding_model).embed([query])[0]
+
+
+def cmd_canon_search(args) -> int:
+    from canon.retrieve import search
+
+    db = _elt_db(load_config(require=("db",)))
+    vec = _canon_query_vec(args.query)
+    with db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            hits = search(cur, query=args.query, query_vec=vec, k=args.k, pillar=args.pillar)
+    for h in hits:
+        print(f"  {h['rank']}. [{h['matched_by']}, sim {h['similarity']}] {h['passage_id']}  "
+              f"{h['ref_label']}\n     {h['snippet'][:160]!r}")
+    return 0
+
+
 def cmd_canon_sample(args) -> int:
     """C-02 acceptance: N random passages for the owner to check ref_label by hand."""
     import random
@@ -998,6 +1018,50 @@ def cmd_canon_sample(args) -> int:
     with open(args.out, "w", encoding="utf-8") as f:
         yaml.safe_dump(doc, f, allow_unicode=True, sort_keys=False, width=110)
     print(f"  {len(picked)} passages -> {args.out}")
+    return 0
+
+
+def cmd_eval_canon(args) -> int:
+    """C-03: Recall@5 of vector, full-text and hybrid search on Vietnamese questions."""
+    from pathlib import Path
+    import yaml
+    from canon.retrieve import search
+    from youtube_intel.rag.evaluation import mrr_at_k, recall_at_k
+    from youtube_intel.signals.clustering import BgeM3Embedder
+    from youtube_intel.studio_config import load_studio_config
+
+    cases = (yaml.safe_load(Path(args.queries).read_text(encoding="utf-8")) or {}).get("queries") or []
+    cases = [c for c in cases if c.get("relevant")]
+    if not cases:
+        print(f"No labelled queries in {args.queries}.")
+        return 1
+    emb = BgeM3Embedder(load_studio_config().topics.embedding_model)
+    vecs = emb.embed([c["query"] for c in cases])
+    db = _elt_db(load_config(require=("db",)))
+    modes = {"vector": ("vector",), "fulltext": ("fulltext",), "hybrid": ("vector", "fulltext")}
+    per = []
+    with db.connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            for c, v in zip(cases, vecs):
+                row = {"id": c["id"], "query": c["query"], "relevant": c["relevant"], "modes": {}}
+                for name, m in modes.items():
+                    ranked = [h["passage_id"] for h in search(cur, query=c["query"], query_vec=v,
+                                                              k=5, modes=m)]
+                    row["modes"][name] = {"ranked": ranked,
+                                          "recall": recall_at_k(ranked, c["relevant"]),
+                                          "mrr": mrr_at_k(ranked, c["relevant"])}
+                per.append(row)
+    summary = {m: {"recall@5": round(sum(r["modes"][m]["recall"] for r in per) / len(per), 3),
+                   "mrr@5": round(sum(r["modes"][m]["mrr"] for r in per) / len(per), 3)}
+               for m in modes}
+    out = {"run_at": datetime.now(timezone.utc).isoformat(), "embedding_model": emb.name,
+           "queries": len(per), "target_recall@5": 0.8, "summary": summary, "per_query": per}
+    path = Path(args.out) / f"canon-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    for m, v in summary.items():
+        print(f"  {m:<9} recall@5 {v['recall@5']:.3f}  MRR@5 {v['mrr@5']:.3f}")
+    print(f"  Saved: {path}")
     return 0
 
 
@@ -1190,11 +1254,22 @@ def build_parser() -> argparse.ArgumentParser:
     ecn.add_argument("--batch", type=int, default=32)
     ecn.set_defaults(func=cmd_embed_canon)
 
+    cs2 = sub.add_parser("canon-search", help="Tìm passage canon (hybrid)")
+    cs2.add_argument("query")
+    cs2.add_argument("--k", type=int, default=5)
+    cs2.add_argument("--pillar", choices=["stoic", "east", "fable"])
+    cs2.set_defaults(func=cmd_canon_search)
+
     csm = sub.add_parser("canon-sample", help="C-02: chọn passage ngẫu nhiên để kiểm ref_label")
     csm.add_argument("--n", type=int, default=30)
     csm.add_argument("--seed", type=int, default=2026)
     csm.add_argument("--out", default="evals/studio/canon_refcheck.yaml")
     csm.set_defaults(func=cmd_canon_sample)
+
+    evc = sub.add_parser("eval-canon", help="C-03: Recall@5 trên câu hỏi tiếng Việt (cục bộ)")
+    evc.add_argument("--queries", default="evals/studio/canon_queries.yaml")
+    evc.add_argument("--out", default="evals/results")
+    evc.set_defaults(func=cmd_eval_canon)
 
     ec = sub.add_parser("eval-comments", help="F1 phân loại bình luận trên nhãn người (OpenAI)")
     ec.add_argument("--labels", default="evals/studio/comment_labels.csv")

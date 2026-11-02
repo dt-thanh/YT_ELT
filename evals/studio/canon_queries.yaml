@@ -1,0 +1,52 @@
+# C-03 acceptance (spec §12): 40 Vietnamese questions -> the passage(s) that answer them.
+# Target: hybrid Recall@5 >= 0.8.   Run: youtube-intel eval-canon   (bge-m3, local, free)
+#
+# Proposed by Claude on 2026-11-02 from passages read in the loaded canon; the owner
+# reviews. Questions paraphrase the idea in everyday Vietnamese - they deliberately do
+# not copy the translation's words, so they test meaning-based, cross-language search.
+# An original and its translation are both relevant (e.g. Dao De Jing ch. 1 in Chinese
+# and in Legge's English). Canon text is not YouTube data: no R3 limit on these ids.
+queries:
+  # ---- stoic -------------------------------------------------------------------
+  - {id: c01, query: "Thời gian là thứ duy nhất thật sự thuộc về mình", relevant: [letters.gummere1917.1.3]}
+  - {id: c02, query: "Mỗi sáng hãy chuẩn bị tinh thần sẽ gặp người vô ơn, kiêu ngạo, đố kỵ", relevant: [meditations.long1862.2.1]}
+  - {id: c03, query: "Muốn yên tĩnh thì không cần về quê hay ra biển, hãy lui vào trong tâm mình", relevant: [meditations.long1862.4.3]}
+  - {id: c04, query: "Đừng sống như thể mình còn cả vạn năm nữa", relevant: [meditations.long1862.4.17]}
+  - {id: c05, query: "Cách trả đũa tốt nhất là đừng trở thành giống kẻ làm hại mình", relevant: [meditations.long1862.6.6]}
+  - {id: c06, query: "Buổi sáng lười không muốn dậy thì nghĩ gì", relevant: [meditations.long1862.5.1]}
+  - {id: c07, query: "Điều làm mình khổ không phải sự việc bên ngoài mà là cách mình phán đoán nó", relevant: [meditations.long1862.8.47, enchiridion.higginson1865.5]}
+  - {id: c08, query: "Đừng bàn chuyện người tốt phải thế nào nữa, hãy làm người tốt đi", relevant: [meditations.long1862.10.16]}
+  - {id: c09, query: "Có việc nằm trong quyền kiểm soát của ta, có việc thì không", relevant: [enchiridion.higginson1865.1]}
+  - {id: c10, query: "Đừng đòi mọi chuyện xảy ra theo ý mình, hãy chấp nhận chúng như chúng là", relevant: [enchiridion.higginson1865.8]}
+  - {id: c11, query: "Đời người như một vai diễn do người khác giao, ta chỉ cần diễn cho tốt", relevant: [enchiridion.higginson1865.17]}
+  - {id: c12, query: "Đọc quá nhiều sách tràn lan thì chẳng đọng lại gì", relevant: [letters.gummere1917.2.2]}
+  - {id: c13, query: "Ta sợ hãi trong tưởng tượng nhiều hơn những gì thực sự xảy ra", relevant: [letters.gummere1917.13.4]}
+  - {id: c14, query: "Đời người không ngắn, chỉ là ta phung phí quá nhiều", relevant: [debrevitate.latin.1.3]}
+  - {id: c15, query: "Cơn giận giống như một cơn điên ngắn", relevant: [deira.latin.1.1.2]}
+  - {id: c16, query: "Thuốc chữa cơn giận tốt nhất là chờ đợi, trì hoãn", relevant: [deira.latin.2.29.1]}
+  # ---- east --------------------------------------------------------------------
+  - {id: c17, query: "Đạo mà gọi tên ra được thì không phải là Đạo vĩnh hằng", relevant: [daodejing.legge1891.1, daodejing.wangbi.1]}
+  - {id: c18, query: "Người tốt nhất giống như nước, làm lợi cho muôn vật mà không tranh giành", relevant: [daodejing.legge1891.8, daodejing.wangbi.8]}
+  - {id: c19, query: "Hiểu người là khôn, hiểu chính mình mới là sáng suốt", relevant: [daodejing.legge1891.33, daodejing.wangbi.33]}
+  - {id: c20, query: "Hành trình ngàn dặm bắt đầu từ một bước chân", relevant: [daodejing.legge1891.64, daodejing.wangbi.64]}
+  - {id: c21, query: "Lời nói thật thì không hoa mỹ, lời hoa mỹ thì không thật", relevant: [daodejing.legge1891.81, daodejing.wangbi.81]}
+  - {id: c22, query: "Học rồi thường xuyên ôn luyện chẳng phải là niềm vui sao", relevant: [analects.legge1861.1.1, lunyu.wikisource.1.1]}
+  - {id: c23, query: "Điều mình không muốn thì đừng làm cho người khác", relevant: [analects.legge1861.15.23, lunyu.wikisource.15.23, analects.legge1861.12.2, lunyu.wikisource.12.2]}
+  - {id: c24, query: "Biết thì nói là biết, không biết thì nói là không biết", relevant: [analects.legge1861.2.17, lunyu.wikisource.2.17]}
+  - {id: c25, query: "Ba người cùng đi ắt có người là thầy của ta", relevant: [analects.legge1861.7.21, lunyu.wikisource.7.21]}
+  - {id: c26, query: "Biết người biết ta trăm trận không nguy", relevant: [artofwar.giles1910.3.18, sunzi.wikisource.3.8, artofwar.giles1910.10.31]}
+  - {id: c27, query: "Chiến tranh dựa trên sự lừa dối", relevant: [artofwar.giles1910.1.18, sunzi.wikisource.1.3]}
+  - {id: c28, query: "Không cần đánh mà vẫn khuất phục được đối phương mới là giỏi nhất", relevant: [artofwar.giles1910.3.2, sunzi.wikisource.3.1]}
+  - {id: c29, query: "Người đầu bếp mổ bò mười chín năm mà dao vẫn sắc như mới", relevant: [zhuangzi.wikisource.3.2]}
+  - {id: c30, query: "Nằm mơ thấy mình hóa bướm, tỉnh dậy không biết mình là người hay bướm", relevant: [zhuangzi.wikisource.2.13]}
+  - {id: c31, query: "Con cá khổng lồ ở biển bắc hóa thành chim lớn bay về nam", relevant: [zhuangzi.wikisource.1.1]}
+  - {id: c32, query: "Ếch ngồi đáy giếng không thể nói chuyện biển cả", relevant: [zhuangzi.wikisource.17.1]}
+  - {id: c33, query: "Anh không phải cá sao biết được niềm vui của cá", relevant: [zhuangzi.wikisource.17.12]}
+  # ---- fable -------------------------------------------------------------------
+  - {id: c34, query: "Con cáo không với tới chùm nho liền chê nho còn xanh", relevant: [aesop.townsend1867.196]}
+  - {id: c35, query: "Rùa chậm mà kiên trì thắng thỏ chủ quan trong cuộc đua", relevant: [aesop.townsend1867.12]}
+  - {id: c36, query: "Cậu bé chăn cừu nói dối có sói nhiều lần nên không ai tin nữa", relevant: [aesop.townsend1867.55]}
+  - {id: c37, query: "Con chuột nhỏ cắn dây cứu sư tử khỏi lưới thợ săn", relevant: [aesop.townsend1867.1]}
+  - {id: c38, query: "Mùa hè chỉ ca hát không tích trữ, mùa đông phải đi xin ăn", relevant: [aesop.townsend1867.11]}
+  - {id: c39, query: "Con quạ khát nước thả sỏi vào bình cho nước dâng lên", relevant: [aesop.townsend1867.192]}
+  - {id: c40, query: "Gió bấc và mặt trời thi nhau xem ai làm người đi đường cởi áo", relevant: [aesop.townsend1867.243]}
