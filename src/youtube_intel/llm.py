@@ -34,7 +34,7 @@ from youtube_intel.config import ModelPrice
 
 logger = logging.getLogger(__name__)
 
-FEATURES = ("report", "assistant", "embedding", "eval")
+FEATURES = ("report", "assistant", "embedding", "eval", "studio")   # studio: via gateway
 VALIDATION_STATUSES = ("passed", "repaired", "failed", "not_applicable")
 DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small"
 
@@ -114,6 +114,8 @@ class CallRecord:
     tool_call_count: int = 0
     attempt: int = 1
     input_hash: str | None = None
+    job_id: str | None = None                # studio job (gateway, migration 011)
+    agent: str | None = None
 
 
 class CallSink(Protocol):
@@ -173,16 +175,18 @@ class PostgresSink:
                             (call_id, called_at, feature, session_id, turn_id, model,
                              prompt_version, input_tokens, output_tokens, est_cost_usd,
                              latency_ms, status, error_type, validation_status,
-                             fallback_used, tool_call_count, attempt, input_hash)
+                             fallback_used, tool_call_count, attempt, input_hash,
+                             job_id, agent)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                                %s, %s, %s, %s, %s, %s, %s, %s)
+                                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                         ON CONFLICT (call_id) DO NOTHING;
                         """,
                         (rec.call_id, rec.called_at, rec.feature, rec.session_id,
                          rec.turn_id, rec.model, rec.prompt_version, rec.input_tokens,
                          rec.output_tokens, rec.est_cost_usd, rec.latency_ms, rec.status,
                          rec.error_type, rec.validation_status, rec.fallback_used,
-                         rec.tool_call_count, rec.attempt, rec.input_hash),
+                         rec.tool_call_count, rec.attempt, rec.input_hash,
+                         rec.job_id, rec.agent),
                     )
 
     def mark(self, call_id, *, validation_status=None, fallback_used=None) -> None:
@@ -248,7 +252,8 @@ class LLMClient:
              tool_choice: str | dict | None = None,
              session_id: str | None = None, turn_id: str | None = None,
              attempt: int = 1, max_tokens: int | None = None,
-             temperature: float | None = None) -> LLMResponse:
+             temperature: float | None = None, job_id: str | None = None,
+             agent: str | None = None) -> LLMResponse:
         """One chat completion. Raises LLMError on failure (the failure is logged)."""
         _check_feature(feature)
         kwargs: dict[str, Any] = {"model": self.model, "messages": messages}
@@ -265,6 +270,7 @@ class LLMClient:
 
         rec = _Pending(feature=feature, model=self.model, prompt_version=prompt_version,
                        session_id=session_id, turn_id=turn_id, attempt=attempt,
+                       job_id=job_id, agent=agent,
                        input_hash=request_hash({"model": self.model, "messages": messages,
                                                 "tools": tools}))
         t0 = time.perf_counter()
@@ -361,6 +367,8 @@ class _Pending:
     turn_id: str | None = None
     attempt: int = 1
     input_hash: str | None = None
+    job_id: str | None = None
+    agent: str | None = None
     call_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     called_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     latency_ms: int = 0
@@ -380,6 +388,7 @@ class _Pending:
             est_cost_usd=estimate_cost(self.model, self.input_tokens, self.output_tokens, pricing),
             error_type=self.error_type, tool_call_count=self.tool_call_count,
             attempt=self.attempt, input_hash=self.input_hash,
+            job_id=self.job_id, agent=self.agent,
         )
 
 

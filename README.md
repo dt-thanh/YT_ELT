@@ -44,7 +44,7 @@ flowchart LR
     PUB -. every 6h, independent .-> SODA[Soda monitor]
 ```
 
-Seven Airflow DAGs, all thin wrappers around a CLI:
+Eight Airflow DAGs, all thin wrappers around a CLI:
 
 - **`yt_collect`** — daily at 21:00 (Asia/Ho_Chi_Minh), one task per channel in parallel. A final
   check task turns the run red if any channel fails; the Dataset event still fires for the rest.
@@ -57,6 +57,9 @@ Seven Airflow DAGs, all thin wrappers around a CLI:
   `derived_metrics_enabled` is false.
 - **`yt_topics`** — weekly: bge-m3 + HDBSCAN topic clusters and S4–S6 (spec §8.2); a no-op
   while `derived_metrics_enabled` is false. Needs `.[embeddings]` (torch) in the image.
+- **`yt_comments`** — daily at 23:00: comments of outstanding videos, classified by a cheap model
+  through the studio gateway, questions clustered and restated (spec §8.3); a no-op while
+  `derived_metrics_enabled` is false.
 - **`yt_retention`** — daily at 20:30, on its own clock: deletes YouTube API data older than the
   R3 limits (below), so the 30-day rule holds even on days nothing is collected.
 
@@ -237,6 +240,8 @@ youtube-intel suggest-channels [--pillar P] [--language L]   # propose candidate
 youtube-intel quota                                # YouTube quota used today per bucket (default/search/upload)
 youtube-intel signals                              # S1-S3 (only with derived_metrics_enabled)
 youtube-intel topics [--pairs FILE]                # weekly clusters + S4-S6 (same flag); --pairs scores R-03
+youtube-intel comments [--no-llm]                  # comment insights (same flag); OpenAI via the gateway
+youtube-intel eval-comments                        # R-04 F1 per class on human labels (OpenAI)
 ```
 
 ## Data model

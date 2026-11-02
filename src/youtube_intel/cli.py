@@ -712,6 +712,76 @@ def cmd_topics(args) -> int:
     return 0
 
 
+def cmd_comments(args) -> int:
+    """Collect, classify and cluster comments (only with derived_metrics_enabled, R2)."""
+    from youtube_intel.comments.run import run_comments
+    from youtube_intel.signals.run import DerivedMetricsDisabled, require_derived_metrics
+    from youtube_intel.studio_config import load_studio_config
+    from youtube_intel.youtube import YouTubeClient
+
+    cfg = load_config(require=("db",))
+    try:
+        require_derived_metrics(cfg.settings)
+    except DerivedMetricsDisabled as e:
+        print(f"  {e}")
+        return 0
+    cfg = load_config(require=("youtube", "db", "comments") + (() if args.no_llm else ("llm",)))
+    s = cfg.secrets
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+    gateway = embedder = None
+    if not args.no_llm:
+        from studio.gateway import gateway_from_config
+        gateway = gateway_from_config(cfg, db)
+        try:
+            from youtube_intel.signals.clustering import BgeM3Embedder
+            embedder = BgeM3Embedder(load_studio_config().topics.embedding_model)
+        except ImportError:
+            print("  bge-m3 not installed (.[embeddings]): questions are not clustered")
+    with YouTubeClient(s.youtube_api_key, timeout=cfg.settings.request_timeout_seconds,
+                       max_attempts=cfg.settings.max_attempts) as yt:
+        out = run_comments(cfg, db, load_studio_config().comments, yt=yt, gateway=gateway,
+                           embedder=embedder)
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+    return 0
+
+
+def cmd_eval_comments(args) -> int:
+    """R-04 acceptance: F1 per class on human labels (ids only; text re-read via API)."""
+    import csv
+    import uuid
+    from pathlib import Path
+    from studio.gateway import gateway_from_config
+    from youtube_intel.comments.classify import classify, f1_per_class
+    from youtube_intel.comments.collect import detect_language
+    from youtube_intel.studio_config import load_studio_config
+    from youtube_intel.youtube import YouTubeClient
+
+    with open(args.labels, encoding="utf-8") as f:
+        gold = {r["comment_id"]: r["label"] for r in csv.DictReader(f) if r.get("comment_id")}
+    if not gold:
+        print(f"No labels in {args.labels}. A person labels ~200 comments first (R-04).")
+        return 1
+    cfg = load_config(require=("youtube", "db", "llm"))
+    s = cfg.secrets
+    db = repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                       user=s.db_user, password=s.db_password)
+    with YouTubeClient(s.youtube_api_key) as yt:
+        texts = yt.fetch_comments_by_id(list(gold))
+    comments = [{"comment_id": i, "text": t, "language": detect_language(t)}
+                for i, t in texts.items()]
+    pred = classify(gateway_from_config(cfg, db), comments, job_id=str(uuid.uuid4()),
+                    batch_size=load_studio_config().comments.classify_batch)
+    result = {"labels_file": args.labels, "deleted_since_labelling": len(gold) - len(texts),
+              **f1_per_class(gold, {k: v[0] for k, v in pred.items()})}
+    out = Path(args.out) / f"comments-{datetime.now(timezone.utc):%Y%m%dT%H%M%S}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(result["per_class"], ensure_ascii=False, indent=2))
+    print(f"  Saved: {out}")
+    return 0
+
+
 def cmd_quota(args) -> int:
     """YouTube quota used today, per bucket (Pacific-time day)."""
     from youtube_intel.youtube import quota_alerts
@@ -868,6 +938,15 @@ def build_parser() -> argparse.ArgumentParser:
     tp.add_argument("--pairs", help="YAML of same-idea video pairs in different languages (R-03 eval)")
     tp.add_argument("--out", default="evals/results")
     tp.set_defaults(func=cmd_topics)
+
+    cm = sub.add_parser("comments", help="Bình luận: thu, phân loại, gom câu hỏi (chỉ khi cờ bật)")
+    cm.add_argument("--no-llm", action="store_true", help="collect only, no OpenAI call")
+    cm.set_defaults(func=cmd_comments)
+
+    ec = sub.add_parser("eval-comments", help="F1 phân loại bình luận trên nhãn người (OpenAI)")
+    ec.add_argument("--labels", default="evals/studio/comment_labels.csv")
+    ec.add_argument("--out", default="evals/results")
+    ec.set_defaults(func=cmd_eval_comments)
 
     qu = sub.add_parser("quota", help="Quota YouTube đã dùng hôm nay theo bucket")
     qu.set_defaults(func=cmd_quota)

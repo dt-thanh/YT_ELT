@@ -302,6 +302,15 @@ R3_RULES: tuple[R3Rule, ...] = (
            f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.topic_clusters "
            f"WHERE fetched_at < {_CUTOFF}",
            f"DELETE FROM yti.topic_clusters WHERE fetched_at < {_CUTOFF}"),
+    # Comment text and Vietnamese restatements of it (migration 011, R8).
+    R3Rule("bình luận", "metadata_text", "api",
+           f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.comment_labels "
+           f"WHERE fetched_at < {_CUTOFF}",
+           f"DELETE FROM yti.comment_labels WHERE fetched_at < {_CUTOFF}"),
+    R3Rule("câu hỏi người xem", "metadata_text", "api",
+           f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.viewer_questions "
+           f"WHERE fetched_at < {_CUTOFF}",
+           f"DELETE FROM yti.viewer_questions WHERE fetched_at < {_CUTOFF}"),
     R3Rule("bản tin (evidence có tiêu đề + số liệu)", "metadata_text", "api",
            f"SELECT count(*) AS n, min(fetched_at) AS oldest FROM yti.reports "
            f"WHERE fetched_at < {_CUTOFF}",
@@ -361,6 +370,17 @@ CHANNEL_DELETION_STEPS: tuple[tuple[str, str, str], ...] = (
     ("bản tin nhắc tới kênh",
      "SELECT count(*) AS n FROM yti.reports r WHERE " + _REPORT_MATCH,
      "DELETE FROM yti.reports r WHERE " + _REPORT_MATCH),
+    ("câu hỏi người xem từ bình luận của kênh",
+     "SELECT count(*) AS n FROM yti.viewer_questions q WHERE q.comment_ids && ARRAY("
+     "SELECT comment_id FROM yti.comment_labels WHERE channel_id = %(ch)s)",
+     "DELETE FROM yti.viewer_questions q WHERE q.comment_ids && ARRAY("
+     "SELECT comment_id FROM yti.comment_labels WHERE channel_id = %(ch)s)"),
+    ("bình luận",
+     "SELECT count(*) AS n FROM yti.comment_labels WHERE channel_id = %(ch)s",
+     "DELETE FROM yti.comment_labels WHERE channel_id = %(ch)s"),
+    ("tín hiệu",
+     "SELECT count(*) AS n FROM yti.video_signals WHERE channel_id = %(ch)s",
+     "DELETE FROM yti.video_signals WHERE channel_id = %(ch)s"),
     ("thống kê",
      "SELECT count(*) AS n FROM yti.video_observations o JOIN yti.channel_batches b "
      "USING (batch_id) WHERE b.channel_id = %(ch)s",

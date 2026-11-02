@@ -60,10 +60,22 @@ class TopicSettings:
 
 
 @dataclass(frozen=True)
+class CommentSettings:
+    """Spec §8.3."""
+    comment_rate_min: float = 0.005
+    max_videos_per_run: int = 30
+    per_video: int = 100
+    refresh_days: int = 7
+    classify_batch: int = 25
+    min_question_cluster: int = 2
+
+
+@dataclass(frozen=True)
 class StudioConfig:
     channel_search: ChannelSearch
     signals: SignalSettings = SignalSettings()
     topics: TopicSettings = TopicSettings()
+    comments: CommentSettings = CommentSettings()
 
 
 def load_studio_config(path: Path | str | None = None) -> StudioConfig:
@@ -73,7 +85,8 @@ def load_studio_config(path: Path | str | None = None) -> StudioConfig:
     raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     return StudioConfig(channel_search=_channel_search(raw.get("channel_search"), path),
                         signals=_signals(raw.get("signals"), path),
-                        topics=_topics(raw.get("topics"), path))
+                        topics=_topics(raw.get("topics"), path),
+                        comments=_comments(raw.get("comments"), path))
 
 
 def _channel_search(block, path: Path) -> ChannelSearch:
@@ -142,4 +155,15 @@ def _topics(block, path: Path) -> TopicSettings:
         raise ConfigError(f"{path}: topics: min_cluster_size >= 2, rising_* >= 1")
     if cfg.rising_days > cfg.window_days:
         raise ConfigError(f"{path}: topics.rising_days phải <= window_days")
+    return cfg
+
+
+def _comments(block, path: Path) -> CommentSettings:
+    if block is None:
+        return CommentSettings()
+    if not isinstance(block, dict) or set(block) - set(CommentSettings.__dataclass_fields__):
+        raise ConfigError(f"{path}: comments phải là mapping với khóa của CommentSettings")
+    cfg = CommentSettings(**block)
+    if not 1 <= cfg.per_video <= 100 or not 1 <= cfg.classify_batch <= 50:
+        raise ConfigError(f"{path}: comments.per_video trong 1..100, classify_batch trong 1..50")
     return cfg

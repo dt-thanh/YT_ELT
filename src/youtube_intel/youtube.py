@@ -52,7 +52,7 @@ MISSING_TOLERANCE = 0.05
 # bucket riêng 100 lần gọi/ngày, 1 unit/lần; mọi endpoint còn lại chung 10.000
 # unit/ngày. (Trước đây code ghi search = 100 unit trong bucket chung - sai.)
 QUOTA_COST = {"channels": 1, "playlistItems": 1, "videos": 1, "search": 1,
-              "commentThreads": 1, "videos.insert": 1}
+              "commentThreads": 1, "comments": 1, "videos.insert": 1}
 QUOTA_BUCKET = {"search": "search", "videos.insert": "upload"}       # còn lại: "default"
 
 
@@ -92,6 +92,10 @@ class ConfigurationError(YouTubeError):
 
 class NotFoundError(YouTubeError):
     """Tài nguyên không tồn tại (404). KHÔNG retry."""
+
+
+class CommentsDisabledError(YouTubeError):
+    """403 commentsDisabled: the video has comments turned off. Not retryable."""
 
 
 # Những `reason` mà Google trả kèm HTTP 403 nhưng bản chất là TẠM THỜI.
@@ -363,6 +367,40 @@ class YouTubeClient:
         items = data.get("items") or []
         return items[0].get("contentDetails", {}).get("videoPublishedAt") if items else None
 
+    def fetch_comment_threads(self, video_id: str, *, max_results: int = 100,
+                              order: str = "relevance") -> list[dict]:
+        """Top-level public comments of a video (1 unit per call, one call).
+
+        R8: the author's display name is dropped HERE and never leaves this method;
+        only the author's channel id is returned, for the caller to hash."""
+        data = self._get("commentThreads", {"part": "snippet", "videoId": video_id,
+                                            "maxResults": min(max_results, 100),
+                                            "order": order, "textFormat": "plainText"})
+        out = []
+        for it in data.get("items", []):
+            top = it.get("snippet", {}).get("topLevelComment", {})
+            sn = top.get("snippet", {})
+            out.append({
+                "comment_id": top.get("id") or it.get("id"),
+                "text": sn.get("textOriginal") or sn.get("textDisplay") or "",
+                "author_channel_id": (sn.get("authorChannelId") or {}).get("value"),
+                "like_count": _to_int(sn.get("likeCount")),
+                "published_at": sn.get("publishedAt"),
+            })
+        return out
+
+    def fetch_comments_by_id(self, comment_ids) -> dict[str, str]:
+        """{comment_id: text} for up to 50 ids per call - re-reads text for an eval
+        whose labels keep only ids (R3). Deleted comments are simply absent."""
+        out = {}
+        for batch in _chunks(list(comment_ids), MAX_RESULTS):
+            data = self._get("comments", {"part": "snippet", "id": ",".join(batch),
+                                          "textFormat": "plainText"})
+            for it in data.get("items", []):
+                sn = it.get("snippet", {})
+                out[it["id"]] = sn.get("textOriginal") or sn.get("textDisplay") or ""
+        return out
+
     def discover_video_ids(
         self, playlist_id: str, *, limit: int = 50, page_limit: int = 2
     ) -> DiscoveryResult:
@@ -536,6 +574,9 @@ def _classify_error(endpoint: str, response: requests.Response) -> YouTubeError:
             )
         if reason in TRANSIENT_403_REASONS:
             return RetryableError(f"Bị giới hạn tốc độ tạm thời: {detail}")
+        if reason == "commentsDisabled":
+            # A property of one video, not of our key: skip that video, keep the run going.
+            return CommentsDisabledError(f"Video tắt bình luận: {detail}")
         return ConfigurationError(
             f"Bị từ chối quyền: {detail}. "
             "Kiểm tra: API key còn hiệu lực? YouTube Data API v3 đã Enable? Key có bị Restrict sai?"

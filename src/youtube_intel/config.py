@@ -202,6 +202,7 @@ class Secrets:
     db_password: str = None                # type: ignore[assignment]
     openai_api_key: str = None             # type: ignore[assignment]
     assistant_db_password: str = None      # type: ignore[assignment]
+    comment_author_key: str = None         # type: ignore[assignment]
 
     def __repr__(self) -> str:             # chặn in secret ra log
         return "Secrets(<đã ẩn>)"
@@ -242,6 +243,8 @@ SECRET_GROUPS: dict[str, tuple[str, ...]] = {
     # Password of the assistant's read-only database login (migration 005).
     # Only `ask` (and the dashboard assistant screen) need it.
     "assistant": ("assistant_db_password",),
+    # Key of the one-way hash of comment authors (R8). Only comment collection needs it.
+    "comments": ("comment_author_key",),
 }
 
 # Mặc định của load_config() = những nhóm LÕI PIPELINE cần.
@@ -560,6 +563,7 @@ def _load_secrets(*, require: tuple[str, ...]) -> Secrets:
         "db_password": "ELT_DATABASE_PASSWORD",
         "openai_api_key": "OPENAI_API_KEY",
         "assistant_db_password": "ASSISTANT_DB_PASSWORD",
+        "comment_author_key": "COMMENT_AUTHOR_KEY",
     }
 
     values = {field: os.environ.get(env_name) for field, env_name in mapping.items()}

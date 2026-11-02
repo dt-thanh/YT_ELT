@@ -61,3 +61,35 @@ topics:
   rising_min_s1: 2.0             # ...mỗi kênh >= 1 video S1 >= 2 với baseline đầy đủ
   gap_max_vi_videos: 2           # S5: cụm đang lên ở EN/ZH, < 2 video tiếng Việt trong 90 ngày
   saturation_min_vi_videos: 4    # S6: nhiều video tiếng Việt mới mà S1 trung vị giảm dần
+
+# Gateway (đặc tả mục 12): MỌI lời gọi LLM của studio đi qua đây. Định tuyến việc -> model,
+# ghi chi phí từng lần gọi vào llm_calls (job_id, agent), và TỪ CHỐI trước khi gọi nếu
+# chi phí tối đa có thể của lần gọi làm job vượt trần. Giá lấy từ llm_pricing trong
+# channels.yaml; model không có giá thì bị từ chối (không chặn được chi phí).
+gateway:
+  models:
+    cheap: gpt-4o-mini           # phân loại, nghiên cứu, báo cáo
+    # good: <chọn ở P3>          # kịch bản, kiểm định (Checker khác model Writer nếu được)
+  routes:                        # việc -> tầng model + số token ra tối đa
+    classify_comments:    {tier: cheap, max_output_tokens: 1500}
+    paraphrase_questions: {tier: cheap, max_output_tokens: 800}
+    name_clusters:        {tier: cheap, max_output_tokens: 300}
+    research_brief:       {tier: cheap, max_output_tokens: 2000}
+    market_report:        {tier: cheap, max_output_tokens: 1500}
+  budget_usd:
+    short: 3.0                   # trần mỗi job Short (đặc tả mục 2)
+    long: 10.0                   # trần mỗi job video dài
+    standalone: 0.5              # lượt chạy không thuộc video nào (nghiên cứu, bản tin, bình luận)
+    # monthly: <Q1 chưa chốt>    # trần tháng toàn hệ thống - để trống = không có trần tháng
+  chars_per_token: 3             # ước token đầu vào THẬN TRỌNG (thực tế ~4 ký tự/token)
+
+# Phân tích bình luận (đặc tả mục 8.3, R-04). CHỈ khi derived_metrics_enabled = true.
+# R8: không lưu tên hiển thị; ID tác giả băm một chiều (HMAC, khóa COMMENT_AUTHOR_KEY
+# trong .env); không trích nguyên văn bình luận vào video.
+comments:
+  comment_rate_min: 0.005        # ngoài video "nổi trội", lấy cả video comment/view >= 0,5 %
+  max_videos_per_run: 30         # 1 unit / video (commentThreads, bucket chung)
+  per_video: 100                 # order = relevance
+  refresh_days: 7                # không lấy lại video đã lấy trong 7 ngày
+  classify_batch: 25             # bình luận mỗi lần gọi model rẻ
+  min_question_cluster: 2        # câu hỏi/yêu cầu gom cụm cần >= 2 bình luận

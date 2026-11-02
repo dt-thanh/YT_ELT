@@ -45,7 +45,7 @@ jobs:
           cache: pip
 
       - name: Cài package + công cụ test
-        run: pip install -e ".[dev,llm,topics]"
+        run: pip install -e ".[dev,llm,topics,comments]"
 
       # -m "not integration": bỏ qua test cần database thật.
       # test_dags.py tự BỎ QUA vì runner không có airflow (importorskip).
