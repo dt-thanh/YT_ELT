@@ -51,6 +51,9 @@ embeddings = ["sentence-transformers>=2.7"]
 comments = ["langdetect>=1.0.9"]
 # Canon MCP server (C-04): python -m studio.mcp.canon_server
 mcp = ["mcp>=2.3"]
+# AI-film production (F-06): a static ffmpeg binary and Pillow for shot images. The pilot
+# voice (MMS-TTS, non-commercial licence) also needs .[embeddings] (transformers + torch).
+media = ["imageio-ffmpeg>=0.5", "Pillow>=10"]
 dev = ["pytest>=8.0", "pytest-cov>=4.1"]
 
 [project.scripts]

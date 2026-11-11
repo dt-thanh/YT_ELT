@@ -1065,6 +1065,47 @@ def cmd_eval_canon(args) -> int:
     return 0
 
 
+def cmd_film_render(args) -> int:
+    """F-06: render one AI-film episode - long cut 16:9 + vertical Short - from its script.
+    Pilot: placeholder images, local MMS voice (non-commercial licence, pilot only)."""
+    from pathlib import Path
+    from studio.production.compose import RenderSpec, load_yaml_model, render_episode
+    from studio.production.voice import FakeTts, MmsTts
+    from studio.schemas import FilmEpisode, StoryBible
+
+    bible = load_yaml_model(args.bible, StoryBible)
+    episode = load_yaml_model(args.episode, FilmEpisode)
+    root = Path(args.out or f"data/films/{bible.series_id}")
+    tts = FakeTts() if args.fake_voice else MmsTts()
+    spec = RenderSpec(fps=args.fps)
+    res = render_episode(episode, bible, tts, work=root / "work", out=root, spec=spec,
+                         make_short=not args.no_short)
+    for name, v in (("long", res.long), ("short", res.short)):
+        if v is None:
+            continue
+        qc = v.qc
+        bad = [k for k, ok in qc["checks"].items() if not ok]
+        print(f"  {name:<5} {v.path}  {qc['seconds']:.1f} s  {qc['width']}x{qc['height']}  "
+              f"{qc['lufs']} LUFS  QC {'ok' if qc['ok'] else 'FAIL ' + ', '.join(bad)}")
+    for e in res.short_errors:
+        print(f"  short: not made - {e}")
+    return 0 if res.qc_ok and not res.short_errors else 1
+
+
+def cmd_film_compile(args) -> int:
+    """F-06: join rendered episodes (their *_report.json) into the long cut with chapters."""
+    import json as _json
+    from pathlib import Path
+    from studio.production.compose import compile_series
+
+    reports = sorted((_json.loads(Path(r).read_text(encoding="utf-8")) for r in args.reports),
+                     key=lambda r: r["number"])
+    parts = [(f"Tập {r['number']}: {r['title']}", Path(r["long"]["path"])) for r in reports]
+    print(compile_series(parts, Path(args.out)))
+    print(f"  -> {args.out}")
+    return 0
+
+
 def cmd_quota(args) -> int:
     """YouTube quota used today, per bucket (Pacific-time day)."""
     from youtube_intel.youtube import quota_alerts
@@ -1271,6 +1312,20 @@ def build_parser() -> argparse.ArgumentParser:
     evc.add_argument("--queries", default="evals/studio/canon_queries.yaml")
     evc.add_argument("--out", default="evals/results")
     evc.set_defaults(func=cmd_eval_canon)
+
+    fr = sub.add_parser("film-render", help="F-06: dựng một tập Phim AI (bản ngang + Short) từ kịch bản")
+    fr.add_argument("--bible", required=True, help="content/films/<bộ>/bible.yaml")
+    fr.add_argument("--episode", required=True, help="content/films/<bộ>/epNN.yaml")
+    fr.add_argument("--out", help="thư mục ra (mặc định data/films/<bộ>)")
+    fr.add_argument("--fps", type=int, default=25)
+    fr.add_argument("--fake-voice", action="store_true", help="tiếng bíp thay giọng (thử nhanh)")
+    fr.add_argument("--no-short", action="store_true")
+    fr.set_defaults(func=cmd_film_render)
+
+    fc = sub.add_parser("film-compile", help="F-06: ghép các tập đã dựng thành bản dài có chapters")
+    fc.add_argument("reports", nargs="+", help="các file *_report.json của từng tập")
+    fc.add_argument("--out", required=True, help="file mp4 bản dài")
+    fc.set_defaults(func=cmd_film_compile)
 
     ec = sub.add_parser("eval-comments", help="F1 phân loại bình luận trên nhãn người (OpenAI)")
     ec.add_argument("--labels", default="evals/studio/comment_labels.csv")

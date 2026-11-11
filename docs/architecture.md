@@ -173,6 +173,9 @@ Mọi trạng thái đều có thể sang `rejected` hoặc `failed`; job cũng 
 3. **P3 Writer + Checker** và **P3b Phim AI** (F-01…F-04): StoryTrendBrief, kho truyện, kiểm độ nguyên
    bản. Thử bằng LLM giả.
 4. **P4 Production**: FFmpeg trước, rồi ảnh mẫu nhân vật, clip AI, giọng nhiều vai.
+   ✅ 11/11/2026 – F-06 bản thử: `film-render` dựng tập 1 của "Còn Bảy Ngày" (2 phút 4 giây, 16:9) và tự cắt
+   Short (47 giây, 9:16) từ các cảnh `in_short`; `film-compile` ghép tập thành bản dài có chapters.
+   Ảnh còn là ảnh giả lập, giọng là MMS-TTS cục bộ (giấy phép phi thương mại, chỉ để thử).
 5. **Thí điểm 3–5 tập bằng tay qua CLI** (F-05, M-06), ghi chi phí và số phút người làm.
 6. **P5 LangGraph**: chỉ tự động hóa những bước đã chạy ổn ở bước 5.
 7. **P6 Analyst**, rồi **P7 upload private**.

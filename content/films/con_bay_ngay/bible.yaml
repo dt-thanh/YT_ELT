@@ -1,0 +1,40 @@
+# Kho truyện (story bible) của bộ phim thử "Còn Bảy Ngày" (F-02, D10).
+# Truyện GỐC của kênh: thể loại xuyên không + "hệ thống" + đếm ngược là mô-típ chung,
+# nhân vật, thế giới và cốt truyện là của kênh (spec §5, D9).
+# Bối cảnh lịch sử chỉ dùng nét lớn có thật: niên hiệu Nguyên Phong (1251-1258) đời Trần
+# Thái Tông, quân Mông Cổ sang lần thứ nhất cuối năm 1257 - đầu 1258. Mọi nhân vật đều hư cấu.
+series_id: con_bay_ngay
+title: "Còn Bảy Ngày"
+logline: >-
+  Một nữ kế toán Hà Nội chạm vào đồng xu cổ trong đêm cúp điện và tỉnh dậy ở Thăng Long năm
+  1257. Chiếc điện thoại sắp hết pin nhắn cho cô một nhiệm vụ: giúp kinh thành đứng vững
+  trước giặc phương Bắc trong bảy ngày, nếu không cô sẽ không bao giờ trở về.
+world: >-
+  Thăng Long cuối năm Nguyên Phong thứ bảy: chợ cửa Đông đông đúc, tin giặc phương Bắc lan
+  khắp phố, lính canh đề phòng gián điệp. Điện thoại của An là thứ duy nhất từ thế kỷ
+  hai mươi mốt; pin không sạc được, mỗi lần dùng là một lựa chọn.
+style_prefix: >-
+  Minh họa truyện tranh màu kiểu điện ảnh, nét mực rõ, ánh sáng tương phản, bối cảnh
+  Đại Việt thế kỷ mười ba, khung hình vuông, chủ thể đặt giữa khung
+negative: chữ viết, logo, hình mờ, nhân vật hoạt hình trẻ em, nhân vật của phim khác
+characters:
+  - id: an
+    name: Lê Minh An
+    look: nữ hai mươi bảy tuổi, tóc đen buộc gọn, sơ mi trắng, quần âu xám, đeo thẻ nhân viên xanh
+    pitch: 1.12
+  - id: tuan
+    name: Đỗ Tuấn
+    look: lính canh trẻ khoảng hai mươi tuổi, giáp da nâu, khăn đầu đỏ sẫm, cầm giáo dài
+    pitch: 0.9
+  - id: ba_lao
+    name: Bà Tư
+    look: bà lão bán nước chè, áo nâu sồng, khăn mỏ quạ, gánh ấm đất
+    pitch: 1.05
+    rate: 0.92
+  - id: quan_cho
+    name: Viên quan coi chợ
+    look: quan văn trung niên, áo thụng xanh đậm, mũ cánh chuồn, râu thưa
+    pitch: 0.85
+    rate: 0.95
+# Tên lấy từ các phim đã theo dõi không được dùng (Checker, F-04). Điền khi có danh sách kênh.
+banned_names: []

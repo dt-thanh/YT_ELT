@@ -111,3 +111,62 @@ class CanonPassage(BaseModel):
     ref_label: str
     text: str
     aligned: list[AlignedPassage] = []
+
+
+# ---- AI film (spec §5 D9/D10, backlog F-02, F-06) ---------------------------------------
+# A series is produced EPISODE by episode; the long cut is the episodes joined with
+# chapters, and each episode yields one vertical Short made of the shots marked in_short.
+# Written by people for the pilot; by the Writer agent from F-03 on.
+Motion = Literal["zoom_in", "zoom_out", "pan_left", "pan_right", "static"]
+SLUG = r"^[a-z0-9_]+$"
+
+
+class Character(BaseModel):
+    id: str = Field(pattern=SLUG)
+    name: str
+    look: str                                   # what an image model must keep the same
+    pitch: float = Field(default=1.0, ge=0.7, le=1.4)   # pilot voice: one model, shifted
+    rate: float = Field(default=1.0, ge=0.7, le=1.4)
+
+
+class StoryBible(BaseModel):
+    series_id: str = Field(pattern=SLUG)
+    title: str
+    logline: str
+    world: str
+    style_prefix: str                           # prepended to every image prompt
+    negative: str = ""
+    characters: list[Character] = Field(min_length=1)
+    # names this story must never use: titles/characters of tracked films (originality, F-04)
+    banned_names: list[str] = []
+
+    def character(self, cid: str) -> Character:
+        for c in self.characters:
+            if c.id == cid:
+                return c
+        raise KeyError(cid)
+
+
+class Line(BaseModel):
+    speaker: str = Field(pattern=SLUG)          # a character id, or "narrator"
+    text: str = Field(min_length=1)             # spoken words only: no digits (TTS reads words)
+
+
+class Shot(BaseModel):
+    shot_id: str = Field(pattern=SLUG)
+    kind: Literal["hook", "scene", "cliffhanger", "end_card"] = "scene"
+    place: str
+    image_prompt: str                           # scene description; style_prefix is added
+    characters: list[str] = []
+    motion: Motion = "zoom_in"
+    lines: list[Line] = []
+    hold_seconds: float = Field(default=0.0, ge=0, le=10)   # shots with no lines
+    on_screen_text: str | None = None
+    in_short: bool = False
+
+
+class FilmEpisode(BaseModel):
+    series_id: str = Field(pattern=SLUG)
+    number: int = Field(ge=1)
+    title: str
+    shots: list[Shot] = Field(min_length=1)

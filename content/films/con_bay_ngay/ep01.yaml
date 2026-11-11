@@ -1,0 +1,165 @@
+# Tập 1 - kịch bản thử (F-06). Lời thoại viết số bằng chữ (giọng đọc không đọc được chữ số).
+# in_short: cảnh vào bản Short dọc. Short phải mở bằng cảnh hook và không quá 90 giây.
+series_id: con_bay_ngay
+number: 1
+title: "Đồng xu trong đêm cúp điện"
+shots:
+  - shot_id: s01_hook
+    kind: hook
+    place: Phố cổ Thăng Long, chạng vạng
+    image_prompt: >-
+      Cận cảnh bàn tay cô gái mặc sơ mi trắng cầm điện thoại sáng rực giữa phố chợ thời Trần,
+      người qua lại mặc áo nâu nhìn chằm chằm
+    characters: [an]
+    motion: zoom_in
+    in_short: true
+    lines:
+      - speaker: narrator
+        text: Nếu một ngày điện thoại của bạn hiện dòng chữ "còn bảy ngày"...
+      - speaker: narrator
+        text: ...và bạn đang đứng giữa kinh thành Thăng Long năm một nghìn hai trăm năm mươi bảy, bạn sẽ làm gì?
+
+  - shot_id: s02_office
+    place: Văn phòng kế toán ở Hà Nội, mười một giờ đêm
+    image_prompt: Văn phòng nhỏ vắng người, mưa đập cửa kính, cô gái mệt mỏi trước màn hình máy tính
+    characters: [an]
+    motion: pan_right
+    on_screen_text: "Hà Nội, 2026"
+    lines:
+      - speaker: narrator
+        text: Lê Minh An, hai mươi bảy tuổi, kế toán của một công ty nhỏ ở Hà Nội.
+      - speaker: an
+        text: Lại tăng ca. Sếp bảo xong báo cáo quý mới được về.
+
+  - shot_id: s03_coin
+    place: Văn phòng, mất điện
+    image_prompt: >-
+      Căn phòng tối om, ngăn kéo bàn hé mở, một đồng xu đồng cổ phát ánh sáng vàng,
+      gương mặt cô gái ngạc nhiên dưới ánh sáng ấy
+    characters: [an]
+    motion: zoom_in
+    lines:
+      - speaker: narrator
+        text: Đèn tắt phụt. Trong ngăn kéo, một đồng xu cũ đang phát sáng.
+      - speaker: an
+        text: Nguyên Phong thông bảo? Đồng xu này ở đâu ra vậy?
+
+  - shot_id: s04_vortex
+    place: Văn phòng, khoảnh khắc xuyên không
+    image_prompt: Cả căn phòng xoáy thành vòng ánh sáng vàng, giấy tờ bay lên, cô gái nắm chặt đồng xu
+    characters: [an]
+    motion: zoom_out
+    lines:
+      - speaker: narrator
+        text: Cô vừa nắm lấy nó, cả căn phòng xoay tròn.
+
+  - shot_id: s05_market
+    place: Chợ cửa Đông, Thăng Long
+    image_prompt: >-
+      Cô gái mặc sơ mi trắng ngồi bệt giữa chợ đông người thời Trần, xe trâu, sạp vải,
+      khói hương, mọi người dừng lại nhìn cô
+    characters: [an, ba_lao]
+    motion: pan_left
+    on_screen_text: "Thăng Long, 1257"
+    lines:
+      - speaker: an
+        text: Đây là đâu? Sao ai cũng mặc áo the thế này?
+      - speaker: ba_lao
+        text: Cô gái, cô ăn mặc lạ quá. Người ở phương nào tới vậy?
+
+  - shot_id: s06_rumour
+    place: Quán nước chè ở chợ
+    image_prompt: Bà lão rót chè từ ấm đất cho cô gái, sau lưng mấy người đàn ông xì xào chỉ tay về phía bắc
+    characters: [an, ba_lao]
+    motion: static
+    lines:
+      - speaker: ba_lao
+        text: Nghe nói giặc phương Bắc sắp tràn xuống. Cửa Đông đóng sớm rồi đấy.
+      - speaker: an
+        text: Bà ơi, bây giờ là năm nào ạ?
+      - speaker: ba_lao
+        text: Năm Nguyên Phong thứ bảy chứ còn năm nào nữa.
+
+  - shot_id: s07_realise
+    place: Chợ cửa Đông
+    image_prompt: Cận mặt cô gái tái nhợt, phía sau là cổng thành cao và lá cờ bay trong gió
+    characters: [an]
+    motion: zoom_in
+    lines:
+      - speaker: narrator
+        text: Nguyên Phong thứ bảy. Năm một nghìn hai trăm năm mươi bảy.
+      - speaker: narrator
+        text: Chỉ ít tháng trước khi quân Mông Cổ kéo đến.
+
+  - shot_id: s08_arrest
+    place: Chợ cửa Đông
+    image_prompt: >-
+      Điện thoại trên tay cô gái đổ chuông, đám đông hoảng sợ lùi lại, một lính canh trẻ
+      giáp da chĩa giáo về phía cô
+    characters: [an, tuan]
+    motion: zoom_in
+    in_short: true
+    lines:
+      - speaker: tuan
+        text: Đứng yên! Vật gì trong tay ngươi phát ra tiếng kêu?
+      - speaker: an
+        text: Đây, đây chỉ là cái điện thoại thôi mà!
+
+  - shot_id: s09_accused
+    place: Chợ cửa Đông
+    image_prompt: Viên quan áo xanh chỉ tay ra lệnh, lính trói tay cô gái, dân chúng đứng xem
+    characters: [an, tuan, quan_cho]
+    motion: pan_right
+    lines:
+      - speaker: quan_cho
+        text: Kẻ lạ mặt mang vật lạ, đúng lúc giặc sắp đến. Trói lại, giải về phủ!
+
+  - shot_id: s10_cell
+    place: Ngục tối trong phủ
+    image_prompt: Phòng giam gỗ tối, ánh trăng qua song cửa, cô gái ngồi co gối nhìn điện thoại còn ít pin
+    characters: [an]
+    motion: zoom_in
+    lines:
+      - speaker: narrator
+        text: Đêm đầu tiên ở Thăng Long, Minh An ngồi trong ngục tối.
+      - speaker: narrator
+        text: Điện thoại chỉ còn mười phần trăm pin.
+
+  - shot_id: s11_message
+    kind: cliffhanger
+    place: Ngục tối trong phủ
+    image_prompt: Màn hình điện thoại sáng lên một tin nhắn lạ, ánh sáng xanh rọi lên gương mặt hoảng hốt của cô gái
+    characters: [an]
+    motion: zoom_in
+    in_short: true
+    on_screen_text: "Nhiệm vụ: còn 7 ngày"
+    lines:
+      - speaker: narrator
+        text: Rồi màn hình bỗng sáng lên.
+      - speaker: narrator
+        text: Nhiệm vụ. Giúp Thăng Long đứng vững trước giặc phương Bắc. Thời gian còn lại, bảy ngày. Nếu thất bại, bạn sẽ không bao giờ trở về.
+      - speaker: an
+        text: Ai? Ai đang nhắn tin cho tôi?
+
+  - shot_id: s12_visitor
+    kind: cliffhanger
+    place: Cửa ngục
+    image_prompt: Lính canh trẻ cầm đuốc đứng sát song cửa ngục, nhìn cô gái, nói thì thầm
+    characters: [an, tuan]
+    motion: zoom_in
+    in_short: true
+    lines:
+      - speaker: tuan
+        text: Cô gái, ta biết cô không phải gián điệp.
+      - speaker: tuan
+        text: Nhưng muốn sống, cô phải nói cho ta biết, cô từ đâu tới?
+      - speaker: narrator
+        text: Còn bảy ngày.
+
+  - shot_id: s13_end
+    kind: end_card
+    place: Màn kết
+    image_prompt: Đồng xu đồng cổ nằm trên nền đen, ánh sáng vàng mờ dần
+    motion: static
+    hold_seconds: 3
+    on_screen_text: "Tập 2: Người lính canh"

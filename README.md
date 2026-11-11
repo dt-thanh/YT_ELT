@@ -254,6 +254,8 @@ youtube-intel canon-sample [--n 30]                # C-02: random passages for t
 youtube-intel canon-search "query" [--pillar P]    # hybrid canon search, any language
 youtube-intel eval-canon                           # C-03: Recall@5 on 40 Vietnamese questions (local)
 python -m studio.mcp.canon_server                  # C-04: MCP server search_canon / get_passage (stdio)
+youtube-intel film-render --bible B --episode E    # F-06: one AI-film episode -> 16:9 cut + 9:16 Short
+youtube-intel film-compile REPORT... --out F.mp4   # F-06: join episodes into the long cut + chapters
 ```
 
 ## Data model
