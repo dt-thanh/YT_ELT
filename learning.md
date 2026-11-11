@@ -74,9 +74,11 @@ agent AI vận hành, người duyệt 3 lần và tự bấm đăng.** Nguyên 
 > *Học xu hướng từ người khác, lấy nội dung từ nguyên tác, viết theo giọng của mình.*
 
 Kênh có 3 chuyên mục: **Khắc kỷ ứng dụng** (Marcus Aurelius, Seneca, Epictetus), **Triết lý
-phương Đông** (Lão Tử, Trang Tử, Khổng Tử, Tôn Tử), **Ngụ ngôn kể cho người lớn** (Aesop...).
-Mỗi video theo format cố định 3 phần: *nguyên tác → tình huống người Việt hôm nay → một việc
-làm được ngay*.
+phương Đông** (Lão Tử, Trang Tử, Khổng Tử, Tôn Tử), và **Phim AI** — phim ngắn do AI dựng, truyện gốc
+của kênh, xu hướng học từ các kênh phim AI tiếng Trung/Anh/Việt (quyết định D9, 11/11/2026, thay chuyên
+mục Ngụ ngôn). Sơ đồ kiến trúc đầy đủ: [`docs/architecture.md`](docs/architecture.md).
+Video triết lý theo format cố định 3 phần: *nguyên tác → tình huống người Việt hôm nay → một việc
+làm được ngay*. Phim AI có cấu trúc truyện: mở đầu 3 giây gây tò mò, biến cố, kết tập treo.
 
 ## 0.2 Dự án lớn lên qua 3 giai đoạn (hãy kể theo đúng thứ tự này)
 

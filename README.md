@@ -331,7 +331,18 @@ with a human approving three times (topic, script, final video) and pressing *pu
 in one line: *learn trends from others, take content from public-domain originals, write in our
 own voice.* This repository becomes the studio's **research** department; almost all of it stays.
 
-The specification is [`YT_ELT Studio — Đặc tả product AI Faceless Studio.docx`](<YT_ELT Studio — Đặc tả product AI Faceless Studio.docx>) (2026-10-30).
+Three pillars: **Stoicism** and **Eastern philosophy** (scripts quote the public-domain canon), and
+**AI films** — original AI-made short dramas whose trends (tropes, hooks, pacing) are learned from
+Chinese, English and Vietnamese AI-drama channels, never copied. AI films replaced the fable pillar on
+2026-11-11 (decision D9, migration 013).
+
+**Architecture:** [`docs/architecture.md`](docs/architecture.md) — the five layers, the flow of one
+episode with its three approval points, the seven agents, and how they are orchestrated (Airflow for
+scheduled data jobs, LangGraph for per-video jobs, MCP for shared tools, the gateway for model routing
+and cost ceilings; no LangChain).
+
+The specification is [`YT_ELT Studio — Đặc tả product AI Faceless Studio.docx`](<YT_ELT Studio — Đặc tả product AI Faceless Studio.docx>) (2026-10-30);
+[`yt-elt-studio-spec.md`](yt-elt-studio-spec.md) is its current Markdown version, with decision D9 applied.
 It replaces the earlier *"YT_ELT — Đặc tả nâng cấp AI Engineering"* (2026-10-15). Work follows
 its backlog (section 14), one commit per item ID:
 
