@@ -82,7 +82,7 @@ Mục tiêu 6 tháng đầu là một studio chạy ổn định và đo đượ
 | Chỉ số | Mục tiêu | Đo bằng |
 | --- | --- | --- |
 | Video đăng mỗi tuần | 3 | Bảng publications |
-| Thời gian người làm mỗi video | dưới 60 phút | Tổng human\_effort\_minutes của job (không tính thời gian chờ giữa các điểm duyệt) |
+| Thời gian người làm mỗi video (Phim AI: mỗi tập, D10) | dưới 60 phút | Tổng human\_effort\_minutes của job (không tính thời gian chờ giữa các điểm duyệt) |
 | Chi phí API mỗi video | dưới trần cấu hình (mặc định 3 USD cho Short, 10 USD cho video dài) | Bảng llm\_calls và media\_jobs |
 | Tỉ lệ câu trích khớp nguyên tác | 100% | Agent Kiểm định |
 | Tỉ lệ bị người bác ở mỗi điểm duyệt | giảm dần theo tháng | Bảng approvals |
@@ -184,6 +184,8 @@ Short có thể cắt từ video dài, nhưng phải có mở đầu riêng.
 | --- | --- | --- |
 | Tập Short 9:16 | 60–90 giây | 3 giây mở đầu gây tò mò, một biến cố, kết tập treo |
 | Tập dài 16:9 | 3–8 phút | Mở đầu, 2–3 cảnh xung đột, kết tập treo; nhắc lại ngắn tập trước |
+
+**Bộ dài và Short (D10, 11/11/2026).** Mỗi bộ phim nhắm 1–2 giờ, nhưng **sản xuất theo tập** (40–60 tập, mỗi tập 1,5–3 phút, có mở đầu và kết treo). Bản dài là các tập **ghép lại** kèm mục lục (chapters) theo tập; mỗi tập cho ra một Short dọc. Writer đánh dấu cảnh nào vào Short (`in_short`), code cắt theo mốc thời gian lấy từ kịch bản và âm thanh thật: không cần AI "xem" video để đoán chỗ cắt. Phong cách: **truyện tranh động** (ảnh AI có chuyển động nhẹ + lồng tiếng nhiều vai, clip AI chỉ cho vài cảnh cao trào), rẻ hơn phim toàn clip khoảng 10 lần. Ảnh tạo theo khung vuông, bố cục giữ chủ thể trong vùng an toàn 9:16, để cùng một ảnh cắt được cả bản ngang lẫn Short dọc.
 
 Mỗi bộ phim có một **kho truyện (story bible)**: thế giới, nhân vật kèm ảnh mẫu, tóm tắt các tập đã làm, để các tập sau nhất quán. Mỗi tập phải có cốt truyện riêng; không dùng một khuôn truyện cho mọi tập (chính sách nội dung không nguyên bản của YouTube, 07/2026).
 
@@ -533,6 +535,8 @@ Làm theo thứ tự giai đoạn. Mỗi mục xong khi đạt tiêu chí nghi�
 | F-02 | Kho truyện (story bible): thế giới, nhân vật, ảnh mẫu (MinIO), tóm tắt tập | Writer đọc được; tập sau không mâu thuẫn tập trước trên 5 tập mẫu |
 | F-03 | Writer chế độ Phim AI | 10 brief: đủ cấu trúc tập; kết hợp ít nhất 2 mô-típ |
 | F-04 | Checker kiểm độ nguyên bản | 20 kịch bản cài lỗi (kể lại một phim đã theo dõi, dùng tên nhân vật của phim khác): recall từ 0,9 |
+| F-06 | Dựng tập phim từ kịch bản; tự cắt Short từ cảnh `in_short`; ghép nhiều tập thành bản dài có chapters | Tập thử render được bản ngang 1920×1080 và Short 1080×1920 có phụ đề; Short mở bằng cảnh hook và không quá 90 giây; ghép N tập ra mục lục đúng mốc |
+| M-07 | Chọn công cụ tạo ảnh và clip cho Phim AI bằng bài xem mù (cùng 5 cảnh, mỗi công cụ) | Kết quả, giá và độ nhất quán nhân vật ghi trong docs/decisions; Q8 chốt sau mục này |
 | F-05 | Thí điểm 3–5 tập bán thủ công | Ghi chi phí từng tập, human\_effort\_minutes, phần bị sửa nhiều nhất |
 
 ### P4 — Production
@@ -603,8 +607,8 @@ P1 và P2 chạy song song vì không phụ thuộc nhau. Đợt thí điểm 5 
 - [ ] Q4: Danh sách 60–90 kênh theo dõi ban đầu (agent đề xuất, người chốt)?
 - [ ] Q5: Có làm phiên bản tiếng Anh từ quý 1/2027 không?
 - [ ] Q6: Chạy trên máy cá nhân hay VPS (bge-m3 và WhisperX cần RAM, tốt nhất có GPU)?
-- [ ] Q8: Trần chi phí mỗi tập Phim AI sau thí điểm (mặc định khi làm thử: 10 USD)?
-- [ ] Q9: Phim AI bắt đầu bằng tập Short lẻ hay bộ nhiều tập ngay?
+- [ ] Q8: Trần chi phí mỗi tập Phim AI (mặc định khi làm thử: 10 USD)? Chốt sau M-07 (chọn công cụ tạo ảnh/clip).
+- [x] Q9: Bộ dài 1–2 giờ, sản xuất theo tập, mỗi tập ra một Short (D10, 11/11/2026). Làm thử 1 tập trước.
 - [ ] Q7: Có nộp đơn chấp nhận phần sửa đổi chính sách (use case Analytics & Reporting) để bật derived\_metrics\_enabled không? Chưa được chấp thuận thì studio chạy ở chế độ cơ bản.
 
 **Nguồn**
