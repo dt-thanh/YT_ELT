@@ -13,7 +13,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Pillar = Literal["stoic", "east", "fable"]
+Pillar = Literal["stoic", "east", "ai_film"]          # channel pillars (spec D9)
 Language = Literal["en", "zh", "vi"]
 
 

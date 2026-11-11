@@ -174,13 +174,13 @@ def test_proposal_file_is_reviewable(tmp_path):
 def test_shipped_search_queries_cover_every_pillar_and_language():
     cs = load_studio_config().channel_search
     assert {(q.pillar, q.language) for q in cs.queries} == {
-        (p, lang) for p in ("stoic", "east", "fable") for lang in ("en", "zh", "vi")}
+        (p, lang) for p in ("stoic", "east", "ai_film") for lang in ("en", "zh", "vi")}
     assert len(cs.queries) <= CFG.settings.quota.search_daily_calls // 2
 
 
 def test_a_channel_with_a_hidden_uploads_playlist_is_kept_as_inactive():
     yt = FakeYT()
     yt.search_channels = lambda q, **k: ["UCgone"]
-    [c] = suggest_channels(yt, [SearchQuery("fable", "zh", "x")], results_per_query=25,
+    [c] = suggest_channels(yt, [SearchQuery("ai_film", "zh", "x")], results_per_query=25,
                            active_within_days=60, now=NOW)
     assert (c["channel_id"], c["latest_upload"], c["active"]) == ("UCgone", None, False)

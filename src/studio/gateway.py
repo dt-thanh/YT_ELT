@@ -31,7 +31,7 @@ from youtube_intel.llm import LLMClient, estimate_cost
 logger = logging.getLogger(__name__)
 
 DEFAULT_STUDIO_PATH = Path(__file__).resolve().parents[2] / "config" / "studio.yaml"
-BUDGETS = ("short", "long", "standalone")
+BUDGETS = ("short", "long", "film", "standalone")
 M = TypeVar("M", bound=BaseModel)
 
 

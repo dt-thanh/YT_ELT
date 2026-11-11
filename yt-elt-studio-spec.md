@@ -2,6 +2,11 @@
 
 Oct 30, 2026 · @William DG
 
+> **Thay đổi 11/11/2026 (quyết định D9 của chủ dự án):** chuyên mục thứ ba "Ngụ ngôn và truyện cổ"
+> (fable) được thay bằng **"Phim AI"** (ai\_film): phim ngắn do AI dựng, truyện **gốc** của kênh.
+> Các mục bị ảnh hưởng ghi "(D9)". Bản .docx gốc chưa được sửa; file Markdown này là bản hiện hành.
+> Kiến trúc tổng thể vẽ ở docs/architecture.md.
+
 ## 0. Tóm tắt và quyết định đã chốt
 
 YT\_ELT chuyển từ "phân tích kênh của chính mình" thành **YT\_ELT Studio**: một studio nội dung không lộ mặt do 7 agent vận hành, với Thành là người duyệt cuối. Tài liệu này thay thế "YT\_ELT — Đặc tả nâng cấp AI Engineering.docx" (15/10/2026). Phần đã làm trong đặc tả cũ vẫn giữ và trở thành bộ phận Nghiên cứu.
@@ -11,13 +16,14 @@ Nguyên tắc một câu: **học xu hướng từ người khác, lấy nội d
 | # | Quyết định | Giá trị chốt |
 | --- | --- | --- |
 | D1 | Mô hình | Một kênh YouTube tiếng Việt, không lộ mặt, có Shorts và video dài |
-| D2 | Chuyên mục | Cả 3: Khắc kỷ ứng dụng, Triết lý phương Đông, Ngụ ngôn và truyện cổ |
+| D2 | Chuyên mục | Cả 3: Khắc kỷ ứng dụng, Triết lý phương Đông, Phim AI (D9; trước đây là Ngụ ngôn và truyện cổ) |
 | D3 | Nguồn theo dõi | Kênh tiếng Anh, tiếng Trung và tiếng Việt; ưu tiên chủ đề đã lên ở EN/ZH nhưng chưa có ở VI |
 | D4 | Tín hiệu | Chế độ cơ bản: view, like, số bình luận, mức tăng view của từng video. Tín hiệu nâng cao, gom cụm chủ đề và phân tích bình luận chỉ bật khi derived\_metrics\_enabled = true sau khi được YouTube chấp thuận (R2) |
 | D5 | Nội dung | Chỉ viết từ nguyên tác thuộc phạm vi công cộng; không nhại video của kênh khác |
 | D6 | Mức tự động | 3 điểm duyệt của người: chủ đề, kịch bản, video cuối; người bấm đăng |
 | D7 | Mảng trẻ em | Hoãn sang sau khi kênh chính đạt chuẩn chất lượng |
 | D8 | Thứ tự | Đóng giai đoạn 0 của YT\_ELT trước hạn VietinBank 06/11/2026; studio bắt đầu sau đó |
+| D9 | Chuyên mục thứ ba (11/11/2026) | Phim AI thay Ngụ ngôn. Học xu hướng từ kênh phim AI tiếng Trung, Anh, Việt trên YouTube (mô-típ, kiểu mở đầu, nhịp ra tập); truyện, nhân vật, thế giới luôn là của kênh, không chép hay kể lại cốt truyện của phim nào |
 
 Agent nào đọc tài liệu này để triển khai: làm theo thứ tự backlog ở mục 14, mỗi mục có ID và tiêu chí nghiệm thu. Không bỏ qua điểm duyệt của người.
 
@@ -93,7 +99,7 @@ Tám luật dưới đây là ràng buộc cứng của hệ thống. Mỗi lu�
 | R2 | Derived metrics: nếu chưa được chấp thuận, không được dùng API Data để tạo metric hay dữ liệu mới, cũng không được thay số liệu API bằng số tự tính (Developer Policies III.E.4.h). Điểm số và tỉ lệ tự tính, gắn tag hay phân loại nội dung, phân tích cảm xúc bình luận, xếp hạng giữa các kênh chỉ được phép khi dự án chấp nhận phần sửa đổi chính sách với use case Analytics & Reporting (III.L) ([Developer Policies](https://developers.google.com/youtube/terms/developer-policies), [Derived Metrics Policy](https://developers.google.com/youtube/terms/derived-metrics-policy)) | Giảm quota hoặc thu hồi quyền API | Cờ derived\_metrics\_enabled (mặc định false) chặn mọi tính năng nâng cao liệt kê ở mục 8. Khi cờ tắt chỉ còn số thô, sắp xếp, lọc và mức tăng view của từng video, luôn hiển thị cạnh số thô và ghi rõ "tính độc lập". Đây là cách phân ranh thận trọng, không phải tư vấn pháp lý; trường hợp chưa rõ thì xếp vào nâng cao |
 | R3 | Lưu trữ (III.E.4): Non-Authorized Data (dữ liệu công khai lấy bằng API key, gồm dữ liệu mọi kênh đang theo dõi) chỉ được lưu tạm và tối đa 30 ngày; thống kê Non-Authorized cũng không quá 30 ngày. Authorized Data (kênh của mình, qua OAuth): thống kê và Analytics lưu theo nhu cầu nhưng phải kiểm lại quyền mỗi 30 ngày; dữ liệu Authorized khác thì xóa hoặc làm mới sau 30 ngày. Người dùng yêu cầu xóa thì xóa trong 7 ngày | Vi phạm điều khoản | Bảng lưu trữ theo lớp dữ liệu ngay dưới; retention.py xóa theo fetched\_at và data\_class |
 | R4 | Không tải phụ đề hay video của kênh khác (captions.download cần quyền chủ kênh) | Vi phạm điều khoản | Agent chỉ có metadata, thống kê và bình luận công khai |
-| R5 | Bản quyền: chỉ dùng văn bản thuộc phạm vi công cộng hoặc bản dịch đã hết hạn; không dùng bìa sách, nhân vật có chủ (Peppa, Wolfoo...); truyện cổ tích kể lại bằng lời mình, không chép tuyển tập | Khiếu nại bản quyền, gỡ video | Mỗi đoạn trong kho kinh điển mang trường license; validator reference\_names chặn tên có chủ |
+| R5 | Bản quyền: chỉ dùng văn bản thuộc phạm vi công cộng hoặc bản dịch đã hết hạn; không dùng bìa sách, nhân vật có chủ (Peppa, Wolfoo...); truyện cổ tích kể lại bằng lời mình, không chép tuyển tập | Khiếu nại bản quyền, gỡ video | Mỗi đoạn trong kho kinh điển mang trường license; validator reference\_names chặn tên có chủ; Phim AI (D9): Checker kiểm độ nguyên bản so với mọi phim đã theo dõi |
 | R6 | Khai báo nội dung AI: nội dung AI trông như thật phải khai báo; TTS cho nội dung gốc không bắt buộc; voice clone người thật thì phải ([MiniMatters](https://minimatters.com/?p=6160)) | YouTube tự gắn nhãn, có thể phạt | Agent Kiểm định đặt cờ cần khai báo; khi upload qua API dùng trường status.containsSyntheticMedia; mô tả video luôn ghi có dùng AI |
 | R7 | Nội dung dành cho trẻ em: phải tự khai báo made for kids; video AI trên YouTube Kids đang bị giới hạn ở một nhóm nhỏ kênh đã thẩm định ([YourStory](https://yourstory.com/ai-story/youtube-ai-slop-kids-ban)) | Phạt, mất kiếm tiền | Chuyên mục ngụ ngôn kể cho người lớn, phong cách hình ảnh người lớn; status.selfDeclaredMadeForKids = false có chủ đích, ghi lý do |
 | R8 | Bình luận là dữ liệu của người khác | Rủi ro quyền riêng tư | Không lưu tên hiển thị; mã hóa một chiều ID tác giả; không trích nguyên văn bình luận vào video |
@@ -157,7 +163,7 @@ Một kênh tiếng Việt với 3 chuyên mục chạy song song. Mỗi chuyên
 | --- | --- | --- | --- | --- |
 | stoic | Khắc kỷ ứng dụng | Marcus Aurelius (Suy tưởng), Seneca (Thư gửi Lucilius, Về sự ngắn ngủi của đời người, Về cơn giận), Epictetus (Cẩm nang) | Tượng đá, tranh sơn dầu cổ điển, tông trầm | Marcus Aurelius sẽ làm gì khi bị sếp mắng oan? |
 | east | Triết lý phương Đông | Lão Tử (Đạo Đức Kinh), Trang Tử, Khổng Tử (Luận Ngữ), Tôn Tử (Binh pháp) | Tranh thủy mặc, nhiều khoảng trống | Bào Đinh mổ bò: bí quyết làm việc 19 năm không mệt |
-| fable | Ngụ ngôn và truyện cổ (kể cho người lớn) | Aesop, La Fontaine, truyện cổ tích dân gian Việt Nam | Minh họa phẳng tông ấm, nhân vật tự thiết kế, không kiểu hoạt hình trẻ em | Rùa và Thỏ: thật ra con thỏ không thua vì lười |
+| ai\_film (D9) | Phim AI: phim ngắn nhiều tập do AI dựng | Truyện gốc của kênh, kết hợp mô-típ đang lên (xuyên không, trọng sinh, báo thù...) học từ nhiều phim; bối cảnh và nhân vật Việt do kênh tạo | Theo từng bộ phim; nhân vật nhất quán nhờ ảnh mẫu nhân vật trong kho truyện (story bible) | Nhân viên văn phòng Hà Nội xuyên về thời Trần |
 
 **Format cố định (chống nội dung rập khuôn)**
 
@@ -171,6 +177,15 @@ Một kênh tiếng Việt với 3 chuyên mục chạy song song. Mỗi chuyên
 | Video dài 16:9 | 6–10 phút | Mở đầu, bối cảnh tác giả, 2–3 đoạn nguyên tác, mỗi đoạn một tình huống, tổng kết bài tập |
 
 Short có thể cắt từ video dài, nhưng phải có mở đầu riêng.
+
+**Format Phim AI (D9).** Format 3 phần ở trên áp dụng cho stoic và east. Phim AI có cấu trúc truyện:
+
+| Định dạng | Độ dài | Cấu trúc |
+| --- | --- | --- |
+| Tập Short 9:16 | 60–90 giây | 3 giây mở đầu gây tò mò, một biến cố, kết tập treo |
+| Tập dài 16:9 | 3–8 phút | Mở đầu, 2–3 cảnh xung đột, kết tập treo; nhắc lại ngắn tập trước |
+
+Mỗi bộ phim có một **kho truyện (story bible)**: thế giới, nhân vật kèm ảnh mẫu, tóm tắt các tập đã làm, để các tập sau nhất quán. Mỗi tập phải có cốt truyện riêng; không dùng một khuôn truyện cho mọi tập (chính sách nội dung không nguyên bản của YouTube, 07/2026).
 
 **Nguồn theo dõi**
 
@@ -232,12 +247,14 @@ Mỗi agent là một node trong graph LangGraph, có input và output là JSON 
 - **Script gồm:** tiêu đề (3 phương án), mô tả, danh sách đoạn; mỗi đoạn có loại (hook, nguyên tác, tình huống, bài tập, kết), lời đọc, và citation (passage\_id + đoạn trích) nếu là nguyên tác.
 - **ScenePlan gồm:** mỗi cảnh có thời lượng ước tính, prompt ảnh hoặc video theo style guide, chuyển động (zoom, pan), chữ trên màn hình.
 - **Ràng buộc:** câu trích phải lấy từ get\_passage, không tự viết lại rồi gắn tên tác giả; phần dịch sang tiếng Việt ghi rõ "dịch bởi kênh"; không nhắc tên kênh đối thủ.
+- **Chế độ Phim AI (D9):** nhận StoryTrendBrief (mô-típ, kiểu mở đầu, bằng chứng từ nhiều phim) và kho truyện; xuất kịch bản tập (cảnh, thoại theo vai, lời dẫn) + ScenePlan (mỗi cảnh: nhân vật xuất hiện, prompt hình ảnh/clip, chuyển động). Kết hợp ít nhất 2 mô-típ từ nhiều nguồn; bối cảnh và nhân vật của kênh; không dùng tên, thế giới hay cốt truyện của phim đã theo dõi.
 
 ### 7.5 Production
 
 - Chạy pipeline mục 10 theo ScenePlan. Phần lớn là code xác định, không phải LLM.
 - Ghi mỗi lần gọi API vào media\_jobs (nhà cung cấp, model, số giây, chi phí, đường dẫn MinIO).
 - Thử lại tối đa 2 lần mỗi cảnh; hết lượt thì dùng ảnh tĩnh dự phòng.
+- Phim AI (D9): phần lớn cảnh là clip AI, sinh từ ảnh mẫu nhân vật trong kho truyện để giữ mặt nhân vật nhất quán; giọng thoại nhiều vai (mỗi nhân vật một giọng cố định, không clone người thật).
 
 ### 7.6 Checker
 
@@ -252,6 +269,8 @@ Maker-checker: Checker không thấy lập luận của Writer, chỉ thấy k�
 | Chính sách | Không có reference\_names; không tên kênh đối thủ | Code |
 | Chính sách | Không gây sốc, không lời khuyên y tế, tài chính, không giảng đạo | LLM-judge |
 | Chính sách | Cờ containsSyntheticMedia và made for kids, có lý do | Luật + LLM-judge |
+| Nguyên bản (D9) | Tóm tắt truyện và tên nhân vật không quá giống phim nào đã theo dõi (embedding so với tiêu đề, mô tả đã thu; tên lấy từ phim khác vào reference\_names) | Code + embedding |
+| Nguyên bản (D9) | Truyện không phải bản kể lại của một phim cụ thể | LLM-judge |
 | Kỹ thuật | Độ dài đúng định dạng; âm lượng chuẩn hóa; phụ đề khớp lời đọc; độ phân giải đúng | ffprobe |
 
 ### 7.7 Analyst
@@ -336,8 +355,8 @@ Canon là nguồn duy nhất của phần "nguyên tác" trong kịch bản. Nó
 | Trang Tử | Nguyên văn Hán + bản Legge (1891) | Wikisource tiếng Trung | Thiên.đoạn |
 | Khổng Tử, Luận Ngữ | Nguyên văn Hán + bản Legge (1861) | Wikisource tiếng Trung | Thiên.chương |
 | Tôn Tử, Binh pháp | Nguyên văn Hán + bản Lionel Giles (1910) | Wikisource, Project Gutenberg | Thiên.câu |
-| Aesop | Bản Townsend (1867) | Project Gutenberg | Mỗi truyện |
-| La Fontaine | Nguyên văn Pháp | Wikisource tiếng Pháp | Mỗi bài |
+| Aesop | Bản Townsend (1867); giữ làm tư liệu tham khảo sau D9 | Project Gutenberg | Mỗi truyện |
+| La Fontaine | Không nạp (D9: bỏ chuyên mục Ngụ ngôn) | — | — |
 | Truyện cổ tích Việt Nam | Không nạp tuyển tập hiện đại (còn bản quyền). Người viết tóm tắt cốt truyện dân gian bằng lời mình, đánh dấu license = own | Tự soạn | Mỗi truyện |
 
 Không dùng bản dịch tiếng Việt của người khác nếu chưa chắc đã hết bản quyền. Thay vào đó, kênh tự dịch và ghi "bản dịch của kênh".
@@ -352,7 +371,7 @@ Không dùng bản dịch tiếng Việt của người khác nếu chưa chắc
 
 ## 10. Pipeline sản xuất
 
-Phần thân video dùng ảnh tĩnh có chuyển động nhẹ cộng TTS; clip AI chỉ dùng cho 3–5 giây mở đầu. Cách này giữ chi phí thấp và phong cách ổn định. Mọi bước là một task Python chạy được lại (idempotent), đầu ra lưu trên MinIO theo job\_id.
+Phần thân video dùng ảnh tĩnh có chuyển động nhẹ cộng TTS; clip AI chỉ dùng cho 3–5 giây mở đầu (Phim AI theo D9 là ngoại lệ: phần lớn cảnh là clip AI, trần chi phí riêng `film`, mặc định 10 USD/tập khi làm thử). Cách này giữ chi phí thấp và phong cách ổn định. Mọi bước là một task Python chạy được lại (idempotent), đầu ra lưu trên MinIO theo job\_id.
 
 1. **Giọng đọc (TTS):** mỗi đoạn kịch bản thành một file âm thanh. Ứng viên: [FPT.AI TTS](https://docs.fpt.ai/docs/en/speech/documentation/text-to-speech), [ElevenLabs tiếng Việt](https://elevenlabs.io/zh/text-to-speech/vietnamese). Chọn bằng bài nghe mù 10 đoạn (backlog M-01). Một giọng cố định cho cả kênh; không clone giọng người thật.
 2. **Mốc thời gian:** lấy timestamp từng từ nếu nhà cung cấp trả về; nếu không, dùng forced alignment (WhisperX hoặc tương đương) trên file âm thanh và lời đọc. Thời lượng cảnh lấy theo âm thanh thật, không theo ước tính.
@@ -384,6 +403,8 @@ Giữ một repo YT\_ELT và một Postgres (pgvector). Thêm migration từ 008
 | 013\_studio\_content | topic\_briefs, scripts, script\_segments, scene\_plans, check\_reports | Lưu từng phiên bản, không ghi đè |
 | 014\_studio\_media | media\_jobs, media\_bundles, publications | Chi phí từng lần gọi; publications lưu youtube\_video\_id, published\_via (manual hoặc api), published\_at |
 | 015\_learning\_ops | learnings, quota\_usage; llm\_calls thêm job\_id, agent; bảng mới chứa API Data có fetched\_at, data\_class (bảng hiện có làm ở P0-07) | Vòng phản hồi, đo chi phí theo agent, quota theo bucket (search, upload, default), xóa dữ liệu theo R3 |
+
+**Đánh số thực tế:** P0-07 dùng 008, nên mọi số trong bảng trên dời +1 (009\_channels\_ext … 012\_canon); D9 thêm 013\_pillar\_ai\_film, nên studio\_jobs là 014, studio\_content 015, studio\_media 016, learning\_ops 017.
 
 Checkpoint của LangGraph dùng bảng riêng do thư viện checkpoint Postgres tạo. Phân quyền DB: role yti\_assistant hiện có vẫn chỉ đọc; thêm role studio\_app chỉ ghi vào bảng studio và canon\_translations.
 
@@ -504,6 +525,16 @@ Làm theo thứ tự giai đoạn. Mỗi mục xong khi đạt tiêu chí nghi�
 | W-03 | Agent Checker đủ các kiểm tra mục 7.6 | Recall lỗi từ 0,9 trên 30 kịch bản cài lỗi; kiểm citation chính xác và đánh giá bản dịch ra hai kết quả riêng |
 | W-04 | Hiệu chỉnh LLM-judge | Lệch người tối đa 1 điểm trên 80% của 20 mẫu |
 
+### P3b — Phim AI (D9)
+
+| ID | Việc | Tiêu chí nghiệm thu |
+| --- | --- | --- |
+| F-01 | Research chế độ Phim AI: StoryTrendBrief (mô-típ, kiểu mở đầu, ngôn ngữ đã lên, bằng chứng từ ít nhất 3 phim của ít nhất 2 kênh) | Mọi số có căn cứ; với cờ tắt vẫn chạy bằng số thô |
+| F-02 | Kho truyện (story bible): thế giới, nhân vật, ảnh mẫu (MinIO), tóm tắt tập | Writer đọc được; tập sau không mâu thuẫn tập trước trên 5 tập mẫu |
+| F-03 | Writer chế độ Phim AI | 10 brief: đủ cấu trúc tập; kết hợp ít nhất 2 mô-típ |
+| F-04 | Checker kiểm độ nguyên bản | 20 kịch bản cài lỗi (kể lại một phim đã theo dõi, dùng tên nhân vật của phim khác): recall từ 0,9 |
+| F-05 | Thí điểm 3–5 tập bán thủ công | Ghi chi phí từng tập, human\_effort\_minutes, phần bị sửa nhiều nhất |
+
 ### P4 — Production
 
 | ID | Việc | Tiêu chí nghiệm thu |
@@ -555,6 +586,9 @@ P1 và P2 chạy song song vì không phụ thuộc nhau. Đợt thí điểm 5 
 | Kênh bị coi là nội dung rập khuôn | Video mới giống video cũ (similarity cao), retention thấp đều | Giữ format có góc nhìn riêng, giới hạn số video/tuần, người duyệt kịch bản |
 | Câu trích sai hoặc bịa | Checker fail citation; bình luận người xem báo sai | Chỉ trích từ canon; sửa công khai trong mô tả khi có sai |
 | Bản quyền bản dịch | Khiếu nại Content ID hoặc bản quyền | C-01 xác minh license; tự dịch thay vì dùng bản dịch của người khác |
+| Phim AI bị coi là sao chép (D9) | Content ID, khiếu nại, Checker báo giống | Chỉ học mô-típ từ nhiều phim; Checker kiểm độ nguyên bản; không tải video hay phụ đề phim khác (R4) |
+| Phim AI bị coi là nội dung không nguyên bản (D9) | Bị tắt kiếm tiền | Mỗi tập cốt truyện riêng; nhân vật và thế giới riêng; người duyệt kịch bản |
+| Chi phí clip AI cho Phim AI (D9) | Chi phí tập vượt trần film | Trần riêng, dừng trước lần gọi gây vượt; dùng ảnh tĩnh có chuyển động cho cảnh ít hành động |
 | Theo xu hướng bị trễ nhịp | S6 báo bão hòa, video đăng xong chủ đề đã nguội | Ưu tiên S5 (khoảng trống EN/ZH so với VI); giữ 30% video là chủ đề không lỗi thời |
 | Chi phí API vượt dự kiến | Dashboard chi phí tuần tăng | Trần theo video và theo tháng trong gateway |
 | Chính sách YouTube tiếp tục thay đổi | Thông báo chính sách mới | Luật nằm trong config và Checker, sửa một chỗ; đọc lại chính sách mỗi quý |
@@ -569,6 +603,8 @@ P1 và P2 chạy song song vì không phụ thuộc nhau. Đợt thí điểm 5 
 - [ ] Q4: Danh sách 60–90 kênh theo dõi ban đầu (agent đề xuất, người chốt)?
 - [ ] Q5: Có làm phiên bản tiếng Anh từ quý 1/2027 không?
 - [ ] Q6: Chạy trên máy cá nhân hay VPS (bge-m3 và WhisperX cần RAM, tốt nhất có GPU)?
+- [ ] Q8: Trần chi phí mỗi tập Phim AI sau thí điểm (mặc định khi làm thử: 10 USD)?
+- [ ] Q9: Phim AI bắt đầu bằng tập Short lẻ hay bộ nhiều tập ngay?
 - [ ] Q7: Có nộp đơn chấp nhận phần sửa đổi chính sách (use case Analytics & Reporting) để bật derived\_metrics\_enabled không? Chưa được chấp thuận thì studio chạy ở chế độ cơ bản.
 
 **Nguồn**

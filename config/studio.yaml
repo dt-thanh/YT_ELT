@@ -26,12 +26,16 @@ channel_search:
     - {pillar: east,  language: zh, query: "論語 智慧"}
     - {pillar: east,  language: vi, query: "đạo đức kinh lão tử"}
     - {pillar: east,  language: vi, query: "triết lý phương đông"}
-    - {pillar: fable, language: en, query: "aesop fables"}
-    - {pillar: fable, language: en, query: "fables and moral stories for adults"}
-    - {pillar: fable, language: zh, query: "寓言故事"}
-    - {pillar: fable, language: zh, query: "成語故事"}
-    - {pillar: fable, language: vi, query: "truyện ngụ ngôn"}
-    - {pillar: fable, language: vi, query: "truyện cổ tích việt nam"}
+    # Phim AI (quyết định D9, 11/11/2026: thay chuyên mục Ngụ ngôn). Theo dõi để HỌC xu hướng:
+    # mô-típ, kiểu mở đầu, nhịp ra tập. Truyện của kênh luôn là truyện GỐC (đặc tả mục 5, R5).
+    - {pillar: ai_film, language: zh, query: "AI短剧"}
+    - {pillar: ai_film, language: zh, query: "AI漫剧"}
+    - {pillar: ai_film, language: zh, query: "穿越 短剧"}
+    - {pillar: ai_film, language: zh, query: "重生 短剧"}
+    - {pillar: ai_film, language: en, query: "AI short drama time travel"}
+    - {pillar: ai_film, language: en, query: "AI animated drama series"}
+    - {pillar: ai_film, language: vi, query: "phim AI xuyên không"}
+    - {pillar: ai_film, language: vi, query: "phim hoạt hình AI trọng sinh"}
 
 # Tín hiệu S1-S3 (đặc tả mục 8.1, R-02). CHỈ tính khi derived_metrics_enabled = true.
 # Ngưỡng ban đầu là giá trị đoán (đặc tả); hiệu chỉnh ở A-03 bằng kết quả thật.
@@ -79,6 +83,8 @@ gateway:
   budget_usd:
     short: 3.0                   # trần mỗi job Short (đặc tả mục 2)
     long: 10.0                   # trần mỗi job video dài
+    film: 10.0                   # trần mỗi tập Phim AI khi LÀM THỬ (D9; clip AI là phần đắt nhất).
+                                 # Chốt lại sau 3-5 tập thí điểm (câu hỏi mở Q8)
     standalone: 0.5              # lượt chạy không thuộc video nào (nghiên cứu, bản tin, bình luận)
     # monthly: <Q1 chưa chốt>    # trần tháng toàn hệ thống - để trống = không có trần tháng
   chars_per_token: 3             # ước token đầu vào THẬN TRỌNG (thực tế ~4 ký tự/token)

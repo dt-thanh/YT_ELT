@@ -35,7 +35,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 
-from youtube_intel.config import ConfigError, load_config
+from youtube_intel.config import PILLARS, ConfigError, load_config
 from youtube_intel import pipeline, repository as repo
 
 
@@ -1208,7 +1208,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sc = sub.add_parser("suggest-channels",
                         help="Đề xuất kênh ứng viên (search.list: bucket riêng 100 lần/ngày)")
-    sc.add_argument("--pillar", choices=["stoic", "east", "fable"])
+    sc.add_argument("--pillar", choices=list(PILLARS))
     sc.add_argument("--language", choices=["en", "zh", "vi"])
     sc.add_argument("--max-searches", type=int, help="only the first N configured queries")
     sc.add_argument("--out", default="proposals", help="git-ignored folder (R3: API data)")
@@ -1227,7 +1227,7 @@ def build_parser() -> argparse.ArgumentParser:
     cm.set_defaults(func=cmd_comments)
 
     rs = sub.add_parser("research", help="TopicBrief cho một chuyên mục (OpenAI qua gateway)")
-    rs.add_argument("--pillar", required=True, choices=["stoic", "east", "fable"])
+    rs.add_argument("--pillar", required=True, choices=list(PILLARS))
     rs.add_argument("--window", type=int, default=14, help="days (default 14)")
     rs.add_argument("--n", type=int, default=3, help="briefs (default 3)")
     rs.add_argument("--out", default="proposals", help="git-ignored (API data, R3)")
@@ -1240,7 +1240,7 @@ def build_parser() -> argparse.ArgumentParser:
     er2.set_defaults(func=cmd_eval_research)
 
     mr = sub.add_parser("market-report", help="Bản tin thị trường hằng ngày theo chuyên mục")
-    mr.add_argument("--pillar", choices=["stoic", "east", "fable"])
+    mr.add_argument("--pillar", choices=list(PILLARS))
     mr.add_argument("--show", action="store_true")
     mr.add_argument("--streak", action="store_true", help="days in a row with a validated report")
     mr.set_defaults(func=cmd_market_report)
@@ -1257,7 +1257,8 @@ def build_parser() -> argparse.ArgumentParser:
     cs2 = sub.add_parser("canon-search", help="Tìm passage canon (hybrid)")
     cs2.add_argument("query")
     cs2.add_argument("--k", type=int, default=5)
-    cs2.add_argument("--pillar", choices=["stoic", "east", "fable"])
+    cs2.add_argument("--pillar", choices=["stoic", "east", "fable"],
+                     help="canon pillar (fable = Aesop, kept as reference)")
     cs2.set_defaults(func=cmd_canon_search)
 
     csm = sub.add_parser("canon-sample", help="C-02: chọn passage ngẫu nhiên để kiểm ref_label")

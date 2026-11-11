@@ -92,6 +92,6 @@ def test_a_route_to_an_unchosen_model_tier_fails_at_load(tmp_path):
     p = tmp_path / "s.yaml"
     p.write_text("gateway:\n  models: {cheap: gpt-4o-mini}\n  routes:\n"
                  "    write_script: {tier: good}\n"
-                 "  budget_usd: {short: 3, long: 10, standalone: 0.5}\n", encoding="utf-8")
+                 "  budget_usd: {short: 3, long: 10, film: 10, standalone: 0.5}\n", encoding="utf-8")
     with pytest.raises(ConfigError, match="good"):
         load_gateway_config(p)

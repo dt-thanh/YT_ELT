@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from studio.agents.research import ResearchAgent, ToolBox, ToolNotAllowed
+from studio.agents.research import Gathered, ResearchAgent, ToolBox, ToolNotAllowed
 from studio.gateway import Gateway, load_gateway_config
 from studio.schemas import ResearchRequest, TopicBrief
 from youtube_intel.assistant.tools import ToolResult, build_registry, finish
@@ -13,7 +13,7 @@ from youtube_intel.llm import LLMClient, MemorySink
 from unit.fakes import PRICING, FakeOpenAI, chat_reply
 
 NOW = datetime(2026, 11, 2, tzinfo=timezone.utc)
-GROUPS = ["books_learning", "kids_animation", "stoic", "east", "fable"]
+GROUPS = ["books_learning", "kids_animation", "stoic", "east", "ai_film"]
 V1, V2, OLD = "stoicVid001", "stoicVid002", "stoicOld001"
 
 
@@ -134,3 +134,13 @@ def test_the_toolbox_enforces_the_agents_tool_list():
         box.call("get_signals", group="stoic")                    # flag off: not registered
     with pytest.raises(ToolNotAllowed, match="may not call"):
         ToolBox(reg, FakeExecutor(), allowed=("list_channels",)).call("top_growing_videos")
+
+
+def test_ai_film_briefs_ask_for_original_stories_not_the_philosophy_format():
+    # spec D9 (2026-11-11): the third pillar is original AI dramas; learn tropes from many
+    # videos, never retell one. Philosophy pillars keep source + situation + exercise.
+    a, *_ = agent()
+    film = a.messages(ResearchRequest(pillar="ai_film"), Gathered({}))[0]["content"]
+    stoic = a.messages(REQ, Gathered({}))[0]["content"]
+    assert "ORIGINAL story" in film and "SEVERAL cited videos" in film and "exercise" not in film
+    assert "exercise" in stoic and "ORIGINAL story" not in stoic

@@ -13,7 +13,7 @@ from youtube_intel.studio_config import load_studio_config
 from unit.fakes import PRICING, FakeOpenAI, chat_reply
 
 NOW = datetime(2026, 11, 2, 12, tzinfo=timezone.utc)
-GROUPS = ["books_learning", "kids_animation", "stoic", "east", "fable"]
+GROUPS = ["books_learning", "kids_animation", "stoic", "east", "ai_film"]
 SETTINGS = load_studio_config().report
 EN, VI = "UC" + "e" * 22, "UC" + "v" * 22
 
@@ -121,4 +121,4 @@ def test_a_pillar_without_channels_is_still_a_valid_tool_argument():
     # list_channels(group="stoic") was rejected as an invalid argument.
     from youtube_intel.cli import _tool_groups
     from youtube_intel.config import load_config
-    assert {"stoic", "east", "fable"} <= set(_tool_groups(load_config(require=())))
+    assert {"stoic", "east", "ai_film"} <= set(_tool_groups(load_config(require=())))

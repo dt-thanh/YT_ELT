@@ -71,12 +71,14 @@ class ChannelConfig:
     reference_names: tuple[str, ...] = ()
     # Studio (spec §5, migration 009): source language, pillar, who added the channel.
     language: str | None = None             # en | zh | vi
-    pillar: str | None = None               # stoic | east | fable (None = legacy channel)
+    pillar: str | None = None               # stoic | east | ai_film (None = legacy channel)
     added_by: str | None = None
 
 
 LANGUAGES = ("en", "zh", "vi")
-PILLARS = ("stoic", "east", "fable")
+# Channel pillars (spec D2 + D9, 2026-11-11: ai_film replaced fable). The canon keeps
+# its own pillar values (stoic | east | fable = Aesop, kept as reference material).
+PILLARS = ("stoic", "east", "ai_film")
 
 
 @dataclass(frozen=True)

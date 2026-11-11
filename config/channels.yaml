@@ -172,7 +172,8 @@ project:
 # -----------------------------------------------------------------------------
 # KÊNH THEO DÕI (đặc tả mục 5). Mỗi kênh:
 #   language : en | zh | vi        - ngôn ngữ nội dung
-#   pillar   : stoic | east | fable - chuyên mục studio (bỏ trống = kênh cũ, ngoài 3 chuyên mục)
+#   pillar   : stoic | east | ai_film - chuyên mục studio (bỏ trống = kênh cũ, ngoài 3 chuyên mục).
+#              ai_film thay fable từ 11/11/2026 (quyết định D9, migration 013)
 #   group    : với kênh mới, ĐẶT BẰNG pillar; books_learning / kids_animation là nhóm cũ
 #   active   : false = không thu nữa (vẫn giữ để chặn reference_names)
 #   added_by : ai chốt thêm kênh (danh sách 60-90 kênh do NGƯỜI chốt; agent chỉ đề xuất
@@ -229,7 +230,7 @@ channels:
 # gõ sai "book_learning" (thiếu chữ s) sẽ bị bắt NGAY lúc khởi động,
 # thay vì âm thầm tạo ra một nhóm thứ ba không ai để ý.
 # ⚠️ Danh sách này còn được khai lần hai trong database (CHECK group_code của
-# yti.tracked_channels và yti.reports, file sql/migrations/001_init.sql).
+# yti.tracked_channels và yti.reports: 001_init.sql, đổi ở 009 và 013).
 # Thêm KÊNH vào nhóm có sẵn: chỉ sửa file này. Thêm NHÓM MỚI: sửa file này VÀ
 # viết một migration mới đổi hai ràng buộc CHECK đó.
 groups:
@@ -237,4 +238,4 @@ groups:
   - kids_animation
   - stoic           # Khắc kỷ ứng dụng
   - east            # Triết lý phương Đông
-  - fable           # Ngụ ngôn và truyện cổ
+  - ai_film         # Phim AI: truyện gốc của kênh (D9, thay fable)

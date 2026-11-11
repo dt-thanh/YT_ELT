@@ -15,11 +15,11 @@ cases:
   - {pillar: east, window_days: 21, n_briefs: 3}
   - {pillar: east, window_days: 28, n_briefs: 3}
   - {pillar: east, window_days: 30, n_briefs: 3}
-  - {pillar: fable, window_days: 7, n_briefs: 3}
-  - {pillar: fable, window_days: 10, n_briefs: 3}
-  - {pillar: fable, window_days: 14, n_briefs: 3}
-  - {pillar: fable, window_days: 21, n_briefs: 3}
-  - {pillar: fable, window_days: 28, n_briefs: 3}
-  - {pillar: fable, window_days: 30, n_briefs: 3}
+  - {pillar: ai_film, window_days: 7, n_briefs: 3}
+  - {pillar: ai_film, window_days: 10, n_briefs: 3}
+  - {pillar: ai_film, window_days: 14, n_briefs: 3}
+  - {pillar: ai_film, window_days: 21, n_briefs: 3}
+  - {pillar: ai_film, window_days: 28, n_briefs: 3}
+  - {pillar: ai_film, window_days: 30, n_briefs: 3}
   - {pillar: stoic, window_days: 14, n_briefs: 5}
   - {pillar: east, window_days: 14, n_briefs: 5}
