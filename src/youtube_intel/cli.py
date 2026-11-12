@@ -1069,17 +1069,22 @@ def cmd_film_render(args) -> int:
     """F-06: render one AI-film episode - long cut 16:9 + vertical Short - from its script.
     Pilot: placeholder images, local MMS voice (non-commercial licence, pilot only)."""
     from pathlib import Path
-    from studio.production.compose import RenderSpec, load_yaml_model, render_episode
+    from studio.production.compose import PREVIEW, RenderSpec, load_yaml_model, render_episode
     from studio.production.voice import FakeTts, MmsTts
     from studio.schemas import FilmEpisode, StoryBible
 
+    if args.no_short and args.short_only:
+        print("--no-short và --short-only loại trừ nhau: không còn gì để dựng.")
+        return 2
     bible = load_yaml_model(args.bible, StoryBible)
     episode = load_yaml_model(args.episode, FilmEpisode)
     root = Path(args.out or f"data/films/{bible.series_id}")
     tts = FakeTts() if args.fake_voice else MmsTts()
-    spec = RenderSpec(fps=args.fps)
-    res = render_episode(episode, bible, tts, work=root / "work", out=root, spec=spec,
-                         make_short=not args.no_short)
+    spec = RenderSpec(fps=args.fps, **(PREVIEW if args.preview else {}))
+    out = root / "preview" if args.preview else root
+    # one cache for both: voices and images are shared, clips are kept per frame size
+    res = render_episode(episode, bible, tts, work=root / "work", out=out, spec=spec,
+                         make_short=not args.no_short, make_long=not args.short_only)
     for name, v in (("long", res.long), ("short", res.short)):
         if v is None:
             continue
@@ -1320,6 +1325,9 @@ def build_parser() -> argparse.ArgumentParser:
     fr.add_argument("--fps", type=int, default=25)
     fr.add_argument("--fake-voice", action="store_true", help="tiếng bíp thay giọng (thử nhanh)")
     fr.add_argument("--no-short", action="store_true")
+    fr.add_argument("--short-only", action="store_true", help="chỉ dựng Short dọc, bỏ bản ngang")
+    fr.add_argument("--preview", action="store_true",
+                    help="bản xem nhanh: nửa độ phân giải, file nhỏ (ra thư mục preview/)")
     fr.set_defaults(func=cmd_film_render)
 
     fc = sub.add_parser("film-compile", help="F-06: ghép các tập đã dựng thành bản dài có chapters")

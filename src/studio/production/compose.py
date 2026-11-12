@@ -44,6 +44,9 @@ class RenderSpec:
     fonts_dir: str = "/usr/share/fonts/truetype/dejavu"
 
 
+PREVIEW = dict(long=(960, 540), short=(540, 960), upscale=1.2, crf=26)   # quick look, small files
+
+
 @dataclass
 class VariantResult:
     path: str
@@ -59,15 +62,15 @@ class EpisodeResult:
     number: int
     title: str
     voice: str
-    long: VariantResult
+    long: VariantResult | None               # None with make_long=False (Short only)
     short: VariantResult | None
     short_errors: list[str]
     timeline: list[dict]
 
     @property
     def qc_ok(self) -> bool:
-        parts = [self.long] + ([self.short] if self.short else [])
-        return all(v.qc.get("ok") for v in parts)
+        parts = [v for v in (self.long, self.short) if v is not None]
+        return bool(parts) and all(v.qc.get("ok") for v in parts)
 
 
 def _key(*parts) -> str:
@@ -213,7 +216,8 @@ def quality_check(path: Path, *, expected_seconds: float, size: tuple[int, int],
 
 # ---- episode -----------------------------------------------------------------------------
 def render_episode(episode: FilmEpisode, bible: StoryBible, tts: Tts, *, work: Path, out: Path,
-                   spec: RenderSpec = RenderSpec(), make_short: bool = True) -> EpisodeResult:
+                   spec: RenderSpec = RenderSpec(), make_short: bool = True,
+                   make_long: bool = True) -> EpisodeResult:
     if episode.series_id != bible.series_id:
         raise ValueError(f"episode belongs to {episode.series_id!r}, bible is {bible.series_id!r}")
     work, out = Path(work).resolve(), Path(out).resolve()   # ffmpeg runs in work/ subfolders
@@ -223,8 +227,10 @@ def render_episode(episode: FilmEpisode, bible: StoryBible, tts: Tts, *, work: P
 
     long_tl = tl.build_timeline(episode.shots, seconds, fps=spec.fps)
     logger.info("%s: %d shots, %.1f s", stem, len(long_tl.shots), long_tl.duration)
-    long = _render_variant("long", long_tl, images, voices, tts.rate, spec.long, spec, work,
-                           out / f"{stem}_long.mp4")
+    long = None
+    if make_long:
+        long = _render_variant("long", long_tl, images, voices, tts.rate, spec.long, spec, work,
+                               out / f"{stem}_long.mp4")
 
     short, errors = None, []
     if make_short:

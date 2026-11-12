@@ -149,3 +149,20 @@ def test_long_lines_become_readable_captions_on_the_same_clock():
     assert caps[0][0] == 0.4 and caps[-1][1] == pytest.approx(12.4)            # spans the line
     assert all(a[1] == pytest.approx(b[0]) for a, b in zip(caps, caps[1:]))    # back to back
     assert tl.split_caption("một " * 30, 20) == ["một một một một một"] * 6
+
+
+def test_short_only_skips_the_long_cut(tmp_path):
+    from studio.production import ffmpeg
+    if ffmpeg.ffmpeg_bin() is None:
+        pytest.skip("ffmpeg not installed (pip install -e .[media])")
+    pytest.importorskip("PIL")
+    from studio.production.compose import RenderSpec, render_episode
+    from studio.production.voice import FakeTts
+
+    e = ep(shot("h", kind="hook", lines=[("narrator", "mở đầu")], in_short=True),
+           shot("m", lines=[("an", "ở giữa")]))
+    spec = RenderSpec(long=(320, 180), short=(180, 320), fps=10, upscale=1.0, crf=30)
+    res = render_episode(e, BIBLE, FakeTts(), work=tmp_path / "w", out=tmp_path / "o",
+                         spec=spec, make_long=False)
+    assert res.long is None and res.short.shots == ["h"] and res.qc_ok
+    assert not list((tmp_path / "o").glob("*_long.mp4"))
