@@ -1065,10 +1065,19 @@ def cmd_eval_canon(args) -> int:
     return 0
 
 
+def _studio_db():
+    cfg = load_config(require=("db",))
+    s = cfg.secrets
+    return repo.Database(host=s.db_host, port=s.db_port, name=s.db_name,
+                         user=s.db_user, password=s.db_password)
+
+
 def cmd_film_render(args) -> int:
     """F-06: render one AI-film episode - long cut 16:9 + vertical Short - from its script.
+    Only for a job whose script the owner approved, unchanged since (gate 2, D6).
     Pilot: placeholder images, local MMS voice (non-commercial licence, pilot only)."""
     from pathlib import Path
+    from studio import jobs
     from studio.production.compose import PREVIEW, RenderSpec, load_yaml_model, render_episode
     from studio.production.voice import FakeTts, MmsTts
     from studio.schemas import FilmEpisode, StoryBible
@@ -1076,8 +1085,20 @@ def cmd_film_render(args) -> int:
     if args.no_short and args.short_only:
         print("--no-short và --short-only loại trừ nhau: không còn gì để dựng.")
         return 2
-    bible = load_yaml_model(args.bible, StoryBible)
-    episode = load_yaml_model(args.episode, FilmEpisode)
+    db = _studio_db()
+    with db.connect() as conn, repo.dict_cursor(conn) as cur:
+        job = jobs.get(cur, args.job)
+    if job["format"] != "film_episode":
+        print(f"job {args.job} là {job['format']}, không phải một tập phim")
+        return 2
+    try:
+        jobs.require_renderable(job)
+    except jobs.JobError as e:
+        print(f"Chưa được dựng: {e}")
+        return 1
+    bible_path, _ = jobs.film_paths(job["series_id"], job["episode"])
+    bible = load_yaml_model(bible_path, StoryBible)
+    episode = load_yaml_model(Path(job["script_path"]), FilmEpisode)
     root = Path(args.out or f"data/films/{bible.series_id}")
     tts = FakeTts() if args.fake_voice else MmsTts()
     spec = RenderSpec(fps=args.fps, **(PREVIEW if args.preview else {}))
@@ -1085,16 +1106,29 @@ def cmd_film_render(args) -> int:
     # one cache for both: voices and images are shared, clips are kept per frame size
     res = render_episode(episode, bible, tts, work=root / "work", out=out, spec=spec,
                          make_short=not args.no_short, make_long=not args.short_only)
+    outputs = {}
     for name, v in (("long", res.long), ("short", res.short)):
         if v is None:
             continue
         qc = v.qc
+        outputs[name] = {"path": str(v.path), "seconds": qc["seconds"], "qc_ok": qc["ok"]}
         bad = [k for k, ok in qc["checks"].items() if not ok]
         print(f"  {name:<5} {v.path}  {qc['seconds']:.1f} s  {qc['width']}x{qc['height']}  "
               f"{qc['lufs']} LUFS  QC {'ok' if qc['ok'] else 'FAIL ' + ', '.join(bad)}")
     for e in res.short_errors:
         print(f"  short: not made - {e}")
-    return 0 if res.qc_ok and not res.short_errors else 1
+    ok = res.qc_ok and not res.short_errors
+    with db.connect() as conn, repo.dict_cursor(conn) as cur:
+        jobs.move(cur, job["job_id"], "qc", "production", outputs=outputs)
+        if ok:
+            jobs.move(cur, job["job_id"], "awaiting_final_approval", "production", "QC ok")
+        else:
+            jobs.move(cur, job["job_id"], "producing", "production",
+                      "QC failed: " + "; ".join(res.short_errors or ["see outputs"]))
+        conn.commit()
+    print(f"job {job['job_id']}: " + ("chờ bạn xem video (duyệt 3): youtube-intel job-show "
+                                     f"{job['job_id']}" if ok else "QC chưa đạt, sửa rồi dựng lại"))
+    return 0 if ok else 1
 
 
 def cmd_film_compile(args) -> int:
@@ -1108,6 +1142,177 @@ def cmd_film_compile(args) -> int:
     parts = [(f"Tập {r['number']}: {r['title']}", Path(r["long"]["path"])) for r in reports]
     print(compile_series(parts, Path(args.out)))
     print(f"  -> {args.out}")
+    return 0
+
+
+# ---- jobs and the owner's three gates (spec §7.1, D6) -------------------------------------
+STATE_VI = {
+    "awaiting_topic_approval": "chờ duyệt CHỦ ĐỀ", "writing": "đang viết kịch bản",
+    "checking": "đang kiểm kịch bản", "awaiting_script_approval": "chờ duyệt KỊCH BẢN",
+    "producing": "được phép dựng video", "qc": "đang kiểm video",
+    "awaiting_final_approval": "chờ duyệt VIDEO", "ready_to_publish": "sẵn sàng đăng",
+    "published": "đã đăng", "analyzed": "đã phân tích", "rejected": "bị bác", "failed": "lỗi",
+}
+
+
+def _print_job_line(j) -> None:
+    where = f" {j['series_id']} tập {j['episode']}" if j["series_id"] else ""
+    print(f"  #{j['job_id']:<4} [{STATE_VI.get(j['state'], j['state'])}] {j['pillar']}/{j['format']}"
+          f"{where}: {j['title']}")
+
+
+def cmd_job_propose(args) -> int:
+    """Gate 1 input: a YAML list of proposed videos becomes jobs waiting for the owner."""
+    from pathlib import Path
+    import yaml
+    from pydantic import ValidationError
+    from studio import jobs
+
+    data = yaml.safe_load(Path(args.file).read_text(encoding="utf-8"))
+    items = data.get("proposals", []) if isinstance(data, dict) else data
+    try:
+        proposals = [jobs.Proposal.model_validate(x) for x in items or []]
+    except ValidationError as e:
+        print(f"Đề xuất không hợp lệ:\n{e}")
+        return 2
+    if not proposals:
+        print("File không có đề xuất nào")
+        return 2
+    with _studio_db().connect() as conn, repo.dict_cursor(conn) as cur:
+        ids = jobs.propose(cur, proposals, args.by)
+        conn.commit()
+    print(f"{len(ids)} đề xuất đang chờ bạn duyệt chủ đề: youtube-intel job-list")
+    return 0
+
+
+def cmd_job_list(args) -> int:
+    """What waits for the owner (default), or every job (--all)."""
+    from studio import jobs
+
+    states = None if args.all else ([args.state] if args.state else list(jobs.GATES))
+    with _studio_db().connect() as conn, repo.dict_cursor(conn) as cur:
+        rows = jobs.list_jobs(cur, states)
+    if not rows:
+        print("Không có job nào" + ("" if args.all else " đang chờ bạn"))
+        return 0
+    for j in rows:
+        _print_job_line(j)
+        if j["state"] == "awaiting_topic_approval":
+            p = j["proposal"]
+            print(f"         Nội dung: {p['idea']}")
+            print(f"         Vì sao:   {p['why']}")
+            for url in p.get("evidence", []):
+                print(f"                   {url}")
+    if not args.all:
+        print("\nDuyệt: job-approve <id> · cần sửa: job-changes <id> --reason \"...\" · "
+              "bỏ: job-reject <id> --reason \"...\" · xem kỹ: job-show <id>")
+    return 0
+
+
+def cmd_job_show(args) -> int:
+    """One job: the proposal, the script as a screenplay, the videos, history, open feedback."""
+    from pathlib import Path
+    from studio import jobs
+    from studio.film_script import screenplay
+    from studio.production.compose import load_yaml_model
+    from studio.schemas import FilmEpisode, StoryBible
+
+    with _studio_db().connect() as conn, repo.dict_cursor(conn) as cur:
+        j = jobs.get(cur, args.job)
+        events, approvals = jobs.history(cur, args.job)
+    _print_job_line(j)
+    p = j["proposal"]
+    print(f"  Nội dung: {p['idea']}\n  Vì sao:   {p['why']}")
+    fb = jobs.open_feedback(approvals)
+    if fb:
+        print(f"\n  >>> GÓP Ý CẦN SỬA: {fb}")
+    if j["script_path"] and j["format"] == "film_episode" and Path(j["script_path"]).exists():
+        bible_path, _ = jobs.film_paths(j["series_id"], j["episode"])
+        changed = jobs.sha256_file(Path(j["script_path"])) != j["script_sha256"]
+        print(f"\n  Kịch bản: {j['script_path']}" + ("  (ĐÃ SỬA sau khi nộp)" if changed else ""))
+        print("  " + "-" * 70)
+        text = screenplay(load_yaml_model(bible_path, StoryBible),
+                          load_yaml_model(Path(j["script_path"]), FilmEpisode))
+        print("\n".join("  " + ln for ln in text.splitlines()))
+    for name, o in (j["outputs"] or {}).items():
+        print(f"  Video {name}: {o['path']}  {o['seconds']:.1f} s  QC {'ok' if o['qc_ok'] else 'FAIL'}")
+    print("\n  Lịch sử:")
+    for e in events:
+        print(f"    {e['at'].astimezone():%d/%m %H:%M}  {e['from_state'] or '-'} -> {e['to_state']}  "
+              f"({e['actor']}){'  ' + e['note'] if e['note'] else ''}")
+    mins = sum(float(a["human_effort_minutes"] or 0) for a in approvals)
+    print(f"  Bạn đã làm: {mins:g} phút trên job này")
+    return 0
+
+
+def _decide(args, decision) -> int:
+    from studio import jobs
+    try:
+        with _studio_db().connect() as conn, repo.dict_cursor(conn) as cur:
+            to = jobs.record_decision(cur, args.job, decision, reviewer=args.by,
+                                      reason=getattr(args, "reason", None), minutes=args.minutes,
+                                      back=getattr(args, "back", None))
+            conn.commit()
+    except jobs.JobError as e:
+        print(f"Không ghi được: {e}")
+        return 1
+    print(f"job {args.job} -> {STATE_VI.get(to, to)}")
+    return 0
+
+
+def cmd_job_approve(args) -> int:
+    return _decide(args, "approved")
+
+
+def cmd_job_changes(args) -> int:
+    return _decide(args, "changes_requested")
+
+
+def cmd_job_reject(args) -> int:
+    return _decide(args, "rejected")
+
+
+def cmd_job_script(args) -> int:
+    """The writer hands in the script: code checks, then it waits for the owner (gate 2)."""
+    from pathlib import Path
+    from pydantic import ValidationError
+    from studio import jobs
+    from studio.film_script import check_film_script
+    from studio.production.compose import load_yaml_model
+    from studio.schemas import FilmEpisode, StoryBible
+
+    db = _studio_db()
+    with db.connect() as conn, repo.dict_cursor(conn) as cur:
+        j = jobs.get(cur, args.job, lock=True)
+        if j["format"] != "film_episode":
+            print("Hiện mới có kiểm kịch bản cho tập phim (stoic/east đến ở P3)")
+            return 2
+        bible_path, default_script = jobs.film_paths(j["series_id"], j["episode"])
+        script = Path(args.script or default_script)
+        try:
+            problems = check_film_script(load_yaml_model(bible_path, StoryBible),
+                                         load_yaml_model(script, FilmEpisode),
+                                         j["series_id"], j["episode"])
+        except (OSError, ValidationError) as e:
+            problems = [f"không đọc được kịch bản: {e}"]
+        try:
+            jobs.move(cur, j["job_id"], "checking", "writer", str(script),
+                      script_path=str(script), script_sha256=jobs.sha256_file(script)
+                      if script.exists() else None)
+            if problems:
+                jobs.move(cur, j["job_id"], "writing", "checker", "; ".join(problems)[:2000])
+            else:
+                jobs.move(cur, j["job_id"], "awaiting_script_approval", "checker", "code checks ok")
+        except jobs.JobError as e:
+            print(f"Không nộp được: {e}")
+            return 1
+        conn.commit()
+    if problems:
+        print("Kịch bản chưa đạt, quay lại viết:")
+        for pr in problems:
+            print(f"  - {pr}")
+        return 1
+    print(f"Kịch bản đạt kiểm tra, chờ bạn duyệt: youtube-intel job-show {j['job_id']}")
     return 0
 
 
@@ -1318,9 +1523,8 @@ def build_parser() -> argparse.ArgumentParser:
     evc.add_argument("--out", default="evals/results")
     evc.set_defaults(func=cmd_eval_canon)
 
-    fr = sub.add_parser("film-render", help="F-06: dựng một tập Phim AI (bản ngang + Short) từ kịch bản")
-    fr.add_argument("--bible", required=True, help="content/films/<bộ>/bible.yaml")
-    fr.add_argument("--episode", required=True, help="content/films/<bộ>/epNN.yaml")
+    fr = sub.add_parser("film-render", help="F-06: dựng tập phim của một job đã duyệt kịch bản")
+    fr.add_argument("--job", type=int, required=True, help="job đã qua duyệt 2 (job-list --all)")
     fr.add_argument("--out", help="thư mục ra (mặc định data/films/<bộ>)")
     fr.add_argument("--fps", type=int, default=25)
     fr.add_argument("--fake-voice", action="store_true", help="tiếng bíp thay giọng (thử nhanh)")
@@ -1329,6 +1533,39 @@ def build_parser() -> argparse.ArgumentParser:
     fr.add_argument("--preview", action="store_true",
                     help="bản xem nhanh: nửa độ phân giải, file nhỏ (ra thư mục preview/)")
     fr.set_defaults(func=cmd_film_render)
+
+    jp = sub.add_parser("job-propose", help="Duyệt 1: nạp danh sách video đề xuất (YAML)")
+    jp.add_argument("file", help="proposals/topics-*.yaml")
+    jp.add_argument("--by", default="research")
+    jp.set_defaults(func=cmd_job_propose)
+
+    jl = sub.add_parser("job-list", help="Việc đang chờ bạn duyệt (hoặc --all)")
+    jl.add_argument("--all", action="store_true")
+    jl.add_argument("--state")
+    jl.set_defaults(func=cmd_job_list)
+
+    js = sub.add_parser("job-show", help="Xem một job: đề xuất, kịch bản dễ đọc, video, lịch sử")
+    js.add_argument("job", type=int)
+    js.set_defaults(func=cmd_job_show)
+
+    for name, fn, hlp in (("job-approve", cmd_job_approve, "Đồng ý ở điểm duyệt job đang chờ"),
+                          ("job-changes", cmd_job_changes, "Cần sửa: trả về bước trước kèm lý do"),
+                          ("job-reject", cmd_job_reject, "Bỏ hẳn job này")):
+        jd = sub.add_parser(name, help=hlp)
+        jd.add_argument("job", type=int)
+        if name != "job-approve":
+            jd.add_argument("--reason", required=True, help="vì sao (người viết đọc để sửa)")
+        if name == "job-changes":
+            jd.add_argument("--back", choices=["script"],
+                            help="ở bước duyệt video: sửa lại kịch bản thay vì chỉ dựng lại")
+        jd.add_argument("--minutes", type=float, help="số phút bạn thực sự làm ở bước này")
+        jd.add_argument("--by", default="owner")
+        jd.set_defaults(func=fn)
+
+    jw = sub.add_parser("job-script", help="Nộp kịch bản của job: kiểm bằng code rồi chờ duyệt 2")
+    jw.add_argument("job", type=int)
+    jw.add_argument("--script", help="mặc định content/films/<bộ>/epNN.yaml")
+    jw.set_defaults(func=cmd_job_script)
 
     fc = sub.add_parser("film-compile", help="F-06: ghép các tập đã dựng thành bản dài có chapters")
     fc.add_argument("reports", nargs="+", help="các file *_report.json của từng tập")

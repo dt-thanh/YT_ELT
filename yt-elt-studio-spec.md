@@ -20,7 +20,7 @@ Nguyên tắc một câu: **học xu hướng từ người khác, lấy nội d
 | D3 | Nguồn theo dõi | Kênh tiếng Anh, tiếng Trung và tiếng Việt; ưu tiên chủ đề đã lên ở EN/ZH nhưng chưa có ở VI |
 | D4 | Tín hiệu | Chế độ cơ bản: view, like, số bình luận, mức tăng view của từng video. Tín hiệu nâng cao, gom cụm chủ đề và phân tích bình luận chỉ bật khi derived\_metrics\_enabled = true sau khi được YouTube chấp thuận (R2) |
 | D5 | Nội dung | Chỉ viết từ nguyên tác thuộc phạm vi công cộng; không nhại video của kênh khác |
-| D6 | Mức tự động | 3 điểm duyệt của người: chủ đề, kịch bản, video cuối; người bấm đăng |
+| D6 | Mức tự động | 3 điểm duyệt của người: chủ đề, kịch bản, video cuối; người bấm đăng. Chủ sở hữu nhắc lại 12/11/2026: điểm duyệt 1 là một **danh sách** video đề xuất để người chọn; không dựng video nào khi kịch bản chưa được duyệt; kịch bản sửa sau khi duyệt phải duyệt lại |
 | D7 | Mảng trẻ em | Hoãn sang sau khi kênh chính đạt chuẩn chất lượng |
 | D8 | Thứ tự | Đóng giai đoạn 0 của YT\_ELT trước hạn VietinBank 06/11/2026; studio bắt đầu sau đó |
 | D9 | Chuyên mục thứ ba (11/11/2026) | Phim AI thay Ngụ ngôn. Học xu hướng từ kênh phim AI tiếng Trung, Anh, Việt trên YouTube (mô-típ, kiểu mở đầu, nhịp ra tập); truyện, nhân vật, thế giới luôn là của kênh, không chép hay kể lại cốt truyện của phim nào |
@@ -555,7 +555,7 @@ Làm theo thứ tự giai đoạn. Mỗi mục xong khi đạt tiêu chí nghi�
 | ID | Việc | Tiêu chí nghiệm thu |
 | --- | --- | --- |
 | O-01 | Graph LangGraph, state, checkpoint Postgres | Tắt tiến trình giữa chừng, khởi động lại tiếp tục đúng bước |
-| O-02 | 3 điểm duyệt: interrupt + FastAPI + hộp thư Streamlit | Bác kèm lý do thì quay về bước trước và agent nhận được lý do; mỗi lần duyệt ghi human\_effort\_minutes do người nhập |
+| O-02 | 3 điểm duyệt: interrupt + FastAPI + hộp thư Streamlit | Bác kèm lý do thì quay về bước trước và agent nhận được lý do; mỗi lần duyệt ghi human\_effort\_minutes do người nhập. **Phần 1 xong 12/11/2026:** migration 014 (jobs, job\_events, approvals), luật chuyển trạng thái `studio/jobs.py`, lệnh CLI `job-*`; `film-render` chỉ dựng kịch bản đã duyệt và chưa bị sửa (SHA-256). Còn lại: interrupt LangGraph, FastAPI, hộp thư Streamlit |
 | O-03 | Producer nhận yêu cầu tự do | 10 yêu cầu mẫu cho job plan đúng |
 | O-04 | Trace OpenTelemetry/Langfuse, dashboard chi phí và tỉ lệ bác | Mỗi job xem được toàn bộ span và tổng chi phí |
 

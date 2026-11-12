@@ -254,8 +254,16 @@ youtube-intel canon-sample [--n 30]                # C-02: random passages for t
 youtube-intel canon-search "query" [--pillar P]    # hybrid canon search, any language
 youtube-intel eval-canon                           # C-03: Recall@5 on 40 Vietnamese questions (local)
 python -m studio.mcp.canon_server                  # C-04: MCP server search_canon / get_passage (stdio)
-youtube-intel film-render --bible B --episode E    # F-06: one AI-film episode -> 16:9 cut + 9:16 Short
-youtube-intel film-render ... --short-only --preview   # just the Short, half size, seconds to render
+# nothing is made before the owner says yes (D6): topic -> script -> video
+youtube-intel job-propose proposals/topics.yaml     # gate 1: a list of proposed videos
+youtube-intel job-list                              # what waits for you (--all: every job)
+youtube-intel job-show ID                           # proposal, script as a screenplay, videos, history
+youtube-intel job-approve ID [--minutes M]          # yes at the gate the job waits on
+youtube-intel job-changes ID --reason "..."         # back one step with the reason (--back script at gate 3)
+youtube-intel job-reject ID --reason "..."
+youtube-intel job-script ID                         # writer hands in content/films/<series>/epNN.yaml: code checks -> gate 2
+youtube-intel film-render --job ID                  # F-06: only an approved, unchanged script -> 16:9 cut + 9:16 Short -> gate 3
+youtube-intel film-render --job ID --short-only --preview   # just the Short, half size, seconds to render
 youtube-intel film-compile REPORT... --out F.mp4   # F-06: join episodes into the long cut + chapters
 ```
 
