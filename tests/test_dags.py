@@ -39,6 +39,18 @@ def test_collect_has_one_task_per_enabled_channel(dagbag):
     assert len(collect) == n
 
 
+def test_collect_task_ids_stay_unique_for_chinese_channel_names(dagbag):
+    # Lỗi thật 13/11/2026: "九公主AI劇場" và "瑤瑤AI短劇" cùng thành "collect_AI"
+    import importlib
+    mod = importlib.import_module("yt_collect")
+    names = mod._task_names([{"id": "UCaaa", "title": "九公主AI劇場"},
+                             {"id": "UCbbb", "title": "瑤瑤AI短劇"},
+                             {"id": "UCccc", "title": "Sprouts"},
+                             {"id": "UCddd", "title": "Sprouts!"}])
+    assert names["UCaaa"] == "collect_UCaaa" and names["UCbbb"] == "collect_UCbbb"
+    assert len(set(names.values())) == 4 and names["UCccc"].startswith("collect_Sprouts")
+
+
 def test_collect_never_catches_up(dagbag):
     # ⭐ catchup=True sẽ BỊA dữ liệu: YouTube không trả số liệu quá khứ
     assert dagbag.get_dag("yt_collect").catchup is False
@@ -68,7 +80,9 @@ def test_embed_runs_on_new_data_independently_of_report(dagbag):
     # block the daily brief.
     embed, report = dagbag.get_dag("yt_embed"), dagbag.get_dag("yt_report")
     assert embed.dataset_triggers and embed.catchup is False
-    assert [d.uri for d in embed.dataset_triggers] == [d.uri for d in report.dataset_triggers]
+    # Airflow 2.9 wraps a dataset list in DatasetAll (not iterable): read its .objects
+    uris = lambda t: sorted(d.uri for d in getattr(t, "objects", t))
+    assert uris(embed.dataset_triggers) == uris(report.dataset_triggers)
 
 
 def test_retention_runs_daily_on_its_own_schedule(dagbag):

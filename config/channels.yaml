@@ -226,6 +226,37 @@ channels:
     active: false
     reference_names: ['Peppa', 'Heo Peppa']
 
+  # Phim AI (D9): 3 kênh đầu để chạy thử, chủ sở hữu chốt 13/11/2026 từ danh sách
+  # `suggest-channels --pillar ai_film`. Chỉ đọc số liệu công khai để học xu hướng;
+  # không bao giờ chép truyện. reference_names điền khi thấy tên nhân vật trong dữ liệu.
+  - id: UC6Fz5TdzfAoHUpqB0eJ9BNw
+    group: ai_film
+    title: 九公主AI劇場              # Nhà hát AI Cửu Công Chúa
+    source_url: https://www.youtube.com/channel/UC6Fz5TdzfAoHUpqB0eJ9BNw
+    verified_at: 2026-11-12
+    language: zh
+    pillar: ai_film
+    active: true
+    added_by: owner
+  - id: UCZkAakWcDk8B-ZYGgdn8kkA
+    group: ai_film
+    title: 玉儿漫剧                  # Truyện tranh động Ngọc Nhi
+    source_url: https://www.youtube.com/channel/UCZkAakWcDk8B-ZYGgdn8kkA
+    verified_at: 2026-11-12
+    language: zh
+    pillar: ai_film
+    active: true
+    added_by: owner
+  - id: UC_wFVsA9do4LfmKudQKvGYA
+    group: ai_film
+    title: 瑤瑤AI短劇                # Phim ngắn AI Dao Dao
+    source_url: https://www.youtube.com/channel/UC_wFVsA9do4LfmKudQKvGYA
+    verified_at: 2026-11-12
+    language: zh
+    pillar: ai_film
+    active: true
+    added_by: owner
+
 # Nhóm hợp lệ. Khai báo ở đây để config.py validate được:
 # gõ sai "book_learning" (thiếu chữ s) sẽ bị bắt NGAY lúc khởi động,
 # thay vì âm thầm tạo ra một nhóm thứ ba không ai để ý.

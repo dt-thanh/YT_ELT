@@ -67,11 +67,28 @@ CHANNELS = [
 ]
 
 # Tên task chỉ được chứa chữ, số, dấu chấm, gạch ngang, gạch dưới.
-# Tên kênh có dấu tiếng Việt và emoji -> phải làm sạch.
+# Tên kênh có dấu tiếng Việt và emoji -> phải làm sạch. Tên chủ yếu là chữ Hán
+# (kênh phim AI) thì làm sạch gần như mất hết: "九公主AI劇場" và "瑤瑤AI短劇" đều
+# còn "AI" -> trùng task id, DAG không import được (lỗi thật 13/11/2026). Khi đó
+# dùng channel_id; tên nào vẫn trùng thì gắn thêm channel_id.
 def _task_name(channel: dict) -> str:
     raw = (channel.get("title") or channel["id"])
+    if sum(ch.isascii() for ch in raw) < len(raw) / 2:
+        raw = channel["id"]
     safe = "".join(ch if ch.isascii() and (ch.isalnum() or ch in "-_") else "_" for ch in raw)
     return f"collect_{safe.strip('_')[:40]}"
+
+
+def _task_names(channels: list[dict]) -> dict[str, str]:
+    """channel_id -> task id, unique across the DAG."""
+    names = {c["id"]: _task_name(c) for c in channels}
+    seen: dict[str, int] = {}
+    for n in names.values():
+        seen[n] = seen.get(n, 0) + 1
+    return {cid: (n if seen[n] == 1 else f"{n[:40]}_{cid}") for cid, n in names.items()}
+
+
+TASK_NAMES = _task_names(CHANNELS)
 
 
 # Múi giờ LẤY TỪ CONFIG, không viết cứng -> đổi report_timezone là DAG đổi theo.
@@ -144,7 +161,7 @@ with DAG(
     for channel in CHANNELS:
         collect_tasks.append(
             BashOperator(
-                task_id=_task_name(channel),
+                task_id=TASK_NAMES[channel["id"]],
                 # Vì sao BashOperator chứ không PythonOperator?
                 #   - Chạy CLI trong TIẾN TRÌNH RIÊNG: code nghiệp vụ crash cũng
                 #     không kéo theo scheduler.
