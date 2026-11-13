@@ -138,6 +138,10 @@ x-airflow-common:
     # container must write their JSON back to the repo (to be committed), and the
     # dashboard reads them.
     - ./evals:/opt/airflow/evals
+    # AI films: scripts (one folder per series) and renders, so the approval inbox
+    # (dashboard screen 7) can show the screenplay and play the video (D6, O-02).
+    - ./content:/opt/airflow/content
+    - ./data/films:/opt/airflow/data/films
   # Chạy bằng UID từ .env để file log/dags không bị root chiếm quyền
   user: "${AIRFLOW_UID}:0"
   # Mọi container Airflow phải ĐỢI postgres + minio KHỎE mới khởi động

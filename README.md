@@ -255,6 +255,7 @@ youtube-intel canon-search "query" [--pillar P]    # hybrid canon search, any la
 youtube-intel eval-canon                           # C-03: Recall@5 on 40 Vietnamese questions (local)
 python -m studio.mcp.canon_server                  # C-04: MCP server search_canon / get_passage (stdio)
 # nothing is made before the owner says yes (D6): topic -> script -> video
+# (same gates with buttons: dashboard http://localhost:8501, screen 7 "Hộp thư duyệt")
 youtube-intel job-propose proposals/topics.yaml     # gate 1: a list of proposed videos
 youtube-intel job-list                              # what waits for you (--all: every job)
 youtube-intel job-show ID                           # proposal, script as a screenplay, videos, history

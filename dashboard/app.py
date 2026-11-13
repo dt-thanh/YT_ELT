@@ -1,5 +1,5 @@
 """
-Dashboard Streamlit - 6 màn hình.
+Dashboard Streamlit - 7 màn hình (màn 7: hộp thư duyệt, màn duy nhất GHI dữ liệu).
 
 NGUYÊN TẮC SỐ MỘT: DASHBOARD KHÔNG TÍNH TOÁN.
 Mọi con số hiển thị ở đây đều đến từ SQL (chủ yếu là VIEW v_video_growth và
@@ -100,6 +100,7 @@ page = st.sidebar.radio("Màn hình", [
     "4 · Bản tin AI",
     "5 · Trợ lý AI",
     "6 · LLM Observability",
+    "7 · Hộp thư duyệt",
 ])
 
 st.sidebar.caption(
@@ -419,7 +420,7 @@ elif page.startswith("5"):
 # =============================================================================
 # MÀN HÌNH 6 - LLM OBSERVABILITY
 # =============================================================================
-else:
+elif page.startswith("6"):
     st.title("LLM Observability")
     st.caption("Trả lời: *gọi LLM bao nhiêu lần, tốn bao nhiêu, chậm cỡ nào, hỏng ở đâu?* "
                "Mọi tổng hợp tính bằng SQL trên `yti.llm_calls` / `yti.v_llm_daily`.")
@@ -477,3 +478,72 @@ else:
         st.caption("Chưa có file kết quả eval.")
     else:
         st.dataframe(evals, width="stretch", hide_index=True)
+
+
+# =============================================================================
+# MÀN HÌNH 7 - HỘP THƯ DUYỆT (D6, O-02): chủ đề -> kịch bản -> video
+# Màn duy nhất GHI: mỗi nút bấm là một dòng trong yti.approvals.
+# =============================================================================
+else:
+    st.title("Hộp thư duyệt")
+    st.caption("Không video nào được làm khi bạn chưa duyệt. Thứ tự: **chủ đề → kịch bản → video**. "
+               "Cần sửa hoặc Bỏ thì ghi lý do: người viết đọc lý do đó để sửa.")
+    items = Q.inbox()
+    gates = [("awaiting_topic_approval", "1 · Chủ đề", "Chọn video nào được làm."),
+             ("awaiting_script_approval", "2 · Kịch bản", "Đọc kịch bản trước khi dựng video."),
+             ("awaiting_final_approval", "3 · Video", "Xem video trước khi đăng.")]
+    if not [j for j in items if j["state"] != "ready_to_publish"]:
+        st.info("Không có gì chờ bạn duyệt.")
+    for state, label, hint in gates:
+        group = [j for j in items if j["state"] == state]
+        if not group:
+            continue
+        st.header(f"{label} ({len(group)})")
+        st.caption(hint)
+        for j in group:
+            p = j["proposal"] or {}
+            where = f" · {j['series_id']} tập {j['episode']}" if j.get("series_id") else ""
+            with st.expander(f"#{j['job_id']} · {j['title']}  ({j['pillar']}/{j['format']}{where})",
+                             expanded=True):
+                st.markdown(f"**Nội dung:** {p.get('idea', '')}  \n**Vì sao:** {p.get('why', '')}")
+                for url in p.get("evidence") or []:
+                    st.markdown(f"- {url}")
+                if j.get("feedback"):
+                    st.warning(f"Góp ý lần trước của bạn: {j['feedback']}")
+                if state == "awaiting_script_approval":
+                    text = Q.screenplay(j)
+                    if text:
+                        st.text(text)
+                    else:
+                        st.caption(f"Không đọc được kịch bản: {j.get('script_path')}")
+                if state == "awaiting_final_approval":
+                    for name, o in (j.get("outputs") or {}).items():
+                        st.markdown(f"**{'Short dọc' if name == 'short' else 'Bản ngang'}** · "
+                                    f"{o['seconds']:.0f} giây · QC {'đạt' if o['qc_ok'] else 'LỖI'}")
+                        if os.path.exists(o["path"]):
+                            st.video(o["path"])
+                        else:
+                            st.caption(f"File không có ở máy này: {o['path']}")
+                with st.form(key=f"decide-{j['job_id']}"):
+                    reason = st.text_area("Lý do / góp ý (bắt buộc khi Cần sửa hoặc Bỏ)",
+                                          key=f"reason-{j['job_id']}")
+                    minutes = st.number_input("Số phút bạn thực sự làm ở bước này (không bắt buộc)",
+                                              min_value=0.0, step=1.0, key=f"min-{j['job_id']}")
+                    c1, c2, c3 = st.columns(3)
+                    clicked = {"approved": c1.form_submit_button("✅ Đồng ý"),
+                               "changes_requested": c2.form_submit_button("✏️ Cần sửa"),
+                               "rejected": c3.form_submit_button("🗑️ Bỏ")}
+                decision = next((d for d, on in clicked.items() if on), None)
+                if decision:
+                    try:
+                        to = Q.decide(j["job_id"], decision, reason, minutes or None)
+                        st.success(f"Đã ghi. Job #{j['job_id']} → {to}")
+                        st.rerun()
+                    except Q.InboxError as e:
+                        st.error(f"Không ghi được: {e}")
+    ready = [j for j in items if j["state"] == "ready_to_publish"]
+    if ready:
+        st.header(f"Sẵn sàng đăng ({len(ready)})")
+        st.caption("Bạn tự tải lên YouTube Studio (đăng tự động ở chế độ private là việc P7).")
+        for j in ready:
+            st.markdown(f"- #{j['job_id']} · {j['title']} · bạn đã làm {j['minutes']:g} phút")

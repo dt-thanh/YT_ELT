@@ -21,7 +21,7 @@ from youtube_intel.config import load_config                          # noqa: E4
 APP = str(Path(__file__).resolve().parents[2] / "dashboard" / "app.py")
 NOW = datetime.now(timezone.utc)
 PAGES = ["1 · Nguồn & độ tươi", "2 · Video & khoảng quan sát", "3 · Tăng view từng video",
-         "4 · Bản tin AI", "5 · Trợ lý AI", "6 · LLM Observability"]
+         "4 · Bản tin AI", "5 · Trợ lý AI", "6 · LLM Observability", "7 · Hộp thư duyệt"]
 PAGE3_DERIVED = "3 · Bảng xếp hạng tăng trưởng"
 EVIDENCE = {"group": "kids_animation", "group_channels": ["Kênh A"],
             "coverage": {"total_videos": 2, "rankable": 1, "insufficient_history": 1,
@@ -113,6 +113,35 @@ def fake_queries(*, empty=False, assistant=True, derived=False, payload=None):
     m.eval_results = lambda: pd.DataFrame([] if empty else [
         {"kind": "brief", "version": "v3", "result": "20/20", "detail": "20 synthetic cases",
          "model": "gpt-4o-mini", "run_at": NOW.isoformat(), "file": "v3.json"}])
+    m.InboxError = type("InboxError", (Exception,), {})
+    m.decisions = []
+    jobs = [] if empty else [
+        {"job_id": 1, "state": "awaiting_topic_approval", "title": "Còn Bảy Ngày tập 2",
+         "pillar": "ai_film", "format": "film_episode", "series_id": "con_bay_ngay", "episode": 2,
+         "proposal": {"idea": "An thuyết phục lính canh.", "why": "Mô-típ xuyên không.",
+                      "evidence": ["https://www.youtube.com/watch?v=vid00000001"]},
+         "outputs": {}, "feedback": None, "minutes": 0.0, "script_path": None},
+        {"job_id": 2, "state": "awaiting_script_approval", "title": "Tập 1", "pillar": "ai_film",
+         "format": "film_episode", "series_id": "con_bay_ngay", "episode": 1,
+         "proposal": {"idea": "x" * 12, "why": "y" * 12}, "outputs": {},
+         "feedback": "hook yếu quá", "minutes": 3.0, "script_path": "content/films/x/ep01.yaml"},
+        {"job_id": 3, "state": "awaiting_final_approval", "title": "Tập 0", "pillar": "ai_film",
+         "format": "film_episode", "series_id": "s", "episode": 3,
+         "proposal": {"idea": "x" * 12, "why": "y" * 12}, "feedback": None, "minutes": 5.0,
+         "outputs": {"short": {"path": "/nowhere/short.mp4", "seconds": 47.3, "qc_ok": True}},
+         "script_path": None},
+        {"job_id": 4, "state": "ready_to_publish", "title": "Tập cũ", "pillar": "ai_film",
+         "format": "film_episode", "series_id": "s", "episode": 4, "proposal": {},
+         "outputs": {}, "feedback": None, "minutes": 9.0, "script_path": None}]
+    m.inbox = lambda: jobs
+    m.screenplay = lambda job: "CÒN BẢY NGÀY - TẬP 1\n1. MỞ ĐẦU - Phố cổ\n   Người dẫn: Còn bảy ngày."
+
+    def decide(job_id, decision, reason, minutes):
+        if decision != "approved" and not (reason or "").strip():
+            raise m.InboxError("say why (--reason)")
+        m.decisions.append((job_id, decision, reason, minutes))
+        return "writing"
+    m.decide = decide
     fake = FakeAssistant()
     m.assistant = lambda: (fake, None) if assistant else (None, "Thiếu biến môi trường: OPENAI_API_KEY")
     m.fake_assistant = fake
@@ -207,3 +236,25 @@ def test_market_report_is_shown_as_rendered(app):
     assert not at.exception
     assert any("Bản tin thị trường: stoic" in m.value for m in at.markdown)
     assert any("Kiểm chứng" in c.value for c in at.caption)
+
+
+def test_inbox_shows_each_gate_and_records_the_owners_click(app):
+    at = app().run()
+    at.sidebar.radio[0].set_value("7 · Hộp thư duyệt").run()
+    assert not at.exception, [e.value for e in at.exception]
+    heads = [h.value for h in at.header]
+    assert heads[:3] == ["1 · Chủ đề (1)", "2 · Kịch bản (1)", "3 · Video (1)"]
+    assert "Sẵn sàng đăng (1)" in heads
+    assert any("Còn bảy ngày" in t.value for t in at.text)               # screenplay, not YAML
+    assert any("hook yếu quá" in w.value for w in at.warning)            # open feedback shown
+    assert any("/nowhere/short.mp4" in c.value for c in at.caption)      # missing file, no crash
+    at.button[0].click().run()                                           # job 1: Đồng ý
+    assert sys.modules["queries"].decisions == [(1, "approved", "", None)]
+
+
+def test_inbox_refuses_a_no_without_a_reason(app):
+    at = app().run()
+    at.sidebar.radio[0].set_value("7 · Hộp thư duyệt").run()
+    at.button[2].click().run()                                           # job 1: Bỏ, no reason
+    assert any("Không ghi được" in e.value for e in at.error)
+    assert sys.modules["queries"].decisions == []

@@ -248,3 +248,54 @@ def assistant():
         return None, str(e)
     from youtube_intel.assistant.agent import build_assistant
     return build_assistant(cfg), None
+
+
+# =============================================================================
+# Screen 7 - the owner's approval inbox (D6, O-02): reads AND writes decisions
+# =============================================================================
+
+class InboxError(Exception):
+    """A decision the gate rules refused; the message is shown to the owner."""
+
+
+def inbox() -> list[dict]:
+    """Jobs waiting at a gate or ready to publish, each with its history.
+    Not cached: the owner's own clicks change it."""
+    from studio import jobs
+    with _db().connect() as conn:
+        with repo.dict_cursor(conn) as cur:
+            rows = jobs.list_jobs(cur, list(jobs.GATES) + ["ready_to_publish"])
+            for j in rows:
+                _, approvals = jobs.history(cur, j["job_id"])
+                j["feedback"] = jobs.open_feedback(approvals)
+                j["minutes"] = sum(float(a["human_effort_minutes"] or 0) for a in approvals)
+    return rows
+
+
+def screenplay(job: dict) -> str | None:
+    """The script of a film job as a person reads it (None when there is none yet)."""
+    from studio import jobs
+    from studio.film_script import screenplay as render
+    from studio.production.compose import load_yaml_model
+    from studio.schemas import FilmEpisode, StoryBible
+    if job.get("format") != "film_episode" or not job.get("script_path"):
+        return None
+    bible, _ = jobs.film_paths(job["series_id"], job["episode"])
+    script = Path(job["script_path"])
+    if not (bible.exists() and script.exists()):
+        return None
+    return render(load_yaml_model(bible, StoryBible), load_yaml_model(script, FilmEpisode))
+
+
+def decide(job_id: int, decision: str, reason: str | None, minutes: float | None) -> str:
+    """Record the owner's decision; returns the job's new state."""
+    from studio import jobs
+    try:
+        with _db().connect() as conn:
+            with repo.dict_cursor(conn) as cur:
+                to = jobs.record_decision(cur, job_id, decision, reviewer="owner",
+                                          reason=(reason or "").strip() or None, minutes=minutes)
+                conn.commit()
+    except jobs.JobError as e:
+        raise InboxError(str(e)) from e
+    return to

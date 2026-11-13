@@ -1111,7 +1111,10 @@ def cmd_film_render(args) -> int:
         if v is None:
             continue
         qc = v.qc
-        outputs[name] = {"path": str(v.path), "seconds": qc["seconds"], "qc_ok": qc["ok"]}
+        path = Path(v.path).resolve()
+        if path.is_relative_to(Path.cwd()):          # repo-relative: the dashboard container
+            path = path.relative_to(Path.cwd())      # mounts data/films at the same place
+        outputs[name] = {"path": str(path), "seconds": qc["seconds"], "qc_ok": qc["ok"]}
         bad = [k for k, ok in qc["checks"].items() if not ok]
         print(f"  {name:<5} {v.path}  {qc['seconds']:.1f} s  {qc['width']}x{qc['height']}  "
               f"{qc['lufs']} LUFS  QC {'ok' if qc['ok'] else 'FAIL ' + ', '.join(bad)}")

@@ -555,7 +555,7 @@ Làm theo thứ tự giai đoạn. Mỗi mục xong khi đạt tiêu chí nghi�
 | ID | Việc | Tiêu chí nghiệm thu |
 | --- | --- | --- |
 | O-01 | Graph LangGraph, state, checkpoint Postgres | Tắt tiến trình giữa chừng, khởi động lại tiếp tục đúng bước |
-| O-02 | 3 điểm duyệt: interrupt + FastAPI + hộp thư Streamlit | Bác kèm lý do thì quay về bước trước và agent nhận được lý do; mỗi lần duyệt ghi human\_effort\_minutes do người nhập. **Phần 1 xong 12/11/2026:** migration 014 (jobs, job\_events, approvals), luật chuyển trạng thái `studio/jobs.py`, lệnh CLI `job-*`; `film-render` chỉ dựng kịch bản đã duyệt và chưa bị sửa (SHA-256). Còn lại: interrupt LangGraph, FastAPI, hộp thư Streamlit |
+| O-02 | 3 điểm duyệt: interrupt + FastAPI + hộp thư Streamlit | Bác kèm lý do thì quay về bước trước và agent nhận được lý do; mỗi lần duyệt ghi human\_effort\_minutes do người nhập. **Phần 1 xong 12/11/2026:** migration 014 (jobs, job\_events, approvals), luật chuyển trạng thái `studio/jobs.py`, lệnh CLI `job-*`; `film-render` chỉ dựng kịch bản đã duyệt và chưa bị sửa (SHA-256). **Phần 2 xong 13/11/2026:** màn 7 "Hộp thư duyệt" trong dashboard (đọc kịch bản dạng kịch bản phim, xem video, nút Đồng ý / Cần sửa / Bỏ, lý do bắt buộc). Còn lại: interrupt LangGraph và FastAPI (P5) |
 | O-03 | Producer nhận yêu cầu tự do | 10 yêu cầu mẫu cho job plan đúng |
 | O-04 | Trace OpenTelemetry/Langfuse, dashboard chi phí và tỉ lệ bác | Mỗi job xem được toàn bộ span và tổng chi phí |
 
